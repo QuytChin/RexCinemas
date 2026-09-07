@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Lịch chiếu - Rex Cinemas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container-xl pt-page pb-5">
+    <div class="schedule-hero">
+        <p class="eyebrow">SHOWTIMES & BOOKING</p>
+        <h1>LỊCH CHIẾU REX CINEMAS</h1>
+        <p>Chọn ngày, rạp hoặc phim. Suất còn ghế có thể đặt vé trực tiếp ngay tại đây.</p>
+    </div>
+
+    <form th:action="@{/schedule}" method="get" class="schedule-filter">
+        <div><label>Rạp</label><select class="form-select" name="cinemaId"><option value="">Tất cả rạp</option><option th:each="c:${cinemas}" th:value="${c.id}" th:text="${c.name+' — '+c.city}" th:selected="${selectedCinemaId!=null and selectedCinemaId==c.id}"></option></select></div>
+        <div><label>Phim</label><select class="form-select" name="movieId"><option value="">Tất cả phim</option><option th:each="m:${movies}" th:value="${m.id}" th:text="${m.title}" th:selected="${selectedMovieId!=null and selectedMovieId==m.id}"></option></select></div>
+        <div><label>Ngày</label><input type="date" class="form-control" name="date" th:value="${selectedDate}"></div>
+        <button class="btn btn-rex">ÁP DỤNG</button>
+    </form>
+
+    <div class="date-tabs">
+        <a th:each="d:${dates}" th:href="@{/schedule(cinemaId=${selectedCinemaId},movieId=${selectedMovieId},date=${d})}" th:classappend="${d.equals(selectedDate) ? ' active' : ''}">
+            <small th:text="${#temporals.format(d,'EEE')}"></small><strong th:text="${#temporals.format(d,'dd/MM')}"></strong>
+        </a>
+    </div>
+
+    <section class="cinema-schedule-block" th:each="entry:${schedule}">
+        <div class="cinema-schedule-head">
+            <div><span>REX LOCATION</span><h2 th:text="${entry.key.name}"></h2><p th:text="${entry.key.address}"></p></div>
+            <span class="city-badge" th:text="${entry.key.city}"></span>
+        </div>
+        <div class="movie-show-row" th:each="movieEntry:${entry.value}">
+            <img th:src="${movieEntry.key.posterUrl}" alt="poster">
+            <div class="movie-show-info w-100">
+                <div class="d-flex justify-content-between gap-3 flex-wrap align-items-start">
+                    <div><h3><a th:href="@{'/movies/'+${movieEntry.key.id}}" th:text="${movieEntry.key.title}"></a></h3><p th:text="${movieEntry.key.genre+' • '+movieEntry.key.durationMinutes+' phút • '+movieEntry.key.ageRating}"></p></div>
+                    <a class="btn btn-sm btn-outline-light" th:href="@{'/movies/'+${movieEntry.key.id}}">Chi tiết phim</a>
+                </div>
+                <div class="showtime-booking-grid">
+                    <div class="showtime-book-card" th:each="s:${movieEntry.value}" th:classappend="${availableSeats[s.id] == 0 ? ' sold-out' : ''}">
+                        <div class="showtime-book-main">
+                            <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
+                            <span th:text="${s.auditorium.name}"></span>
+                        </div>
+                        <div class="showtime-book-meta">
+                            <span th:text="${#numbers.formatDecimal(s.basePrice,0,'COMMA',0,'POINT')+'đ'}"></span>
+                            <small th:if="${availableSeats[s.id] > 0}" th:text="${'Còn '+availableSeats[s.id]+'/'+totalSeats[s.id]+' ghế'}"></small>
+                            <small class="text-danger" th:if="${availableSeats[s.id] == 0}">Hết ghế</small>
+                        </div>
+                        <a sec:authorize="isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="btn btn-rex btn-sm" th:href="@{'/booking/'+${s.id}}">ĐẶT VÉ</a>
+                        <a sec:authorize="!isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="btn btn-rex btn-sm" th:href="@{/auth/login(returnUrl=${'/booking/'+s.id})}">ĐĂNG NHẬP & ĐẶT</a>
+                        <button th:if="${availableSeats[s.id] == 0}" class="btn btn-outline-secondary btn-sm" disabled>HẾT GHẾ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="empty-panel" th:if="${schedule.isEmpty()}">Không có suất chiếu phù hợp trong ngày đã chọn.</div>
+</main>
+<div th:replace="~{fragments/footer :: footer}"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

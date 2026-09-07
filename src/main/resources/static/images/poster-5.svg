@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900" viewBox="0 0 600 900">
+<defs><radialGradient id="g" cx="78%" cy="22%" r="85%"><stop offset="0" stop-color="#d77e52" stop-opacity=".72"/><stop offset=".48" stop-color="#1f3655"/><stop offset="1" stop-color="#06070a"/></radialGradient></defs>
+<rect width="100%" height="100%" fill="url(#g)"/><circle cx="450.0" cy="252.00000000000003" r="108.0" fill="none" stroke="#d77e52" stroke-width="4" opacity=".45"/><circle cx="450.0" cy="252.00000000000003" r="54.0" fill="#d77e52" opacity=".16"/><path d="M0 702.0 L192.0 477.0 L330.0 666.0 L600 423.0 L600 900 L0 900Z" fill="#050608" opacity=".75"/>
+<text x="48.0" y="648.0" fill="#fff" font-family="Arial,sans-serif" font-weight="900" font-size="68">THÀNH PHỐ</text>
+<text x="48.0" y="726.0" fill="#d77e52" font-family="Arial,sans-serif" font-weight="700" font-size="30" letter-spacing="5">SAU MƯA</text>
+<text x="48.0" y="837.0" fill="#fff" opacity=".5" font-family="Arial,sans-serif" font-size="16" letter-spacing="6">REX CINEMAS</text>
+</svg>

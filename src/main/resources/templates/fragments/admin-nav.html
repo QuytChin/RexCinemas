@@ -1,0 +1,5 @@
+<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"><body>
+<div th:fragment="adminNav" class="admin-links">
+<a th:href="@{/admin}">Dashboard</a><a th:href="@{/admin/movies}">Phim</a><a th:href="@{/admin/cinemas}">Rạp</a><a th:href="@{/admin/auditoriums}">Phòng</a><a th:href="@{/admin/showtimes}">Suất chiếu</a><a th:href="@{/admin/bookings}">Booking</a><a class="checkin-nav-link" th:href="@{/admin/checkin}">Quét QR</a><a th:href="@{/admin/combos}">Combo</a><a th:href="@{/admin/vouchers}">Voucher</a><a th:href="@{/admin/reviews}">Review</a><a th:href="@{/admin/events}">Sự kiện</a><a th:href="@{/admin/articles}">Bài viết</a><a th:href="@{/admin/media}">Trailer & Clip</a><a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/users}">Người dùng</a>
+</div>
+</body></html>

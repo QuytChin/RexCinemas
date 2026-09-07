@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<th:block th:fragment="header">
+<nav class="navbar navbar-expand-lg navbar-dark fixed-top cinema-nav rex-nav">
+    <div class="container-xl">
+        <a class="navbar-brand rex-brand" th:href="@{/}">
+            <span class="brand-mark">R</span>
+            <span><strong>REX</strong><small>CINEMAS</small></span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+        <div id="nav" class="collapse navbar-collapse">
+            <ul class="navbar-nav mx-auto rex-main-nav">
+                <li class="nav-item"><a class="nav-link" th:href="@{/schedule}">LỊCH CHIẾU</a></li>
+                <li class="nav-item"><a class="nav-link" th:href="@{/#coming-soon-section}">SẮP CHIẾU</a></li>
+                <li class="nav-item"><a class="nav-link" th:href="@{/#events-section}">SỰ KIỆN</a></li>
+                <li class="nav-item"><a class="nav-link" th:href="@{/#articles-section}">BÀI VIẾT</a></li>
+                <li class="nav-item"><a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#movieSearchModal">TÌM PHIM</a></li>
+            </ul>
+            <div class="d-flex gap-2 align-items-center rex-auth-nav">
+                <a class="nav-profile-link" sec:authorize="isAuthenticated()" th:href="@{/profile}">
+                    <span class="avatar-mini">●</span><span sec:authentication="name"></span>
+                </a>
+                <a class="btn btn-sm btn-outline-light" sec:authorize="!isAuthenticated()" th:href="@{/auth/login}">Đăng nhập</a>
+                <a class="btn btn-sm btn-rex" sec:authorize="!isAuthenticated()" th:href="@{/auth/register}">Đăng ký</a>
+                <a class="btn btn-sm btn-outline-warning" sec:authorize="hasAnyRole('ADMIN','CINEMA_MANAGER')" th:href="@{/admin}">Admin</a>
+                <form sec:authorize="isAuthenticated()" th:action="@{/auth/logout}" method="post"><button class="btn btn-sm btn-dark-soft">Đăng xuất</button></form>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="modal fade" id="movieSearchModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rex-modal">
+            <div class="modal-header border-0"><div><p class="eyebrow mb-1">SEARCH</p><h3 class="mb-0">Tìm phim</h3></div><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body pt-0">
+                <form th:action="@{/movies}" method="get" class="search-big-form">
+                    <input class="form-control form-control-lg" name="q" placeholder="Nhập tên phim hoặc thể loại...">
+                    <button class="btn btn-rex btn-lg">Tìm kiếm</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+</th:block>
+</body>
+</html>

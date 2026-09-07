@@ -1,0 +1,13 @@
+<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org"><body>
+<footer th:fragment="footer" class="rex-footer">
+    <div class="container-xl py-5">
+        <div class="row g-4">
+            <div class="col-lg-4"><div class="rex-brand footer-brand"><span class="brand-mark">R</span><span><strong>REX</strong><small>CINEMAS</small></span></div><p class="text-secondary mt-3 mb-0">Hệ thống quản lý và đặt vé xem phim trực tuyến theo mô hình chuỗi rạp.</p></div>
+            <div class="col-6 col-lg-2"><h6>KHÁM PHÁ</h6><a th:href="@{/schedule}">Lịch chiếu</a><a th:href="@{/movies(status='now')}">Đang chiếu</a><a th:href="@{/movies(status='coming')}">Sắp chiếu</a></div>
+            <div class="col-6 col-lg-3"><h6>TÀI KHOẢN</h6><a th:href="@{/profile}">Rex Member</a><a th:href="@{/bookings}">Lịch sử đặt vé</a><a th:href="@{/auth/login}">Đăng nhập</a></div>
+            <div class="col-lg-3"><h6>CÔNG NGHỆ</h6><p class="small text-secondary">Spring Boot • Thymeleaf • JPA • JWT • WebSocket • Cloudinary</p></div>
+        </div>
+        <div class="footer-bottom mt-5 pt-3"><span>© 2026 Rex Chain Cinemas</span><span>Student project • Demo environment</span></div>
+    </div>
+</footer>
+</body></html>
