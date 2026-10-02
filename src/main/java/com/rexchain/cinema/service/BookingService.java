@@ -37,6 +37,8 @@ public class BookingService {
         this.vouchers = vouchers;
     }
 
+    /* ──────────────────────────── HOLD SEATS ──────────────────────────── */
+
     @Transactional
     public void holdSeats(Long userId, Long showtimeId, List<Long> ids) {
         if (ids == null || ids.isEmpty()) throw new IllegalArgumentException("Hãy chọn ít nhất một ghế");
@@ -45,7 +47,9 @@ public class BookingService {
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow(() -> new IllegalArgumentException("Suất chiếu không tồn tại"));
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(now))
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
-        List<ShowtimeSeat> list = seats.findByIdIn(ids);
+
+        // Fix 2: PESSIMISTIC_WRITE — lock rows to prevent race condition
+        List<ShowtimeSeat> list = seats.findByIdInForUpdate(ids);
         if (list.size() != ids.size()) throw new IllegalArgumentException("Ghế không hợp lệ");
 
         for (ShowtimeSeat seat : list) {
@@ -74,6 +78,8 @@ public class BookingService {
         broadcast.send(showtimeId, ids, "HELD");
     }
 
+    /* ──────────────────────────── CONFIRM BOOKING ──────────────────────────── */
+
     @Transactional
     public Booking confirm(Long userId, Long showtimeId, List<Long> ids, PaymentMethod method,
                            String voucherCode, List<Long> comboIds, List<Integer> comboQtys) {
@@ -84,7 +90,9 @@ public class BookingService {
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(now))
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
-        List<ShowtimeSeat> list = seats.findByIdIn(ids);
+
+        // Fix 2: PESSIMISTIC_WRITE — lock rows to prevent race condition
+        List<ShowtimeSeat> list = seats.findByIdInForUpdate(ids);
         if (list.size() != ids.size()) throw new IllegalArgumentException("Ghế không hợp lệ");
 
         for (ShowtimeSeat seat : list) {
@@ -122,12 +130,21 @@ public class BookingService {
         booking.setVoucherCode(voucher == null ? null : voucher.getCode());
         booking.setTotalAmount(total);
         if (!online) booking.setPaidAt(now);
+        // Fix 1: Set expiry for online bookings (15 min window for payment)
+        if (online) booking.setExpiresAt(now.plusMinutes(15));
         booking = bookings.save(booking);
 
+        // Fix 1: For online payments, keep seats HELD (with extended hold time for payment)
+        //         For counter payments, set seats to BOOKED immediately.
         for (ShowtimeSeat seat : list) {
-            seat.setStatus(SeatStatus.BOOKED);
-            seat.setHeldByUserId(null);
-            seat.setHoldUntil(null);
+            if (online) {
+                // Extend hold time to cover the payment window
+                seat.setHoldUntil(now.plusMinutes(20));
+            } else {
+                seat.setStatus(SeatStatus.BOOKED);
+                seat.setHeldByUserId(null);
+                seat.setHoldUntil(null);
+            }
             BookingSeat bookingSeat = new BookingSeat();
             bookingSeat.setBooking(booking);
             bookingSeat.setShowtimeSeat(seat);
@@ -147,38 +164,75 @@ public class BookingService {
             booking.getCombos().add(bookingCombo);
         }
 
+        // Fix 1: Only award points & increment voucher for counter payment (already paid)
         if (voucher != null && !online) incrementVoucher(voucher);
         if (!online) awardPoints(booking);
         bookings.save(booking);
         seats.saveAllAndFlush(list);
-        broadcast.send(showtimeId, ids, "BOOKED");
+        // Fix 1: Online bookings are still HELD, not BOOKED
+        broadcast.send(showtimeId, ids, online ? "HELD" : "BOOKED");
         return booking;
     }
 
+    /* ──────────────────────── COMPLETE ONLINE PAYMENT ──────────────────────── */
+
     @Transactional
     public Booking completeOnlinePayment(String bookingCode, String reference) {
-        Booking booking = bookings.findByBookingCode(bookingCode).orElseThrow();
+        // Fix 3: PESSIMISTIC_WRITE — prevents duplicate webhook processing
+        Booking booking = bookings.findByBookingCodeForUpdate(bookingCode).orElseThrow();
+
+        // Idempotency guard: already processed
         if (booking.getStatus() == BookingStatus.CONFIRMED) return booking;
+
+        // Fix 4: Payment arrived after booking was expired by cron job
+        if (booking.getStatus() == BookingStatus.EXPIRED) {
+            booking.setStatus(BookingStatus.REFUND_PENDING);
+            booking.setPaymentReference(reference);
+            booking.setPaidAt(LocalDateTime.now());
+            return bookings.save(booking);
+        }
+
         if (booking.getStatus() != BookingStatus.PENDING)
             throw new IllegalStateException("Booking không còn chờ thanh toán");
 
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setPaymentReference(reference);
         booking.setPaidAt(LocalDateTime.now());
+
+        // Fix 1: Now transition seats from HELD → BOOKED
+        List<Long> seatIds = new ArrayList<>();
+        for (BookingSeat bs : booking.getSeats()) {
+            ShowtimeSeat seat = bs.getShowtimeSeat();
+            seat.setStatus(SeatStatus.BOOKED);
+            seat.setHeldByUserId(null);
+            seat.setHoldUntil(null);
+            seats.save(seat);
+            seatIds.add(seat.getId());
+        }
+        if (!seatIds.isEmpty()) {
+            broadcast.send(booking.getShowtime().getId(), seatIds, "BOOKED");
+        }
+
         if (booking.getVoucherCode() != null)
             vouchers.findByCodeIgnoreCase(booking.getVoucherCode()).ifPresent(this::incrementVoucher);
         awardPoints(booking);
         return bookings.save(booking);
     }
 
+    /* ──────────────────────── CANCEL ONLINE PAYMENT ──────────────────────── */
+
     @Transactional
     public Booking cancelOnlinePayment(String bookingCode) {
         Booking booking = bookings.findByBookingCode(bookingCode).orElseThrow();
-        if (booking.getStatus() != BookingStatus.PENDING) return booking;
+        // Fix 4: Also allow cancelling EXPIRED bookings
+        if (booking.getStatus() != BookingStatus.PENDING
+            && booking.getStatus() != BookingStatus.EXPIRED) return booking;
         booking.setStatus(BookingStatus.CANCELLED);
         releaseBookingSeats(booking);
         return bookings.save(booking);
     }
+
+    /* ──────────────────────── CANCEL BY ADMIN ──────────────────────── */
 
     @Transactional
     public Booking cancelByAdmin(Long bookingId) {
@@ -194,6 +248,8 @@ public class BookingService {
         }
         return bookings.save(booking);
     }
+
+    /* ──────────────────────── RELEASE OWN HOLDS ──────────────────────── */
 
     @Transactional
     public void releaseOwnHolds(Long userId, Long showtimeId, List<Long> ids) {
@@ -215,6 +271,8 @@ public class BookingService {
             broadcast.send(showtimeId, released, "AVAILABLE");
         }
     }
+
+    /* ──────────────────────── LOYALTY POINTS ──────────────────────── */
 
     private void awardPoints(Booking booking) {
         if (booking.isPointsAwarded() || booking.getStatus() != BookingStatus.CONFIRMED) return;
@@ -238,11 +296,14 @@ public class BookingService {
         booking.setPointsAwarded(false);
     }
 
+    /* ──────────────────────── RELEASE BOOKING SEATS ──────────────────────── */
+
     private void releaseBookingSeats(Booking booking) {
         List<Long> ids = new ArrayList<>();
         for (BookingSeat bookingSeat : booking.getSeats()) {
             ShowtimeSeat seat = bookingSeat.getShowtimeSeat();
-            if (seat.getStatus() == SeatStatus.BOOKED) {
+            // Fix 6: Also release HELD seats (online bookings keep seats HELD until payment)
+            if (seat.getStatus() == SeatStatus.BOOKED || seat.getStatus() == SeatStatus.HELD) {
                 seat.setStatus(SeatStatus.AVAILABLE);
                 seat.setHeldByUserId(null);
                 seat.setHoldUntil(null);
@@ -252,6 +313,8 @@ public class BookingService {
         }
         if (!ids.isEmpty()) broadcast.send(booking.getShowtime().getId(), ids, "AVAILABLE");
     }
+
+    /* ──────────────────────── QR CODE ──────────────────────── */
 
     @Transactional
     public String qrPayloadFor(Long bookingId) {
@@ -264,6 +327,8 @@ public class BookingService {
         }
         return QR_PREFIX + booking.getQrToken();
     }
+
+    /* ──────────────────────── CHECK-IN ──────────────────────── */
 
     @Transactional
     public CheckInResult checkInTicket(String rawCode, String operatorEmail) {
@@ -284,6 +349,10 @@ public class BookingService {
             return checkInResult(booking, false, "PENDING", "Vé chưa thanh toán / chưa được xác nhận");
         if (booking.getStatus() == BookingStatus.CANCELLED)
             return checkInResult(booking, false, "CANCELLED", "Vé đã bị hủy và không còn hiệu lực");
+        if (booking.getStatus() == BookingStatus.EXPIRED)
+            return checkInResult(booking, false, "EXPIRED", "Vé đã hết hạn và không còn hiệu lực");
+        if (booking.getStatus() == BookingStatus.REFUND_PENDING)
+            return checkInResult(booking, false, "REFUND_PENDING", "Vé đang chờ hoàn tiền, không thể check-in");
         if (booking.isCheckedIn())
             return checkInResult(booking, false, "ALREADY_CHECKED_IN", "Vé đã được check-in trước đó");
 
@@ -294,14 +363,18 @@ public class BookingService {
         if (now.isAfter(endTime))
             return checkInResult(booking, false, "EXPIRED", "Suất chiếu đã kết thúc, vé đã hết thời gian check-in");
 
-        booking.setCheckedInAt(now);
-        booking.setCheckedInBy(operatorEmail);
-        bookings.save(booking);
+        // Fix 5: Atomic check-in — prevents double scan at two gates
+        int updated = bookings.atomicCheckIn(booking.getId(), now, operatorEmail);
+        if (updated == 0) {
+            return checkInResult(booking, false, "ALREADY_CHECKED_IN", "Vé đã được check-in trước đó");
+        }
 
         String earlyNote = now.isBefore(booking.getShowtime().getStartTime().minusHours(2))
                 ? " Check-in sớm hơn 2 giờ so với suất chiếu." : "";
         return checkInResult(booking, true, "CHECKED_IN", "Check-in thành công." + earlyNote);
     }
+
+    /* ──────────────────────── CHECK-IN RESULT HELPERS ──────────────────────── */
 
     private CheckInResult checkInResult(Booking booking, boolean success, String status, String message) {
         String seatLabels = booking.getSeats().stream()
@@ -317,6 +390,8 @@ public class BookingService {
     private CheckInResult emptyResult(boolean success, String status, String message) {
         return new CheckInResult(success, status, message, null, null, null, null, null, null, null, null, null);
     }
+
+    /* ──────────────────────── PRIVATE HELPERS ──────────────────────── */
 
     private String newQrToken() {
         String token;
@@ -379,9 +454,12 @@ public class BookingService {
         vouchers.save(voucher);
     }
 
+    /* ──────────────────────── SCHEDULED: RELEASE EXPIRED ──────────────────────── */
+
     @Scheduled(fixedRate = 60_000)
     @Transactional
     public void releaseExpired() {
+        // Release individual seat holds that have timed out (user selected but didn't proceed)
         List<ShowtimeSeat> expired = seats.findByStatusAndHoldUntilBefore(SeatStatus.HELD, LocalDateTime.now());
         if (!expired.isEmpty()) {
             Map<Long, List<Long>> byShowtime = new HashMap<>();
@@ -395,9 +473,11 @@ public class BookingService {
             byShowtime.forEach((id, seatIds) -> broadcast.send(id, seatIds, "AVAILABLE"));
         }
 
-        for (Booking booking : bookings.findByStatusAndCreatedAtBefore(
-                BookingStatus.PENDING, LocalDateTime.now().minusMinutes(15))) {
-            booking.setStatus(BookingStatus.CANCELLED);
+        // Fix 1 + Fix 4: Expire PENDING bookings that have passed their expiresAt deadline
+        for (Booking booking : bookings.findByStatusAndExpiresAtBefore(
+                BookingStatus.PENDING, LocalDateTime.now())) {
+            // Fix 4: Mark as EXPIRED (not CANCELLED) so we can detect late payment arrivals
+            booking.setStatus(BookingStatus.EXPIRED);
             releaseBookingSeats(booking);
             bookings.save(booking);
         }

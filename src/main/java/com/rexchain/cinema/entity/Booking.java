@@ -13,6 +13,9 @@ public class Booking {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    private Long version;
+
     @Column(nullable = false, unique = true, length = 30)
     private String bookingCode;
 
@@ -65,6 +68,9 @@ public class Booking {
     @Column(length = 180)
     private String checkedInBy;
 
+    /** When this PENDING booking should be auto-expired by the scheduled job. */
+    private LocalDateTime expiresAt;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -76,6 +82,8 @@ public class Booking {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
     public String getBookingCode() { return bookingCode; }
     public void setBookingCode(String bookingCode) { this.bookingCode = bookingCode; }
     public User getUser() { return user; }
@@ -109,6 +117,8 @@ public class Booking {
     public String getCheckedInBy() { return checkedInBy; }
     public void setCheckedInBy(String checkedInBy) { this.checkedInBy = checkedInBy; }
     public boolean isCheckedIn() { return checkedInAt != null; }
+    public LocalDateTime getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public List<BookingSeat> getSeats() { return seats; }
