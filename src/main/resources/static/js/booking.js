@@ -63,7 +63,18 @@
   const ids=[...selected.keys()];
   try{await fetch(`/api/showtimes/${window.SHOWTIME_ID}/release`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seatIds:ids})})}catch(e){}
   held=false; if(countdownTimer)clearInterval(countdownTimer); holdNotice.classList.add('d-none');holdBtn.classList.remove('d-none');
-  seats.forEach(b=>{if(selected.has(Number(b.dataset.id))){b.disabled=false;b.classList.remove('held');b.classList.add('selected')}});
+  seats.forEach(b=>{
+   const id=Number(b.dataset.id);
+   const isBooked=b.classList.contains('booked');
+   const isOtherHeld=b.classList.contains('held')&&!selected.has(id);
+   if(!isBooked&&!isOtherHeld){
+    b.disabled=false;
+    b.classList.remove('held');
+    if(selected.has(id)){
+     b.classList.add('selected');
+    }
+   }
+  });
   showStage('seat'); render();
  });
  function startCountdown(sec){
@@ -77,7 +88,8 @@
     const id=Number(rawId);const b=document.querySelector(`.seat[data-id="${id}"]`);if(!b)return;
     if(selected.has(id)&&u.status==='HELD')return;
     b.classList.remove('available','held','booked','selected');b.classList.add(String(u.status).toLowerCase());b.disabled=u.status!=='AVAILABLE';
-    if(u.status!=='AVAILABLE')selected.delete(id)
+    if(selected.has(id)&&!held){b.classList.add('selected');b.disabled=false}
+    if(u.status!=='AVAILABLE'&&!selected.has(id))selected.delete(id)
    });render()
   });client.activate()
  }catch(e){console.warn('WebSocket unavailable',e)}

@@ -31,12 +31,14 @@ public class AdminController {
     private final ReviewRepository reviews;
     private final DashboardService dashboardService;
     private final BookingService bookingService;
+    private final ShowtimeService showtimeService; // <-- Thêm dòng này
 
     public AdminController(MovieRepository movies, CinemaRepository cinemas, AuditoriumRepository auditoriums,
-                           ShowtimeRepository showtimes, BookingRepository bookings, UserRepository users,
-                           CinemaSetupService setup, CloudinaryService cloudinary, ComboProductRepository combos,
-                           VoucherRepository vouchers, ReviewRepository reviews,
-                           DashboardService dashboardService, BookingService bookingService) {
+            ShowtimeRepository showtimes, BookingRepository bookings, UserRepository users,
+            CinemaSetupService setup, CloudinaryService cloudinary, ComboProductRepository combos,
+            VoucherRepository vouchers, ReviewRepository reviews,
+            DashboardService dashboardService, BookingService bookingService,
+            ShowtimeService showtimeService) { // <-- 1. Thêm tham số này vào cuối
         this.movies = movies;
         this.cinemas = cinemas;
         this.auditoriums = auditoriums;
@@ -50,15 +52,16 @@ public class AdminController {
         this.reviews = reviews;
         this.dashboardService = dashboardService;
         this.bookingService = bookingService;
+        this.showtimeService = showtimeService; // <-- 2. Gán giá trị ở đây
     }
 
     @GetMapping
     String dashboard(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-                     @RequestParam(required = false) Long cinemaId,
-                     @RequestParam(required = false) Long movieId,
-                     @RequestParam(required = false) PaymentMethod paymentMethod,
-                     Model model) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Long cinemaId,
+            @RequestParam(required = false) Long movieId,
+            @RequestParam(required = false) PaymentMethod paymentMethod,
+            Model model) {
         dashboardService.populate(model, from, to, cinemaId, movieId, paymentMethod);
         return "admin/dashboard";
     }
@@ -83,16 +86,16 @@ public class AdminController {
 
     @PostMapping("/movies/save")
     String movieSave(@RequestParam(required = false) Long id,
-                     @RequestParam String title,
-                     @RequestParam String description,
-                     @RequestParam int durationMinutes,
-                     @RequestParam(required = false) String ageRating,
-                     @RequestParam(required = false) String genre,
-                     @RequestParam(required = false) String language,
-                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate releaseDate,
-                     @RequestParam(required = false) String posterUrl,
-                     @RequestParam(required = false) String trailerUrl,
-                     @RequestParam(required = false) MultipartFile posterFile) throws Exception {
+            @RequestParam String title,
+            @RequestParam String description,
+            @RequestParam int durationMinutes,
+            @RequestParam(required = false) String ageRating,
+            @RequestParam(required = false) String genre,
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate releaseDate,
+            @RequestParam(required = false) String posterUrl,
+            @RequestParam(required = false) String trailerUrl,
+            @RequestParam(required = false) MultipartFile posterFile) throws Exception {
         Movie movie = id == null ? new Movie() : movies.findById(id).orElseThrow();
         movie.setTitle(title);
         movie.setDescription(description);
@@ -102,8 +105,10 @@ public class AdminController {
         movie.setLanguage(language);
         movie.setReleaseDate(releaseDate);
         movie.setTrailerUrl(trailerUrl);
-        if (posterFile != null && !posterFile.isEmpty()) movie.setPosterUrl(cloudinary.uploadMoviePoster(posterFile));
-        else if (posterUrl != null && !posterUrl.isBlank()) movie.setPosterUrl(posterUrl);
+        if (posterFile != null && !posterFile.isEmpty())
+            movie.setPosterUrl(cloudinary.uploadMoviePoster(posterFile));
+        else if (posterUrl != null && !posterUrl.isBlank())
+            movie.setPosterUrl(posterUrl);
         movies.save(movie);
         return "redirect:/admin/movies";
     }
@@ -144,10 +149,10 @@ public class AdminController {
 
     @PostMapping("/cinemas/save")
     String cinemaSave(@RequestParam(required = false) Long id,
-                      @RequestParam String name,
-                      @RequestParam String city,
-                      @RequestParam String address,
-                      @RequestParam(required = false) String phone) {
+            @RequestParam String name,
+            @RequestParam String city,
+            @RequestParam String address,
+            @RequestParam(required = false) String phone) {
         Cinema cinema = id == null ? new Cinema() : cinemas.findById(id).orElseThrow();
         cinema.setName(name);
         cinema.setCity(city);
@@ -182,11 +187,12 @@ public class AdminController {
 
     @PostMapping("/auditoriums/save")
     String auditoriumSave(@RequestParam Long cinemaId,
-                          @RequestParam String name,
-                          @RequestParam int totalRows,
-                          @RequestParam int seatsPerRow) {
+            @RequestParam String name,
+            @RequestParam int totalRows,
+            @RequestParam int seatsPerRow) {
         Cinema cinema = cinemas.findById(cinemaId).orElseThrow();
-        if (!cinema.isActive()) throw new IllegalArgumentException("Rạp đang bị ẩn");
+        if (!cinema.isActive())
+            throw new IllegalArgumentException("Rạp đang bị ẩn");
         setup.createAuditorium(cinema, name, totalRows, seatsPerRow);
         return "redirect:/admin/auditoriums";
     }
@@ -196,28 +202,32 @@ public class AdminController {
         model.addAttribute("showtimes", showtimes.findAll());
         model.addAttribute("movies", movies.findAll());
         model.addAttribute("auditoriums", auditoriums.findAll());
-        model.addAttribute("editShowtime", edit == null ? new Showtime() : showtimes.findById(edit).orElse(new Showtime()));
+        model.addAttribute("editShowtime",
+                edit == null ? new Showtime() : showtimes.findById(edit).orElse(new Showtime()));
         model.addAttribute("now", LocalDateTime.now());
         return "admin/showtimes";
     }
 
     @PostMapping("/showtimes/save")
     String showtimeSave(@RequestParam(required = false) Long id,
-                        @RequestParam Long movieId,
-                        @RequestParam Long auditoriumId,
-                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-                        @RequestParam BigDecimal basePrice,
-                        RedirectAttributes redirect) {
+            @RequestParam Long movieId,
+            @RequestParam Long auditoriumId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam BigDecimal basePrice,
+            RedirectAttributes redirect) {
         try {
             boolean create = id == null;
             Showtime showtime = create ? new Showtime() : showtimes.findById(id).orElseThrow();
             if (!create && bookings.existsByShowtimeIdAndStatusNot(id, BookingStatus.CANCELLED))
-                throw new IllegalStateException("Suất chiếu đã có vé bán ra nên không thể đổi giờ hoặc giá. Bạn có thể ẩn suất để ngừng bán thêm.");
+                throw new IllegalStateException(
+                        "Suất chiếu đã có vé bán ra nên không thể đổi giờ hoặc giá. Bạn có thể ẩn suất để ngừng bán thêm.");
             if (create) {
                 Movie movie = movies.findById(movieId).orElseThrow();
                 Auditorium auditorium = auditoriums.findById(auditoriumId).orElseThrow();
-                if (!movie.isActive()) throw new IllegalArgumentException("Phim đang bị ẩn");
-                if (!auditorium.getCinema().isActive()) throw new IllegalArgumentException("Rạp đang bị ẩn");
+                if (!movie.isActive())
+                    throw new IllegalArgumentException("Phim đang bị ẩn");
+                if (!auditorium.getCinema().isActive())
+                    throw new IllegalArgumentException("Rạp đang bị ẩn");
                 showtime.setMovie(movie);
                 showtime.setAuditorium(auditorium);
             }
@@ -228,10 +238,12 @@ public class AdminController {
 
             showtime.setStartTime(startTime);
             showtime.setBasePrice(basePrice);
-            validateShowtimeSlot(showtime, id);
+            showtimeService.validateShowtimeSlot(showtime, id);
             showtime = showtimes.save(showtime);
-            if (create) setup.createShowtimeSeats(showtime);
-            else setup.repriceShowtimeSeats(showtime);
+            if (create)
+                setup.createShowtimeSeats(showtime);
+            else
+                setup.repriceShowtimeSeats(showtime);
             redirect.addFlashAttribute("success", create ? "Đã tạo suất chiếu và sơ đồ ghế" : "Đã cập nhật suất chiếu");
             return "redirect:/admin/showtimes";
         } catch (Exception ex) {
@@ -299,23 +311,26 @@ public class AdminController {
     @GetMapping("/combos")
     String combos(@RequestParam(required = false) Long edit, Model model) {
         model.addAttribute("combos", combos.findAll());
-        model.addAttribute("editCombo", edit == null ? new ComboProduct() : combos.findById(edit).orElse(new ComboProduct()));
+        model.addAttribute("editCombo",
+                edit == null ? new ComboProduct() : combos.findById(edit).orElse(new ComboProduct()));
         return "admin/combos";
     }
 
     @PostMapping("/combos/save")
     String saveCombo(@RequestParam(required = false) Long id,
-                     @RequestParam String name,
-                     @RequestParam(required = false) String description,
-                     @RequestParam BigDecimal price,
-                     @RequestParam(required = false) String imageUrl,
-                     @RequestParam(required = false) MultipartFile imageFile) throws Exception {
+            @RequestParam String name,
+            @RequestParam(required = false) String description,
+            @RequestParam BigDecimal price,
+            @RequestParam(required = false) String imageUrl,
+            @RequestParam(required = false) MultipartFile imageFile) throws Exception {
         ComboProduct combo = id == null ? new ComboProduct() : combos.findById(id).orElseThrow();
         combo.setName(name);
         combo.setDescription(description);
         combo.setPrice(price);
-        if (imageFile != null && !imageFile.isEmpty()) combo.setImageUrl(cloudinary.uploadComboImage(imageFile));
-        else if (imageUrl != null && !imageUrl.isBlank()) combo.setImageUrl(imageUrl);
+        if (imageFile != null && !imageFile.isEmpty())
+            combo.setImageUrl(cloudinary.uploadComboImage(imageFile));
+        else if (imageUrl != null && !imageUrl.isBlank())
+            combo.setImageUrl(imageUrl);
         combos.save(combo);
         return "redirect:/admin/combos";
     }
@@ -338,15 +353,15 @@ public class AdminController {
 
     @PostMapping("/vouchers/save")
     String saveVoucher(@RequestParam(required = false) Long id,
-                       @RequestParam String code,
-                       @RequestParam String name,
-                       @RequestParam DiscountType discountType,
-                       @RequestParam BigDecimal discountValue,
-                       @RequestParam(required = false) BigDecimal minOrderAmount,
-                       @RequestParam(required = false) BigDecimal maxDiscountAmount,
-                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime validFrom,
-                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime validUntil,
-                       @RequestParam(required = false) Integer usageLimit) {
+            @RequestParam String code,
+            @RequestParam String name,
+            @RequestParam DiscountType discountType,
+            @RequestParam BigDecimal discountValue,
+            @RequestParam(required = false) BigDecimal minOrderAmount,
+            @RequestParam(required = false) BigDecimal maxDiscountAmount,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime validFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime validUntil,
+            @RequestParam(required = false) Integer usageLimit) {
         Voucher voucher = id == null ? new Voucher() : vouchers.findById(id).orElseThrow();
         voucher.setCode(code.trim().toUpperCase());
         voucher.setName(name);
@@ -379,20 +394,6 @@ public class AdminController {
     String deleteReview(@PathVariable Long id) {
         reviews.deleteById(id);
         return "redirect:/admin/reviews";
-    }
-    private void validateShowtimeSlot(Showtime candidate, Long currentId) {
-        LocalDateTime start = candidate.getStartTime();
-        LocalDateTime end = start.plusMinutes(candidate.getMovie().getDurationMinutes() + 15L);
-        List<Showtime> nearby = showtimes.findByAuditoriumIdAndActiveTrueAndStartTimeBetweenOrderByStartTimeAsc(
-                candidate.getAuditorium().getId(), start.minusHours(6), end.plusHours(1));
-        for (Showtime other : nearby) {
-            if (currentId != null && other.getId().equals(currentId)) continue;
-            LocalDateTime otherEnd = other.getStartTime().plusMinutes(other.getMovie().getDurationMinutes() + 15L);
-            if (start.isBefore(otherEnd) && end.isAfter(other.getStartTime())) {
-                throw new IllegalArgumentException("Phòng đã có suất '" + other.getMovie().getTitle() + "' lúc "
-                        + other.getStartTime().toLocalTime() + ". Cần cách nhau đủ thời lượng phim + 15 phút dọn phòng.");
-            }
-        }
     }
 
 }

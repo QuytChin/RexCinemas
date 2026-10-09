@@ -12,6 +12,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class BookingService {
@@ -26,8 +27,8 @@ public class BookingService {
     private final VoucherRepository vouchers;
 
     public BookingService(ShowtimeSeatRepository seats, BookingRepository bookings, UserRepository users,
-                          ShowtimeRepository showtimes, SeatBroadcastService broadcast,
-                          ComboProductRepository combos, VoucherRepository vouchers) {
+            ShowtimeRepository showtimes, SeatBroadcastService broadcast,
+            ComboProductRepository combos, VoucherRepository vouchers) {
         this.seats = seats;
         this.bookings = bookings;
         this.users = users;
@@ -41,17 +42,21 @@ public class BookingService {
 
     @Transactional
     public void holdSeats(Long userId, Long showtimeId, List<Long> ids) {
-        if (ids == null || ids.isEmpty()) throw new IllegalArgumentException("Hãy chọn ít nhất một ghế");
-        if (ids.size() > 10) throw new IllegalArgumentException("Mỗi booking tối đa 10 ghế");
+        if (ids == null || ids.isEmpty())
+            throw new IllegalArgumentException("Hãy chọn ít nhất một ghế");
+        if (ids.size() > 10)
+            throw new IllegalArgumentException("Mỗi booking tối đa 10 ghế");
         LocalDateTime now = LocalDateTime.now();
-        Showtime showtime = showtimes.findById(showtimeId).orElseThrow(() -> new IllegalArgumentException("Suất chiếu không tồn tại"));
+        Showtime showtime = showtimes.findById(showtimeId)
+                .orElseThrow(() -> new IllegalArgumentException("Suất chiếu không tồn tại"));
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(now))
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
 
         // Fix 2: PESSIMISTIC_WRITE — lock rows to prevent race condition
         List<ShowtimeSeat> list = seats.findByIdInForUpdate(ids);
-        if (list.size() != ids.size()) throw new IllegalArgumentException("Ghế không hợp lệ");
-
+        if (list.size() != ids.size())
+            throw new IllegalArgumentException("Ghế không hợp lệ");
+        validateNoOrphanSeats(showtimeId, list, now);
         for (ShowtimeSeat seat : list) {
             if (!seat.getShowtime().getId().equals(showtimeId))
                 throw new IllegalArgumentException("Ghế không thuộc suất chiếu");
@@ -82,9 +87,11 @@ public class BookingService {
 
     @Transactional
     public Booking confirm(Long userId, Long showtimeId, List<Long> ids, PaymentMethod method,
-                           String voucherCode, List<Long> comboIds, List<Integer> comboQtys) {
-        if (ids == null || ids.isEmpty()) throw new IllegalArgumentException("Hãy chọn ít nhất một ghế");
-        if (ids.size() > 10) throw new IllegalArgumentException("Mỗi booking tối đa 10 ghế");
+            String voucherCode, List<Long> comboIds, List<Integer> comboQtys) {
+        if (ids == null || ids.isEmpty())
+            throw new IllegalArgumentException("Hãy chọn ít nhất một ghế");
+        if (ids.size() > 10)
+            throw new IllegalArgumentException("Mỗi booking tối đa 10 ghế");
         LocalDateTime now = LocalDateTime.now();
         User user = users.findById(userId).orElseThrow();
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
@@ -93,7 +100,8 @@ public class BookingService {
 
         // Fix 2: PESSIMISTIC_WRITE — lock rows to prevent race condition
         List<ShowtimeSeat> list = seats.findByIdInForUpdate(ids);
-        if (list.size() != ids.size()) throw new IllegalArgumentException("Ghế không hợp lệ");
+        if (list.size() != ids.size())
+            throw new IllegalArgumentException("Ghế không hợp lệ");
 
         for (ShowtimeSeat seat : list) {
             if (!seat.getShowtime().getId().equals(showtimeId)
@@ -129,13 +137,16 @@ public class BookingService {
         booking.setDiscountAmount(discount);
         booking.setVoucherCode(voucher == null ? null : voucher.getCode());
         booking.setTotalAmount(total);
-        if (!online) booking.setPaidAt(now);
+        if (!online)
+            booking.setPaidAt(now);
         // Fix 1: Set expiry for online bookings (15 min window for payment)
-        if (online) booking.setExpiresAt(now.plusMinutes(15));
+        if (online)
+            booking.setExpiresAt(now.plusMinutes(15));
         booking = bookings.save(booking);
 
-        // Fix 1: For online payments, keep seats HELD (with extended hold time for payment)
-        //         For counter payments, set seats to BOOKED immediately.
+        // Fix 1: For online payments, keep seats HELD (with extended hold time for
+        // payment)
+        // For counter payments, set seats to BOOKED immediately.
         for (ShowtimeSeat seat : list) {
             if (online) {
                 // Extend hold time to cover the payment window
@@ -162,11 +173,21 @@ public class BookingService {
             bookingCombo.setUnitPrice(entry.getKey().getPrice());
             bookingCombo.setLineTotal(entry.getKey().getPrice().multiply(BigDecimal.valueOf(entry.getValue())));
             booking.getCombos().add(bookingCombo);
+
+            // Trừ tồn kho ngay nếu thanh toán tại quầy
+            if (!online) {
+                ComboProduct cp = entry.getKey();
+                cp.setStockQuantity(Math.max(0, cp.getStockQuantity() - entry.getValue()));
+                combos.save(cp);
+            }
         }
 
-        // Fix 1: Only award points & increment voucher for counter payment (already paid)
-        if (voucher != null && !online) incrementVoucher(voucher);
-        if (!online) awardPoints(booking);
+        // Fix 1: Only award points & increment voucher for counter payment (already
+        // paid)
+        if (voucher != null && !online)
+            incrementVoucher(voucher);
+        if (!online)
+            awardPoints(booking);
         bookings.save(booking);
         seats.saveAllAndFlush(list);
         // Fix 1: Online bookings are still HELD, not BOOKED
@@ -182,7 +203,8 @@ public class BookingService {
         Booking booking = bookings.findByBookingCodeForUpdate(bookingCode).orElseThrow();
 
         // Idempotency guard: already processed
-        if (booking.getStatus() == BookingStatus.CONFIRMED) return booking;
+        if (booking.getStatus() == BookingStatus.CONFIRMED)
+            return booking;
 
         // Fix 4: Payment arrived after booking was expired by cron job
         if (booking.getStatus() == BookingStatus.EXPIRED) {
@@ -213,6 +235,15 @@ public class BookingService {
             broadcast.send(booking.getShowtime().getId(), seatIds, "BOOKED");
         }
 
+        // Trừ tồn kho F&B sau khi MoMo/VNPAY thanh toán online thành công
+        for (BookingCombo bc : booking.getCombos()) {
+            ComboProduct cp = bc.getCombo();
+            if (cp != null) {
+                cp.setStockQuantity(Math.max(0, cp.getStockQuantity() - bc.getQuantity()));
+                combos.save(cp);
+            }
+        }
+
         if (booking.getVoucherCode() != null)
             vouchers.findByCodeIgnoreCase(booking.getVoucherCode()).ifPresent(this::incrementVoucher);
         awardPoints(booking);
@@ -226,7 +257,8 @@ public class BookingService {
         Booking booking = bookings.findByBookingCode(bookingCode).orElseThrow();
         // Fix 4: Also allow cancelling EXPIRED bookings
         if (booking.getStatus() != BookingStatus.PENDING
-            && booking.getStatus() != BookingStatus.EXPIRED) return booking;
+                && booking.getStatus() != BookingStatus.EXPIRED)
+            return booking;
         booking.setStatus(BookingStatus.CANCELLED);
         releaseBookingSeats(booking);
         return bookings.save(booking);
@@ -237,14 +269,26 @@ public class BookingService {
     @Transactional
     public Booking cancelByAdmin(Long bookingId) {
         Booking booking = bookings.findById(bookingId).orElseThrow();
-        if (booking.getStatus() == BookingStatus.CANCELLED) return booking;
-        if (booking.isCheckedIn()) throw new IllegalStateException("Vé đã check-in nên không thể hủy");
+        if (booking.getStatus() == BookingStatus.CANCELLED)
+            return booking;
+        if (booking.isCheckedIn())
+            throw new IllegalStateException("Vé đã check-in nên không thể hủy");
         boolean wasConfirmed = booking.getStatus() == BookingStatus.CONFIRMED;
         booking.setStatus(BookingStatus.CANCELLED);
         releaseBookingSeats(booking);
         reversePoints(booking);
-        if (wasConfirmed && booking.getVoucherCode() != null) {
-            vouchers.findByCodeIgnoreCase(booking.getVoucherCode()).ifPresent(this::decrementVoucher);
+        if (wasConfirmed) {
+            // Hoàn lại kho F&B nếu đơn đã thanh toán bị hủy
+            for (BookingCombo bc : booking.getCombos()) {
+                ComboProduct cp = bc.getCombo();
+                if (cp != null) {
+                    cp.setStockQuantity(cp.getStockQuantity() + bc.getQuantity());
+                    combos.save(cp);
+                }
+            }
+            if (booking.getVoucherCode() != null) {
+                vouchers.findByCodeIgnoreCase(booking.getVoucherCode()).ifPresent(this::decrementVoucher);
+            }
         }
         return bookings.save(booking);
     }
@@ -253,7 +297,8 @@ public class BookingService {
 
     @Transactional
     public void releaseOwnHolds(Long userId, Long showtimeId, List<Long> ids) {
-        if (ids == null || ids.isEmpty()) return;
+        if (ids == null || ids.isEmpty())
+            return;
         List<ShowtimeSeat> list = seats.findByIdIn(ids);
         List<Long> released = new ArrayList<>();
         for (ShowtimeSeat seat : list) {
@@ -275,9 +320,11 @@ public class BookingService {
     /* ──────────────────────── LOYALTY POINTS ──────────────────────── */
 
     private void awardPoints(Booking booking) {
-        if (booking.isPointsAwarded() || booking.getStatus() != BookingStatus.CONFIRMED) return;
+        if (booking.isPointsAwarded() || booking.getStatus() != BookingStatus.CONFIRMED)
+            return;
         int points = booking.getTotalAmount().divide(BigDecimal.valueOf(10_000), 0, RoundingMode.DOWN).intValue();
-        if (points <= 0 && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) points = 1;
+        if (points <= 0 && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0)
+            points = 1;
         User user = booking.getUser();
         user.setLoyaltyPoints(user.getLoyaltyPoints() + points);
         user.setLifetimePoints(user.getLifetimePoints() + points);
@@ -286,9 +333,11 @@ public class BookingService {
     }
 
     private void reversePoints(Booking booking) {
-        if (!booking.isPointsAwarded()) return;
+        if (!booking.isPointsAwarded())
+            return;
         int points = booking.getTotalAmount().divide(BigDecimal.valueOf(10_000), 0, RoundingMode.DOWN).intValue();
-        if (points <= 0 && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) points = 1;
+        if (points <= 0 && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0)
+            points = 1;
         User user = booking.getUser();
         user.setLoyaltyPoints(Math.max(0, user.getLoyaltyPoints() - points));
         user.setLifetimePoints(Math.max(0, user.getLifetimePoints() - points));
@@ -302,7 +351,8 @@ public class BookingService {
         List<Long> ids = new ArrayList<>();
         for (BookingSeat bookingSeat : booking.getSeats()) {
             ShowtimeSeat seat = bookingSeat.getShowtimeSeat();
-            // Fix 6: Also release HELD seats (online bookings keep seats HELD until payment)
+            // Fix 6: Also release HELD seats (online bookings keep seats HELD until
+            // payment)
             if (seat.getStatus() == SeatStatus.BOOKED || seat.getStatus() == SeatStatus.HELD) {
                 seat.setStatus(SeatStatus.AVAILABLE);
                 seat.setHeldByUserId(null);
@@ -311,14 +361,16 @@ public class BookingService {
                 ids.add(seat.getId());
             }
         }
-        if (!ids.isEmpty()) broadcast.send(booking.getShowtime().getId(), ids, "AVAILABLE");
+        if (!ids.isEmpty())
+            broadcast.send(booking.getShowtime().getId(), ids, "AVAILABLE");
     }
 
     /* ──────────────────────── QR CODE ──────────────────────── */
 
     @Transactional
     public String qrPayloadFor(Long bookingId) {
-        Booking booking = bookings.findById(bookingId).orElseThrow(() -> new IllegalArgumentException("Booking không tồn tại"));
+        Booking booking = bookings.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking không tồn tại"));
         if (booking.getStatus() != BookingStatus.CONFIRMED)
             throw new IllegalStateException("Chỉ vé đã xác nhận mới có mã QR hợp lệ");
         if (booking.getQrToken() == null || booking.getQrToken().isBlank()) {
@@ -344,7 +396,8 @@ public class BookingService {
             booking = bookings.findByBookingCode(code.toUpperCase(Locale.ROOT)).orElse(null);
         }
 
-        if (booking == null) return emptyResult(false, "NOT_FOUND", "Không tìm thấy vé trong hệ thống");
+        if (booking == null)
+            return emptyResult(false, "NOT_FOUND", "Không tìm thấy vé trong hệ thống");
         if (booking.getStatus() == BookingStatus.PENDING)
             return checkInResult(booking, false, "PENDING", "Vé chưa thanh toán / chưa được xác nhận");
         if (booking.getStatus() == BookingStatus.CANCELLED)
@@ -370,7 +423,8 @@ public class BookingService {
         }
 
         String earlyNote = now.isBefore(booking.getShowtime().getStartTime().minusHours(2))
-                ? " Check-in sớm hơn 2 giờ so với suất chiếu." : "";
+                ? " Check-in sớm hơn 2 giờ so với suất chiếu."
+                : "";
         return checkInResult(booking, true, "CHECKED_IN", "Check-in thành công." + earlyNote);
     }
 
@@ -381,7 +435,8 @@ public class BookingService {
                 .map(BookingSeat::getSeatLabel).filter(Objects::nonNull).reduce((a, b) -> a + ", " + b).orElse("—");
         return new CheckInResult(
                 success, status, message, booking.getBookingCode(), booking.getShowtime().getMovie().getTitle(),
-                booking.getShowtime().getAuditorium().getCinema().getName(), booking.getShowtime().getAuditorium().getName(),
+                booking.getShowtime().getAuditorium().getCinema().getName(),
+                booking.getShowtime().getAuditorium().getName(),
                 booking.getShowtime().getStartTime().format(DATE_TIME), seatLabels, booking.getUser().getFullName(),
                 booking.getCheckedInAt() == null ? null : booking.getCheckedInAt().format(DATE_TIME),
                 booking.getCheckedInBy());
@@ -404,25 +459,33 @@ public class BookingService {
 
     private Map<ComboProduct, Integer> resolveCombos(List<Long> ids, List<Integer> qtys) {
         Map<ComboProduct, Integer> result = new LinkedHashMap<>();
-        if (ids == null || qtys == null) return result;
+        if (ids == null || qtys == null)
+            return result;
         int n = Math.min(ids.size(), qtys.size());
         for (int i = 0; i < n; i++) {
             Integer qty = qtys.get(i);
-            if (qty == null || qty <= 0) continue;
-            if (qty > 10) throw new IllegalArgumentException("Mỗi combo tối đa 10 phần");
+            if (qty == null || qty <= 0)
+                continue;
+            if (qty > 10)
+                throw new IllegalArgumentException("Mỗi combo tối đa 10 phần");
             ComboProduct combo = combos.findById(ids.get(i))
                     .orElseThrow(() -> new IllegalArgumentException("Combo không tồn tại"));
-            if (!combo.isActive()) throw new IllegalArgumentException("Combo " + combo.getName() + " hiện không khả dụng");
+            if (!combo.isActive())
+                throw new IllegalArgumentException("Combo " + combo.getName() + " hiện không khả dụng");
+            if (combo.getStockQuantity() < qty)
+                throw new IllegalArgumentException("Món '" + combo.getName() + "' không đủ số lượng trong kho (chỉ còn " + combo.getStockQuantity() + " phần)");
             result.put(combo, qty);
         }
         return result;
     }
 
     private Voucher resolveVoucher(String code, BigDecimal subtotal, LocalDateTime now) {
-        if (code == null || code.isBlank()) return null;
+        if (code == null || code.isBlank())
+            return null;
         Voucher voucher = vouchers.findByCodeIgnoreCase(code.trim())
                 .orElseThrow(() -> new IllegalArgumentException("Mã voucher không tồn tại"));
-        if (!voucher.isActive()) throw new IllegalArgumentException("Voucher đã bị khóa");
+        if (!voucher.isActive())
+            throw new IllegalArgumentException("Voucher đã bị khóa");
         if (voucher.getValidFrom() != null && now.isBefore(voucher.getValidFrom()))
             throw new IllegalArgumentException("Voucher chưa đến thời gian áp dụng");
         if (voucher.getValidUntil() != null && now.isAfter(voucher.getValidUntil()))
@@ -436,15 +499,19 @@ public class BookingService {
 
     private BigDecimal calculateDiscount(Voucher voucher, BigDecimal subtotal) {
         BigDecimal discount;
-        if (voucher.getDiscountType() == DiscountType.FIXED) discount = voucher.getDiscountValue();
-        else discount = subtotal.multiply(voucher.getDiscountValue()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+        if (voucher.getDiscountType() == DiscountType.FIXED)
+            discount = voucher.getDiscountValue();
+        else
+            discount = subtotal.multiply(voucher.getDiscountValue()).divide(BigDecimal.valueOf(100), 0,
+                    RoundingMode.HALF_UP);
         if (voucher.getMaxDiscountAmount() != null && voucher.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0)
             discount = discount.min(voucher.getMaxDiscountAmount());
         return discount.min(subtotal).max(BigDecimal.ZERO);
     }
 
     private void incrementVoucher(Voucher voucher) {
-        if (voucher.getUsageLimit() != null && voucher.getUsedCount() >= voucher.getUsageLimit()) return;
+        if (voucher.getUsageLimit() != null && voucher.getUsedCount() >= voucher.getUsageLimit())
+            return;
         voucher.setUsedCount(voucher.getUsedCount() + 1);
         vouchers.save(voucher);
     }
@@ -454,12 +521,15 @@ public class BookingService {
         vouchers.save(voucher);
     }
 
-    /* ──────────────────────── SCHEDULED: RELEASE EXPIRED ──────────────────────── */
+    /*
+     * ──────────────────────── SCHEDULED: RELEASE EXPIRED ────────────────────────
+     */
 
     @Scheduled(fixedRate = 60_000)
     @Transactional
     public void releaseExpired() {
-        // Release individual seat holds that have timed out (user selected but didn't proceed)
+        // Release individual seat holds that have timed out (user selected but didn't
+        // proceed)
         List<ShowtimeSeat> expired = seats.findByStatusAndHoldUntilBefore(SeatStatus.HELD, LocalDateTime.now());
         if (!expired.isEmpty()) {
             Map<Long, List<Long>> byShowtime = new HashMap<>();
@@ -473,7 +543,8 @@ public class BookingService {
             byShowtime.forEach((id, seatIds) -> broadcast.send(id, seatIds, "AVAILABLE"));
         }
 
-        // Fix 1 + Fix 4: Expire PENDING bookings that have passed their expiresAt deadline
+        // Fix 1 + Fix 4: Expire PENDING bookings that have passed their expiresAt
+        // deadline
         for (Booking booking : bookings.findByStatusAndExpiresAtBefore(
                 BookingStatus.PENDING, LocalDateTime.now())) {
             // Fix 4: Mark as EXPIRED (not CANCELLED) so we can detect late payment arrivals
@@ -482,4 +553,56 @@ public class BookingService {
             bookings.save(booking);
         }
     }
+
+    private void validateNoOrphanSeats(Long showtimeId, List<ShowtimeSeat> selectedSeats, LocalDateTime now) {
+        // 1. Lấy danh sách các hàng ghế bị ảnh hưởng bởi lượt đặt này
+        Set<String> affectedRows = selectedSeats.stream()
+                .map(s -> s.getSeat().getSeatRow())
+                .collect(Collectors.toSet());
+
+        // 2. Lấy toàn bộ ghế của suất chiếu (đã được sắp xếp sẵn theo Hàng và Số ghế)
+        List<ShowtimeSeat> allSeats = seats.findByShowtimeIdOrderBySeatSeatRowAscSeatSeatNumberAsc(showtimeId);
+        Set<Long> selectedIds = selectedSeats.stream().map(ShowtimeSeat::getId).collect(Collectors.toSet());
+
+        // 3. Gom nhóm theo từng hàng (Row)
+        Map<String, List<ShowtimeSeat>> seatsByRow = allSeats.stream()
+                .collect(Collectors.groupingBy(s -> s.getSeat().getSeatRow()));
+
+        // 4. Quét từng hàng bị ảnh hưởng để tìm chỗ trống bị cô lập
+        for (String row : affectedRows) {
+            List<ShowtimeSeat> rowSeats = seatsByRow.getOrDefault(row, Collections.emptyList());
+            if (rowSeats.isEmpty()) continue;
+
+            int consecutiveEmpty = 0;
+            for (ShowtimeSeat s : rowSeats) {
+                // Ghế được xem là "Đã bị chiếm" nếu:
+                // - Là ghế khách đang chọn trong request này
+                // - Hoặc đã BOOKED
+                // - Hoặc đang HELD bởi người khác (chưa hết hạn)
+                boolean isOccupied = selectedIds.contains(s.getId())
+                        || s.getStatus() == SeatStatus.BOOKED
+                        || (s.getStatus() == SeatStatus.HELD && s.getHoldUntil() != null && s.getHoldUntil().isAfter(now));
+
+                if (!isOccupied) {
+                    consecutiveEmpty++; // Ghế này còn trống, tăng độ dài chuỗi trống
+                } else {
+                    // Nếu vừa kết thúc 1 chuỗi ghế trống mà độ dài chuỗi ĐÚNG BẰNG 1 -> Lỗi ghế mồ côi!
+                    if (consecutiveEmpty == 1) {
+                        throw new IllegalArgumentException(
+                                "Không được để lại đúng 1 ghế trống đơn độc ở hàng " + row + ". Vui lòng chọn ghế liền kề."
+                        );
+                    }
+                    consecutiveEmpty = 0;
+                }
+            }
+
+            // Kiểm tra ghế trống sót lại ở cuối hàng
+            if (consecutiveEmpty == 1) {
+                throw new IllegalArgumentException(
+                        "Không được để lại đúng 1 ghế trống đơn độc ở hàng " + row + ". Vui lòng chọn ghế liền kề."
+                );
+            }
+        }
+    }
 }
+

@@ -14,6 +14,13 @@ public class ComboProduct {
     @Column(length=600) private String imageUrl;
     @Column(nullable=false) private boolean active=true;
     @Column(nullable=false) private LocalDateTime createdAt=LocalDateTime.now();
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ComboType type = ComboType.COMBO;
+
+    @Column(name = "stock_quantity", nullable = false)
+    private int stockQuantity = 100;
+
     public Long getId(){return id;} public void setId(Long v){id=v;}
     public String getName(){return name;} public void setName(String v){name=v;}
     public String getDescription(){return description;} public void setDescription(String v){description=v;}
@@ -21,4 +28,6 @@ public class ComboProduct {
     public String getImageUrl(){return imageUrl;} public void setImageUrl(String v){imageUrl=v;}
     public boolean isActive(){return active;} public void setActive(boolean v){active=v;}
     public LocalDateTime getCreatedAt(){return createdAt;} public void setCreatedAt(LocalDateTime v){createdAt=v;}
+    public ComboType getType() { return type; } public void setType(ComboType type) { this.type = type; }
+    public int getStockQuantity() { return stockQuantity; } public void setStockQuantity(int stockQuantity) { this.stockQuantity = stockQuantity; }
 }
