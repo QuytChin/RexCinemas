@@ -4,6 +4,7 @@ import com.rexchain.cinema.dto.CheckInRequest;
 import com.rexchain.cinema.dto.CheckInResult;
 import com.rexchain.cinema.repository.BookingRepository;
 import com.rexchain.cinema.service.BookingService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -29,7 +30,7 @@ public class CheckInController {
 
     @PostMapping("/api/scan")
     @ResponseBody
-    ResponseEntity<CheckInResult> scan(@RequestBody CheckInRequest request, Authentication auth) {
+    ResponseEntity<CheckInResult> scan(@Valid @RequestBody CheckInRequest request, Authentication auth) {
         CheckInResult result = bookingService.checkInTicket(request.code(), auth.getName());
         return result.success() ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }

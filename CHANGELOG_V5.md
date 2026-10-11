@@ -65,3 +65,13 @@ Bản V5 hoàn thiện **Phân đoạn 4**, kế thừa nền tảng V4, nâng c
 - **`MovieStatus`**: Bổ sung enum `NOW_SHOWING` (Đang chiếu), `COMING_SOON` (Sắp chiếu), `ENDED` (Đã kết thúc). Trang chủ và danh mục phim lọc chuẩn xác theo trạng thái chiếu rạp.
 - **`AgeRating`**: Chuẩn hóa phân loại độ tuổi thành enum điện ảnh `P`, `K`, `C13`, `C16`, `C18` thay vì chuỗi String tự do, hỗ trợ alias tương thích ngược với dữ liệu cũ (`T13`, `T16`).
 - **Quản trị Phim Admin**: Cập nhật form thêm/sửa phim có dropdown chọn độ tuổi và trạng thái chiếu rạp, danh sách phim hiển thị trực quan các badge trạng thái.
+
+---
+
+## 7. Hoàn thiện Giai đoạn 4 — Security, Validation DTO & Database Indexes
+- **Validation DTO**: Chuẩn hóa toàn bộ request DTO với Jakarta Validation (`HoldRequest`, `LoginRequest`, `RegisterRequest`, `CheckInRequest`, `CheckoutRequest`, `ComboLine`). Bắt buộc `@Valid` tại tất cả REST & form endpoints.
+- **Global Exception Handling**: Mở rộng `GlobalExceptionHandler` hỗ trợ song song cả REST API (trả JSON status/errors chi tiết) và Web MVC (render view error). Bắt lỗi validation, lỗi concurrency (dịch biệt ngữ Hibernate Optimistic/Pessimistic lock thành thông điệp thân thiện) và lỗi nghiệp vụ.
+- **Database Composite Indexes**: Bổ sung đầy đủ các composite index quan trọng theo khuyến nghị:
+  - `bookings(user_id, created_at)`
+  - `showtimes(auditorium_id, start_time)`
+  - `showtimes(movie_id, start_time)`

@@ -1,13 +1,16 @@
 package com.rexchain.cinema.controller;
 
 import com.rexchain.cinema.dto.LoginRequest;
+import com.rexchain.cinema.dto.RegisterRequest;
 import com.rexchain.cinema.service.AuthService;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
@@ -30,17 +33,35 @@ public class AuthController {
     }
 
     @GetMapping("/auth/register")
-    String register() { return "auth/register"; }
+    String register(Model model) {
+        model.addAttribute("registerForm", new RegisterRequest("", "", "", ""));
+        return "auth/register";
+    }
 
     @PostMapping("/auth/register")
-    String registerPost(@RequestParam String fullName, @RequestParam String email,
-                        @RequestParam(required = false) String phone, @RequestParam String password, Model model) {
+    String registerPost(@Valid @ModelAttribute("registerForm") RegisterRequest form,
+                        BindingResult bindingResult, Model model) {
+        if (bindingResult.hasErrors()) {
+            model.addAttribute("error", bindingResult.getAllErrors().get(0).getDefaultMessage());
+            return "auth/register";
+        }
         try {
-            auth.register(fullName, email, phone, password);
+            auth.register(form.fullName(), form.email(), form.phone(), form.password());
             return "redirect:/auth/login?registered";
         } catch (Exception ex) {
             model.addAttribute("error", ex.getMessage());
             return "auth/register";
+        }
+    }
+
+    @PostMapping("/api/auth/register")
+    @ResponseBody
+    ResponseEntity<?> apiRegister(@Valid @RequestBody RegisterRequest request) {
+        try {
+            auth.register(request.fullName(), request.email(), request.phone(), request.password());
+            return ResponseEntity.ok(Map.of("message", "Đăng ký thành công"));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
     }
 
@@ -68,7 +89,7 @@ public class AuthController {
 
     @PostMapping("/api/auth/login")
     @ResponseBody
-    ResponseEntity<?> apiLogin(@RequestBody LoginRequest request, HttpServletResponse response) {
+    ResponseEntity<?> apiLogin(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         try {
             String token = auth.login(request.email(), request.password());
             addCookie(response, token);

@@ -8,7 +8,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "bookings", indexes = {
-    @Index(name = "idx_bookings_status_created_at", columnList = "status, created_at")
+    @Index(name = "idx_bookings_status_created_at", columnList = "status, created_at"),
+    @Index(name = "idx_bookings_user_created_at", columnList = "user_id, created_at")
 })
 public class Booking {
     @Id

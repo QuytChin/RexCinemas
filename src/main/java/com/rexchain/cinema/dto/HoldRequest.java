@@ -1,2 +1,9 @@
 package com.rexchain.cinema.dto;
-import java.util.List; public record HoldRequest(java.util.List<Long> seatIds){}
+
+import jakarta.validation.constraints.NotEmpty;
+import java.util.List;
+
+public record HoldRequest(
+    @NotEmpty(message = "Danh sách ghế giữ không được để trống")
+    List<Long> seatIds
+) {}

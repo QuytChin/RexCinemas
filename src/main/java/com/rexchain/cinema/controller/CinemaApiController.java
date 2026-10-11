@@ -3,6 +3,10 @@ package com.rexchain.cinema.controller;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.BookingService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -140,7 +144,7 @@ public class CinemaApiController {
     }
 
     @PostMapping("/bookings/checkout")
-    public ResponseEntity<?> checkout(@RequestBody CheckoutRequest request, Authentication authentication) {
+    public ResponseEntity<?> checkout(@Valid @RequestBody CheckoutRequest request, Authentication authentication) {
         User user = current(authentication);
         if (request.showtimeId() == null || request.seatIds() == null || request.seatIds().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Thiếu suất chiếu hoặc ghế"));
@@ -227,7 +231,16 @@ public class CinemaApiController {
         return x;
     }
 
-    public record ComboLine(Long comboId, Integer quantity) {}
-    public record CheckoutRequest(Long showtimeId, List<Long> seatIds, PaymentMethod paymentMethod,
-                                  String voucherCode, List<ComboLine> combos) {}
+    public record ComboLine(
+        @NotNull(message = "Mã combo không được để trống") Long comboId,
+        @NotNull(message = "Số lượng không được để trống") @Min(value = 1, message = "Số lượng combo tối thiểu là 1") Integer quantity
+    ) {}
+
+    public record CheckoutRequest(
+        @NotNull(message = "Suất chiếu không được để trống") Long showtimeId,
+        @NotEmpty(message = "Danh sách ghế không được để trống") List<Long> seatIds,
+        PaymentMethod paymentMethod,
+        String voucherCode,
+        List<ComboLine> combos
+    ) {}
 }

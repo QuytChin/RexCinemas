@@ -5,7 +5,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "showtimes")
+@Table(name = "showtimes", indexes = {
+    @Index(name = "idx_showtimes_auditorium_time", columnList = "auditorium_id, start_time"),
+    @Index(name = "idx_showtimes_movie_time", columnList = "movie_id, start_time")
+})
 public class Showtime {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
