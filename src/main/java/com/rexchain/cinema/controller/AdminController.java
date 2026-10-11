@@ -76,12 +76,16 @@ public class AdminController {
     @GetMapping("/movies/new")
     String movieNew(Model model) {
         model.addAttribute("movie", new Movie());
+        model.addAttribute("ageRatings", AgeRating.values());
+        model.addAttribute("movieStatuses", MovieStatus.values());
         return "admin/movie-form";
     }
 
     @GetMapping("/movies/{id}/edit")
     String movieEdit(@PathVariable Long id, Model model) {
         model.addAttribute("movie", movies.findById(id).orElseThrow());
+        model.addAttribute("ageRatings", AgeRating.values());
+        model.addAttribute("movieStatuses", MovieStatus.values());
         return "admin/movie-form";
     }
 
@@ -90,7 +94,8 @@ public class AdminController {
             @RequestParam String title,
             @RequestParam String description,
             @RequestParam int durationMinutes,
-            @RequestParam(required = false) String ageRating,
+            @RequestParam(required = false) AgeRating ageRating,
+            @RequestParam(required = false) MovieStatus status,
             @RequestParam(required = false) String genre,
             @RequestParam(required = false) String language,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate releaseDate,
@@ -101,7 +106,8 @@ public class AdminController {
         movie.setTitle(title);
         movie.setDescription(description);
         movie.setDurationMinutes(durationMinutes);
-        movie.setAgeRating(ageRating);
+        if (ageRating != null) movie.setAgeRating(ageRating);
+        if (status != null) movie.setStatus(status);
         movie.setGenre(genre);
         movie.setLanguage(language);
         movie.setReleaseDate(releaseDate);

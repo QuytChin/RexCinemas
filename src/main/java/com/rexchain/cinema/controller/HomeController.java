@@ -40,8 +40,14 @@ public class HomeController {
     @GetMapping("/")
     String home(Model model) {
         LocalDate today = LocalDate.now();
-        List<Movie> nowShowing = movies.findByActiveTrueAndReleaseDateLessThanEqualOrderByReleaseDateDesc(today);
-        List<Movie> comingSoon = movies.findByActiveTrueAndReleaseDateGreaterThanOrderByReleaseDateAsc(today);
+        List<Movie> nowShowing = movies.findByActiveTrueAndStatusOrderByReleaseDateDesc(MovieStatus.NOW_SHOWING);
+        if (nowShowing.isEmpty()) {
+            nowShowing = movies.findByActiveTrueAndReleaseDateLessThanEqualOrderByReleaseDateDesc(today);
+        }
+        List<Movie> comingSoon = movies.findByActiveTrueAndStatusOrderByReleaseDateAsc(MovieStatus.COMING_SOON);
+        if (comingSoon.isEmpty()) {
+            comingSoon = movies.findByActiveTrueAndReleaseDateGreaterThanOrderByReleaseDateAsc(today);
+        }
         List<Movie> heroMovies = nowShowing.stream().limit(4).toList();
 
         model.addAttribute("heroMovies", heroMovies);
@@ -65,10 +71,21 @@ public class HomeController {
                         Model model) {
         LocalDate today = LocalDate.now();
         List<Movie> result;
-        if (q != null && !q.isBlank()) result = movies.search(q.trim());
-        else if ("coming".equalsIgnoreCase(status)) result = movies.findByActiveTrueAndReleaseDateGreaterThanOrderByReleaseDateAsc(today);
-        else if ("now".equalsIgnoreCase(status)) result = movies.findByActiveTrueAndReleaseDateLessThanEqualOrderByReleaseDateDesc(today);
-        else result = movies.findByActiveTrueOrderByReleaseDateDesc();
+        if (q != null && !q.isBlank()) {
+            result = movies.search(q.trim());
+        } else if ("coming".equalsIgnoreCase(status)) {
+            result = movies.findByActiveTrueAndStatusOrderByReleaseDateAsc(MovieStatus.COMING_SOON);
+            if (result.isEmpty()) {
+                result = movies.findByActiveTrueAndReleaseDateGreaterThanOrderByReleaseDateAsc(today);
+            }
+        } else if ("now".equalsIgnoreCase(status)) {
+            result = movies.findByActiveTrueAndStatusOrderByReleaseDateDesc(MovieStatus.NOW_SHOWING);
+            if (result.isEmpty()) {
+                result = movies.findByActiveTrueAndReleaseDateLessThanEqualOrderByReleaseDateDesc(today);
+            }
+        } else {
+            result = movies.findByActiveTrueOrderByReleaseDateDesc();
+        }
         model.addAttribute("movies", result);
         model.addAttribute("q", q);
         model.addAttribute("status", status);

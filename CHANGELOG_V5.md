@@ -57,8 +57,11 @@ Bản V5 hoàn thiện **Phân đoạn 4**, kế thừa nền tảng V4, nâng c
 ---
 
 ## 5. Tương thích cơ sở dữ liệu (`Database Compatibility`)
-- Không yêu cầu cài lại DB hay chạy migration thủ công.
-- Nhờ chế độ `spring.jpa.hibernate.ddl-auto=update`:
-  - Bảng `booking_seats` tự động bổ sung các cột `ticket_code`, `qr_token`, `checked_in`, `checked_in_at`, `checked_in_by` và index tương ứng.
-  - Bảng `bookings` tự động bổ sung các cột `refunded_at`, `refunded_by`, `refund_note`.
 - Giữ nguyên toàn bộ dữ liệu người dùng, rạp, phim và suất chiếu hiện có.
+
+---
+
+## 6. Chuẩn hóa Model Phim (`MovieStatus & AgeRating Enums`)
+- **`MovieStatus`**: Bổ sung enum `NOW_SHOWING` (Đang chiếu), `COMING_SOON` (Sắp chiếu), `ENDED` (Đã kết thúc). Trang chủ và danh mục phim lọc chuẩn xác theo trạng thái chiếu rạp.
+- **`AgeRating`**: Chuẩn hóa phân loại độ tuổi thành enum điện ảnh `P`, `K`, `C13`, `C16`, `C18` thay vì chuỗi String tự do, hỗ trợ alias tương thích ngược với dữ liệu cũ (`T13`, `T16`).
+- **Quản trị Phim Admin**: Cập nhật form thêm/sửa phim có dropdown chọn độ tuổi và trạng thái chiếu rạp, danh sách phim hiển thị trực quan các badge trạng thái.

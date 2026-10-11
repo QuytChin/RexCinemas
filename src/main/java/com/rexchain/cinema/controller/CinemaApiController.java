@@ -182,7 +182,8 @@ public class CinemaApiController {
         x.put("title", m.getTitle());
         x.put("description", m.getDescription());
         x.put("durationMinutes", m.getDurationMinutes());
-        x.put("ageRating", m.getAgeRating());
+        x.put("ageRating", m.getAgeRating() != null ? m.getAgeRating().getCode() : "P");
+        x.put("status", m.getStatus() != null ? m.getStatus().name() : "NOW_SHOWING");
         x.put("genre", m.getGenre());
         x.put("language", m.getLanguage());
         x.put("releaseDate", m.getReleaseDate());

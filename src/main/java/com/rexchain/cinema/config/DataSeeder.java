@@ -25,6 +25,7 @@ public class DataSeeder {
             seedUsers(users, passwordEncoder);
             ensureDemoMembership(users);
             seedMovies(movies);
+            upgradeLegacyMovies(movies);
             seedCinemas(cinemas, setup);
             seedShowtimes(movies, auditoriums, showtimes, setup);
             upgradeLegacySeatTypes(auditoriums, seats, showtimeSeats);
@@ -32,6 +33,24 @@ public class DataSeeder {
             seedVouchers(vouchers);
             seedHomeContent(events, articles, mediaItems);
         };
+    }
+
+    private void upgradeLegacyMovies(MovieRepository movies) {
+        for (Movie movie : movies.findAll()) {
+            boolean updated = false;
+            if (movie.getStatus() == null) {
+                movie.setStatus(movie.getReleaseDate() != null && movie.getReleaseDate().isAfter(LocalDate.now())
+                        ? MovieStatus.COMING_SOON : MovieStatus.NOW_SHOWING);
+                updated = true;
+            }
+            if (movie.getAgeRating() == null) {
+                movie.setAgeRating(AgeRating.P);
+                updated = true;
+            }
+            if (updated) {
+                movies.save(movie);
+            }
+        }
     }
 
     private void seedUsers(UserRepository users, PasswordEncoder encoder) {
@@ -96,17 +115,17 @@ public class DataSeeder {
 
     private void seedMovies(MovieRepository movies) {
         addMovieIfMissing(movies, "Hành Trình Ánh Sáng", "Một phi hành đoàn trẻ bước vào chuyến đi vượt ngoài giới hạn của Trái Đất.",
-                125, "T13", "Khoa học viễn tưởng, Hành động", "Tiếng Việt", LocalDate.now().minusDays(14), "/images/poster-1.svg", "https://www.youtube.com/");
+                125, "C13", "Khoa học viễn tưởng, Hành động", "Tiếng Việt", LocalDate.now().minusDays(14), "/images/poster-1.svg", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Mùa Hè Không Tên", "Câu chuyện thanh xuân, tình bạn và những lựa chọn trước ngưỡng cửa trưởng thành.",
                 112, "P", "Tâm lý, Tình cảm", "Tiếng Việt", LocalDate.now().minusDays(8), "/images/poster-2.svg", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Kẻ Gác Đêm", "Một vụ án bí ẩn kéo người bảo vệ rạp phim vào cuộc truy tìm xuyên đêm.",
-                118, "T16", "Hành động, Bí ẩn", "Tiếng Việt", LocalDate.now().minusDays(4), "/images/poster-3.svg", "https://www.youtube.com/");
+                118, "C16", "Hành động, Bí ẩn", "Tiếng Việt", LocalDate.now().minusDays(4), "/images/poster-3.svg", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Nhà Có Hai Người", "Bộ phim gia đình nhẹ nhàng về sự kết nối giữa hai thế hệ.",
                 105, "P", "Gia đình, Hài", "Tiếng Việt", LocalDate.now().minusDays(2), "/images/poster-4.svg", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Thành Phố Sau Mưa", "Một câu chuyện tình yêu và ký ức diễn ra giữa thành phố sau cơn mưa dài.",
-                110, "T13", "Tình cảm, Tâm lý", "Tiếng Việt", LocalDate.now().plusDays(10), "/images/poster-5.svg", "https://www.youtube.com/");
+                110, "C13", "Tình cảm, Tâm lý", "Tiếng Việt", LocalDate.now().plusDays(10), "/images/poster-5.svg", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Mật Mã Đại Dương", "Đội nghiên cứu biển sâu phát hiện một tín hiệu bí ẩn có thể thay đổi lịch sử.",
-                132, "T13", "Phiêu lưu, Khoa học viễn tưởng", "Tiếng Việt", LocalDate.now().plusDays(24), "/images/poster-6.svg", "https://www.youtube.com/");
+                132, "C13", "Phiêu lưu, Khoa học viễn tưởng", "Tiếng Việt", LocalDate.now().plusDays(24), "/images/poster-6.svg", "https://www.youtube.com/");
     }
 
     private void addMovieIfMissing(MovieRepository movies, String title, String description, int duration,
@@ -117,7 +136,8 @@ public class DataSeeder {
         movie.setTitle(title);
         movie.setDescription(description);
         movie.setDurationMinutes(duration);
-        movie.setAgeRating(age);
+        movie.setAgeRating(AgeRating.fromString(age));
+        movie.setStatus(release != null && release.isAfter(LocalDate.now()) ? MovieStatus.COMING_SOON : MovieStatus.NOW_SHOWING);
         movie.setGenre(genre);
         movie.setLanguage(language);
         movie.setReleaseDate(release);
