@@ -5,7 +5,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name="showtime_seats", uniqueConstraints=@UniqueConstraint(columnNames={"showtime_id","seat_id"}))
+@Table(name="showtime_seats",
+       uniqueConstraints=@UniqueConstraint(columnNames={"showtime_id","seat_id"}),
+       indexes = {
+           @Index(name = "idx_showtime_seats_showtime_status", columnList = "showtime_id, status"),
+           @Index(name = "idx_showtime_seats_status_hold_until", columnList = "status, hold_until")
+       })
 public class ShowtimeSeat {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
     @Version private Long version;

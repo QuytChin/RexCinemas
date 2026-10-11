@@ -26,7 +26,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     BigDecimal totalRevenue(@Param("status") BookingStatus status);
 
     @Query("select distinct b from Booking b join fetch b.user join fetch b.showtime st join fetch st.movie " +
-           "join fetch st.auditorium a join fetch a.cinema left join fetch b.combos order by b.createdAt desc")
+           "join fetch st.auditorium a join fetch a.cinema left join fetch b.seats order by b.createdAt desc")
     List<Booking> findAllDetailed();
 
     /** Fix 1: Find PENDING bookings that have passed their expiry time. */

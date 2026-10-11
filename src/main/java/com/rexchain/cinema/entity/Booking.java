@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "bookings")
+@Table(name = "bookings", indexes = {
+    @Index(name = "idx_bookings_status_created_at", columnList = "status, created_at")
+})
 public class Booking {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -74,9 +76,11 @@ public class Booking {
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @org.hibernate.annotations.BatchSize(size = 50)
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BookingSeat> seats = new ArrayList<>();
 
+    @org.hibernate.annotations.BatchSize(size = 50)
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BookingCombo> combos = new ArrayList<>();
 

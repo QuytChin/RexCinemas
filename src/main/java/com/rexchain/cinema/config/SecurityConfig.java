@@ -40,7 +40,8 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
-        http.csrf(csrf -> csrf.disable())
+        http.csrf(csrf -> csrf
+                .ignoringRequestMatchers("/api/**", "/payment/callback/**", "/admin/checkin/api/**", "/ws/**"))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/auth/**", "/css/**", "/js/**", "/images/**", "/ws/**",
                                 "/api/auth/**", "/payment/callback/**").permitAll()
