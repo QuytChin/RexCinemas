@@ -70,6 +70,15 @@ public class Booking {
     @Column(length = 180)
     private String checkedInBy;
 
+    /** Refund audit fields. */
+    private LocalDateTime refundedAt;
+
+    @Column(length = 180)
+    private String refundedBy;
+
+    @Column(length = 255)
+    private String refundNote;
+
     /** When this PENDING booking should be auto-expired by the scheduled job. */
     private LocalDateTime expiresAt;
 
@@ -127,6 +136,12 @@ public class Booking {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public List<BookingSeat> getSeats() { return seats; }
     public void setSeats(List<BookingSeat> seats) { this.seats = seats; }
+    public LocalDateTime getRefundedAt() { return refundedAt; }
+    public void setRefundedAt(LocalDateTime refundedAt) { this.refundedAt = refundedAt; }
+    public String getRefundedBy() { return refundedBy; }
+    public void setRefundedBy(String refundedBy) { this.refundedBy = refundedBy; }
+    public String getRefundNote() { return refundNote; }
+    public void setRefundNote(String refundNote) { this.refundNote = refundNote; }
     public List<BookingCombo> getCombos() { return combos; }
     public void setCombos(List<BookingCombo> combos) { this.combos = combos; }
 }

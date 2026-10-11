@@ -113,6 +113,22 @@ public class PaymentService {
     }
 
     /**
+     * Duyệt hoàn tiền cho đơn hàng (REFUND_PENDING hoặc đơn đã CANCELLED).
+     */
+    @Transactional
+    public Booking processRefund(Long bookingId, String operatorEmail, String note) {
+        Booking booking = bookings.findById(bookingId).orElseThrow();
+        if (booking.getStatus() != BookingStatus.REFUND_PENDING && booking.getStatus() != BookingStatus.CANCELLED) {
+            throw new IllegalStateException("Chỉ đơn hàng đang chờ hoàn tiền (REFUND_PENDING) hoặc đã hủy mới có thể duyệt hoàn tiền");
+        }
+        booking.setStatus(BookingStatus.REFUNDED);
+        booking.setRefundedAt(LocalDateTime.now());
+        booking.setRefundedBy(operatorEmail);
+        booking.setRefundNote(note != null && !note.isBlank() ? note.trim() : "Đã duyệt hoàn tiền thành công qua cổng thanh toán/quầy");
+        return bookings.save(booking);
+    }
+
+    /**
      * Cộng điểm thành viên Rex Member khi thanh toán thành công.
      */
     public void awardPoints(Booking booking) {

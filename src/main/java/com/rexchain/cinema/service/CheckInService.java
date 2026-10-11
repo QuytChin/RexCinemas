@@ -5,6 +5,7 @@ import com.rexchain.cinema.entity.Booking;
 import com.rexchain.cinema.entity.BookingSeat;
 import com.rexchain.cinema.entity.BookingStatus;
 import com.rexchain.cinema.repository.BookingRepository;
+import com.rexchain.cinema.repository.BookingSeatRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,7 +16,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Dịch vụ soát vé (Check-in) và phát hành mã QR vé điện tử.
+ * Dịch vụ soát vé (Check-in) và phát hành mã QR vé điện tử độc lập.
  */
 @Service
 public class CheckInService {
@@ -24,13 +25,15 @@ public class CheckInService {
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
 
     private final BookingRepository bookings;
+    private final BookingSeatRepository bookingSeats;
 
-    public CheckInService(BookingRepository bookings) {
+    public CheckInService(BookingRepository bookings, BookingSeatRepository bookingSeats) {
         this.bookings = bookings;
+        this.bookingSeats = bookingSeats;
     }
 
     /**
-     * Lấy chuỗi dữ liệu nhúng vào mã QR (REXCINEMAS:TICKET:<token>).
+     * Lấy chuỗi dữ liệu nhúng vào mã QR tổng của Booking (REXCINEMAS:TICKET:<token>).
      */
     @Transactional
     public String qrPayloadFor(Long bookingId) {
@@ -46,7 +49,30 @@ public class CheckInService {
     }
 
     /**
-     * Quét vé / kiểm tra mã booking tại cổng rạp với Atomic Check-in chống double scan.
+     * Lấy chuỗi dữ liệu nhúng vào mã QR riêng cho từng ghế (Ticket).
+     */
+    @Transactional
+    public String seatQrPayloadFor(Long bookingId, Long seatId) {
+        BookingSeat seat = bookingSeats.findById(seatId)
+                .orElseThrow(() -> new IllegalArgumentException("Vé ghế không tồn tại"));
+        if (!seat.getBooking().getId().equals(bookingId))
+            throw new IllegalArgumentException("Vé ghế không thuộc đơn hàng này");
+        if (seat.getBooking().getStatus() != BookingStatus.CONFIRMED)
+            throw new IllegalStateException("Chỉ vé đã xác nhận mới có mã QR hợp lệ");
+
+        if (seat.getQrToken() == null || seat.getQrToken().isBlank()) {
+            seat.setQrToken(newQrToken());
+            if (seat.getTicketCode() == null || seat.getTicketCode().isBlank()) {
+                seat.setTicketCode("TKT-" + seat.getBooking().getBookingCode() + "-" + seat.getSeatLabel());
+            }
+            bookingSeats.save(seat);
+        }
+        return QR_PREFIX + seat.getQrToken();
+    }
+
+    /**
+     * Quét vé / kiểm tra mã booking tại cổng rạp.
+     * Hỗ trợ quét cả vé riêng lẻ (Seat Ticket) và mã đoàn (Booking Code).
      */
     @Transactional
     public CheckInResult checkInTicket(String rawCode, String operatorEmail) {
@@ -54,43 +80,134 @@ public class CheckInService {
             return emptyResult(false, "INVALID", "Mã QR / mã booking đang trống");
 
         String code = rawCode.trim();
-        Booking booking;
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. Kiểm tra nếu là chuỗi QR (REXCINEMAS:TICKET:<token>)
         if (code.startsWith(QR_PREFIX)) {
             String token = code.substring(QR_PREFIX.length()).trim();
-            booking = bookings.findByQrToken(token).orElse(null);
-        } else {
-            booking = bookings.findByBookingCode(code.toUpperCase(Locale.ROOT)).orElse(null);
+
+            // 1.1 Tìm theo vé ghế đơn lẻ (Ticket)
+            BookingSeat seat = bookingSeats.findByQrToken(token).orElse(null);
+            if (seat != null) {
+                return checkInSingleSeat(seat, now, operatorEmail);
+            }
+
+            // 1.2 Tìm theo Booking tổng của cả đoàn
+            Booking booking = bookings.findByQrToken(token).orElse(null);
+            if (booking != null) {
+                return checkInGroupBooking(booking, now, operatorEmail);
+            }
+
+            return emptyResult(false, "NOT_FOUND", "Không tìm thấy vé trong hệ thống");
         }
 
-        if (booking == null)
-            return emptyResult(false, "NOT_FOUND", "Không tìm thấy vé trong hệ thống");
-        if (booking.getStatus() == BookingStatus.PENDING)
-            return checkInResult(booking, false, "PENDING", "Vé chưa thanh toán / chưa được xác nhận");
-        if (booking.getStatus() == BookingStatus.CANCELLED)
-            return checkInResult(booking, false, "CANCELLED", "Vé đã bị hủy và không còn hiệu lực");
-        if (booking.getStatus() == BookingStatus.EXPIRED)
-            return checkInResult(booking, false, "EXPIRED", "Vé đã hết hạn và không còn hiệu lực");
-        if (booking.getStatus() == BookingStatus.REFUND_PENDING)
-            return checkInResult(booking, false, "REFUND_PENDING", "Vé đang chờ hoàn tiền, không thể check-in");
-        if (booking.isCheckedIn())
-            return checkInResult(booking, false, "ALREADY_CHECKED_IN", "Vé đã được check-in trước đó");
+        // 2. Tìm theo mã vé đơn lẻ (vd: TKT-REX...)
+        if (code.toUpperCase(Locale.ROOT).startsWith("TKT-")) {
+            BookingSeat seat = bookingSeats.findByTicketCode(code.toUpperCase(Locale.ROOT)).orElse(null);
+            if (seat != null) {
+                return checkInSingleSeat(seat, now, operatorEmail);
+            }
+        }
 
-        LocalDateTime now = LocalDateTime.now();
+        // 3. Tìm theo mã booking tổng (vd: REX...)
+        Booking booking = bookings.findByBookingCode(code.toUpperCase(Locale.ROOT)).orElse(null);
+        if (booking != null) {
+            return checkInGroupBooking(booking, now, operatorEmail);
+        }
+
+        return emptyResult(false, "NOT_FOUND", "Không tìm thấy vé trong hệ thống");
+    }
+
+    private CheckInResult checkInSingleSeat(BookingSeat seat, LocalDateTime now, String operatorEmail) {
+        Booking booking = seat.getBooking();
+        CheckInResult statusCheck = validateBookingStatus(booking, now);
+        if (statusCheck != null) return statusCheck;
+
+        if (seat.isCheckedIn()) {
+            return checkInSeatResult(booking, seat, false, "ALREADY_CHECKED_IN",
+                    "Ghế " + seat.getSeatLabel() + " (" + seat.getTicketCode() + ") đã được check-in trước đó");
+        }
+
+        int updated = bookingSeats.atomicCheckInSeat(seat.getId(), now, operatorEmail);
+        if (updated == 0) {
+            return checkInSeatResult(booking, seat, false, "ALREADY_CHECKED_IN",
+                    "Ghế " + seat.getSeatLabel() + " vừa được cổng khác check-in");
+        }
+
+        seat.setCheckedIn(true);
+        seat.setCheckedInAt(now);
+        seat.setCheckedInBy(operatorEmail);
+
+        // Nếu tất cả ghế trong đoàn đã vào cổng thì đánh dấu cả booking
+        boolean allCheckedIn = booking.getSeats().stream().allMatch(BookingSeat::isCheckedIn);
+        if (allCheckedIn && !booking.isCheckedIn()) {
+            bookings.atomicCheckIn(booking.getId(), now, operatorEmail);
+        }
+
+        return checkInSeatResult(booking, seat, true, "CHECKED_IN",
+                "Check-in thành công ghế " + seat.getSeatLabel() + " (Mã vé: " + seat.getTicketCode() + ")");
+    }
+
+    private CheckInResult checkInGroupBooking(Booking booking, LocalDateTime now, String operatorEmail) {
+        CheckInResult statusCheck = validateBookingStatus(booking, now);
+        if (statusCheck != null) return statusCheck;
+
+        // Atomic check-in tất cả các ghế còn lại trong booking
+        bookingSeats.atomicCheckInAllSeats(booking.getId(), now, operatorEmail);
+        bookings.atomicCheckIn(booking.getId(), now, operatorEmail);
+
+        booking.setCheckedInAt(now);
+        booking.setCheckedInBy(operatorEmail);
+        for (BookingSeat bs : booking.getSeats()) {
+            bs.setCheckedIn(true);
+            bs.setCheckedInAt(now);
+            bs.setCheckedInBy(operatorEmail);
+        }
+
+        String seatLabels = booking.getSeats().stream()
+                .map(BookingSeat::getSeatLabel).filter(Objects::nonNull).reduce((a, b) -> a + ", " + b).orElse("—");
+
+        return new CheckInResult(
+                true, "CHECKED_IN", "Check-in thành công cả đoàn (" + seatLabels + ")",
+                booking.getBookingCode(), booking.getShowtime().getMovie().getTitle(),
+                booking.getShowtime().getAuditorium().getCinema().getName(),
+                booking.getShowtime().getAuditorium().getName(),
+                booking.getShowtime().getStartTime().format(DATE_TIME), seatLabels, booking.getUser().getFullName(),
+                now.format(DATE_TIME), operatorEmail);
+    }
+
+    private CheckInResult validateBookingStatus(Booking booking, LocalDateTime now) {
+        if (booking.getStatus() == BookingStatus.PENDING)
+            return emptyResult(false, "PENDING", "Vé chưa thanh toán / chưa được xác nhận");
+        if (booking.getStatus() == BookingStatus.CANCELLED)
+            return emptyResult(false, "CANCELLED", "Vé đã bị hủy và không còn hiệu lực");
+        if (booking.getStatus() == BookingStatus.EXPIRED)
+            return emptyResult(false, "EXPIRED", "Vé đã hết hạn và không còn hiệu lực");
+        if (booking.getStatus() == BookingStatus.REFUND_PENDING || booking.getStatus() == BookingStatus.REFUNDED)
+            return emptyResult(false, "REFUNDED", "Vé đã hoặc đang trong quá trình hoàn tiền, không thể check-in");
+
         LocalDateTime endTime = booking.getShowtime().getStartTime()
                 .plusMinutes(booking.getShowtime().getMovie().getDurationMinutes())
                 .plusMinutes(30);
         if (now.isAfter(endTime))
-            return checkInResult(booking, false, "EXPIRED", "Suất chiếu đã kết thúc, vé đã hết thời gian check-in");
+            return emptyResult(false, "EXPIRED", "Suất chiếu đã kết thúc quá 30 phút, vé đã hết hạn check-in");
 
-        int updated = bookings.atomicCheckIn(booking.getId(), now, operatorEmail);
-        if (updated == 0) {
-            return checkInResult(booking, false, "ALREADY_CHECKED_IN", "Vé đã được check-in trước đó");
-        }
+        return null;
+    }
 
-        String earlyNote = now.isBefore(booking.getShowtime().getStartTime().minusHours(2))
-                ? " Check-in sớm hơn 2 giờ so với suất chiếu."
-                : "";
-        return checkInResult(booking, true, "CHECKED_IN", "Check-in thành công." + earlyNote);
+    private CheckInResult checkInSeatResult(Booking booking, BookingSeat seat, boolean success, String status, String message) {
+        return new CheckInResult(
+                success, status, message,
+                seat.getTicketCode() != null ? seat.getTicketCode() : booking.getBookingCode(),
+                booking.getShowtime().getMovie().getTitle(),
+                booking.getShowtime().getAuditorium().getCinema().getName(),
+                booking.getShowtime().getAuditorium().getName(),
+                booking.getShowtime().getStartTime().format(DATE_TIME),
+                seat.getSeatLabel(),
+                booking.getUser().getFullName(),
+                seat.getCheckedInAt() == null ? null : seat.getCheckedInAt().format(DATE_TIME),
+                seat.getCheckedInBy()
+        );
     }
 
     public String newQrToken() {
@@ -98,20 +215,8 @@ public class CheckInService {
         do {
             token = UUID.randomUUID().toString().replace("-", "")
                     + UUID.randomUUID().toString().replace("-", "");
-        } while (bookings.findByQrToken(token).isPresent());
+        } while (bookings.findByQrToken(token).isPresent() || bookingSeats.findByQrToken(token).isPresent());
         return token;
-    }
-
-    private CheckInResult checkInResult(Booking booking, boolean success, String status, String message) {
-        String seatLabels = booking.getSeats().stream()
-                .map(BookingSeat::getSeatLabel).filter(Objects::nonNull).reduce((a, b) -> a + ", " + b).orElse("—");
-        return new CheckInResult(
-                success, status, message, booking.getBookingCode(), booking.getShowtime().getMovie().getTitle(),
-                booking.getShowtime().getAuditorium().getCinema().getName(),
-                booking.getShowtime().getAuditorium().getName(),
-                booking.getShowtime().getStartTime().format(DATE_TIME), seatLabels, booking.getUser().getFullName(),
-                booking.getCheckedInAt() == null ? null : booking.getCheckedInAt().format(DATE_TIME),
-                booking.getCheckedInBy());
     }
 
     private CheckInResult emptyResult(boolean success, String status, String message) {

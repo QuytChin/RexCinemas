@@ -4,6 +4,7 @@ import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.*;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -279,6 +280,18 @@ public class AdminController {
         try {
             bookingService.cancelByAdmin(id);
             redirect.addFlashAttribute("success", "Đã hủy booking và trả ghế về hệ thống");
+        } catch (Exception ex) {
+            redirect.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/bookings";
+    }
+
+    @PostMapping("/bookings/{id}/refund")
+    String refundBooking(@PathVariable Long id, @RequestParam(required = false) String note,
+                         Authentication auth, RedirectAttributes redirect) {
+        try {
+            bookingService.processRefund(id, auth.getName(), note);
+            redirect.addFlashAttribute("success", "Đã duyệt và xác nhận hoàn tiền cho booking #" + id);
         } catch (Exception ex) {
             redirect.addFlashAttribute("error", ex.getMessage());
         }

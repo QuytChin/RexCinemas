@@ -142,6 +142,9 @@ public class BookingService {
             bookingSeat.setShowtimeSeat(seat);
             bookingSeat.setSeatLabel(seat.getSeat().getLabel());
             bookingSeat.setPrice(seat.getPrice());
+            bookingSeat.setTicketCode("TKT-" + booking.getBookingCode() + "-" + seat.getSeat().getLabel());
+            bookingSeat.setQrToken(checkInService.newQrToken());
+            bookingSeat.setCheckedIn(false);
             booking.getSeats().add(bookingSeat);
         }
 
@@ -221,8 +224,18 @@ public class BookingService {
     }
 
     @Transactional
+    public String seatQrPayloadFor(Long bookingId, Long seatId) {
+        return checkInService.seatQrPayloadFor(bookingId, seatId);
+    }
+
+    @Transactional
     public CheckInResult checkInTicket(String rawCode, String operatorEmail) {
         return checkInService.checkInTicket(rawCode, operatorEmail);
+    }
+
+    @Transactional
+    public Booking processRefund(Long bookingId, String operatorEmail, String note) {
+        return paymentService.processRefund(bookingId, operatorEmail, note);
     }
 
     /* ──────────────────────── SCHEDULED: RELEASE EXPIRED ──────────────────────── */

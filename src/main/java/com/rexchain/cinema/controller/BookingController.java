@@ -105,6 +105,20 @@ public class BookingController {
     @GetMapping("/bookings/{id}")
     String ticket(@PathVariable Long id, Authentication auth, Model model) {
         Booking booking = authorizedBooking(id, auth);
+        boolean changed = false;
+        for (BookingSeat s : booking.getSeats()) {
+            if (s.getTicketCode() == null || s.getTicketCode().isBlank()) {
+                s.setTicketCode("TKT-" + booking.getBookingCode() + "-" + s.getSeatLabel());
+                changed = true;
+            }
+            if (s.getQrToken() == null || s.getQrToken().isBlank()) {
+                s.setQrToken(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""));
+                changed = true;
+            }
+        }
+        if (changed) {
+            bookings.save(booking);
+        }
         model.addAttribute("booking", booking);
         return "booking/ticket";
     }
@@ -118,6 +132,17 @@ public class BookingController {
                 .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePrivate())
                 .contentType(MediaType.IMAGE_PNG)
                 .body(qrCodes.png(payload, 420));
+    }
+
+    @GetMapping(value = "/bookings/{id}/seats/{seatId}/qr", produces = MediaType.IMAGE_PNG_VALUE)
+    @ResponseBody
+    ResponseEntity<byte[]> seatTicketQr(@PathVariable Long id, @PathVariable Long seatId, Authentication auth) {
+        authorizedBooking(id, auth);
+        String payload = service.seatQrPayloadFor(id, seatId);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePrivate())
+                .contentType(MediaType.IMAGE_PNG)
+                .body(qrCodes.png(payload, 300));
     }
 
     private Booking authorizedBooking(Long id, Authentication auth) {

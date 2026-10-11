@@ -14,8 +14,23 @@
             <td><div><span th:each="s,i:${b.seats}" th:text="${s.seatLabel+(i.last?'':', ')}"></span></div><div class="small text-secondary" th:if="${b.comboAmount.signum()>0}" th:text="${'Combo: '+#numbers.formatDecimal(b.comboAmount,0,'COMMA',0,'POINT')+'đ'}"></div></td>
             <td><span th:text="${b.paymentMethod}"></span><div class="small text-secondary" th:if="${b.paymentReference!=null}" th:text="${b.paymentReference}"></div><div class="small" th:if="${b.voucherCode!=null}" th:text="${'Voucher: '+b.voucherCode}"></div></td>
             <td><strong th:text="${#numbers.formatDecimal(b.totalAmount,0,'COMMA',0,'POINT')+'đ'}"></strong></td>
-            <td><span class="badge" th:classappend="${b.status.name()=='CONFIRMED'?' text-bg-success':(b.status.name()=='PENDING'?' text-bg-warning':' text-bg-secondary')}" th:text="${b.status}"></span><div class="mt-2"><span class="badge text-bg-info" th:if="${b.checkedIn}">ĐÃ CHECK-IN</span><span class="badge text-bg-dark border" th:if="${b.status.name()=='CONFIRMED' and !b.checkedIn}">CHƯA CHECK-IN</span></div><div class="small text-secondary mt-1" th:if="${b.checkedInAt!=null}" th:text="${#temporals.format(b.checkedInAt,'HH:mm dd/MM')}"></div></td>
-            <td><div class="d-grid gap-2"><a class="btn btn-sm btn-outline-light" th:href="@{'/bookings/'+${b.id}}">Xem vé / QR</a><form th:if="${b.status.name()!='CANCELLED' and !b.checkedIn}" th:action="@{'/admin/bookings/'+${b.id}+'/cancel'}" method="post" onsubmit="return confirm('Hủy booking này và trả ghế?')"><button class="btn btn-sm btn-outline-danger w-100">Hủy</button></form></div></td>
+            <td>
+                <span class="badge" th:classappend="${b.status.name()=='CONFIRMED'?' text-bg-success':(b.status.name()=='PENDING'?' text-bg-warning':(b.status.name()=='REFUND_PENDING'?' text-bg-danger text-white':(b.status.name()=='REFUNDED'?' text-bg-info':' text-bg-secondary')))}" th:text="${b.status}"></span>
+                <div class="mt-2"><span class="badge text-bg-info" th:if="${b.checkedIn}">ĐÃ CHECK-IN</span><span class="badge text-bg-dark border" th:if="${b.status.name()=='CONFIRMED' and !b.checkedIn}">CHƯA CHECK-IN</span></div>
+                <div class="small text-secondary mt-1" th:if="${b.checkedInAt!=null}" th:text="${#temporals.format(b.checkedInAt,'HH:mm dd/MM')}"></div>
+                <div class="small text-warning mt-1" th:if="${b.refundedAt!=null}" th:text="${'Hoàn: '+#temporals.format(b.refundedAt,'HH:mm dd/MM')}"></div>
+            </td>
+            <td>
+                <div class="d-grid gap-2">
+                    <a class="btn btn-sm btn-outline-light" th:href="@{'/bookings/'+${b.id}}">Xem vé / QR</a>
+                    <form th:if="${b.status.name()=='REFUND_PENDING'}" th:action="@{'/admin/bookings/'+${b.id}+'/refund'}" method="post" onsubmit="return confirm('Xác nhận đã hoàn tiền cho khách hàng?')">
+                        <button class="btn btn-sm btn-warning w-100">Duyệt hoàn tiền</button>
+                    </form>
+                    <form th:if="${b.status.name()!='CANCELLED' and b.status.name()!='REFUND_PENDING' and b.status.name()!='REFUNDED' and !b.checkedIn}" th:action="@{'/admin/bookings/'+${b.id}+'/cancel'}" method="post" onsubmit="return confirm('Hủy booking này và trả ghế?')">
+                        <button class="btn btn-sm btn-outline-danger w-100">Hủy</button>
+                    </form>
+                </div>
+            </td>
         </tr>
     </tbody></table></div>
 </main><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
