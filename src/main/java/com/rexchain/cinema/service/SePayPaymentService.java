@@ -56,5 +56,7 @@ public class SePayPaymentService {
                 .toUriString();
     }
 
+    public String bankAccount() { return properties.getBankAccount(); }
+
     private boolean blank(String value) { return value == null || value.isBlank(); }
 }

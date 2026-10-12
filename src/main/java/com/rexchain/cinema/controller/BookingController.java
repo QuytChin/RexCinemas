@@ -5,6 +5,7 @@ import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.BookingService;
 import com.rexchain.cinema.service.QrCodeService;
+import com.rexchain.cinema.service.VnpayPaymentService;
 import com.rexchain.cinema.config.SePayProperties;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
@@ -28,11 +29,12 @@ public class BookingController {
     private final ComboProductRepository combos;
     private final QrCodeService qrCodes;
     private final SePayProperties sepayProperties;
+    private final VnpayPaymentService vnpay;
 
     public BookingController(ShowtimeRepository showtimes, ShowtimeSeatRepository showSeats,
                              UserRepository users, BookingRepository bookings, BookingService service,
                              ComboProductRepository combos, QrCodeService qrCodes,
-                             SePayProperties sepayProperties) {
+                             SePayProperties sepayProperties, VnpayPaymentService vnpay) {
         this.showtimes = showtimes;
         this.showSeats = showSeats;
         this.users = users;
@@ -41,6 +43,7 @@ public class BookingController {
         this.combos = combos;
         this.qrCodes = qrCodes;
         this.sepayProperties = sepayProperties;
+        this.vnpay = vnpay;
     }
 
     @GetMapping("/booking/{showtimeId}")
@@ -165,6 +168,7 @@ public class BookingController {
         model.addAttribute("sepayEnabled", sepayProperties.isEnabled()
                 && sepayProperties.getBankAccount() != null && !sepayProperties.getBankAccount().isBlank()
                 && sepayProperties.getBankCode() != null && !sepayProperties.getBankCode().isBlank());
+        model.addAttribute("vnpayEnabled", vnpay.configured());
     }
 
     private User current(Authentication auth) {

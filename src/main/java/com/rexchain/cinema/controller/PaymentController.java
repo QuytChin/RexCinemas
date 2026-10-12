@@ -93,6 +93,7 @@ public class PaymentController {
         try {
             sepay.requireAvailable();
             model.addAttribute("booking", booking);
+            model.addAttribute("bankAccount", sepay.bankAccount());
             model.addAttribute("qrImageUrl", sepay.qrImageUrl(booking.getPaymentReference(), booking.getTotalAmount()));
             return "booking/bank-qr-waiting";
         } catch (Exception ex) {
