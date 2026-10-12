@@ -83,6 +83,8 @@ public class BookingService {
             throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ");
         LocalDateTime now = LocalDateTime.now();
         User user = users.findById(userId).orElseThrow();
+        if (user.getRole() == Role.CUSTOMER && method == PaymentMethod.PAY_AT_COUNTER)
+            throw new IllegalArgumentException("Khách hàng cần chọn phương thức thanh toán trực tuyến");
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(now))
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
