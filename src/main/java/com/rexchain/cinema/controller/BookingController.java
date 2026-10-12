@@ -5,6 +5,7 @@ import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.BookingService;
 import com.rexchain.cinema.service.QrCodeService;
+import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -49,25 +50,25 @@ public class BookingController {
 
     @PostMapping("/api/showtimes/{showtimeId}/hold")
     @ResponseBody
-    ResponseEntity<?> hold(@PathVariable Long showtimeId, @RequestBody HoldRequest req, Authentication auth) {
+    ResponseEntity<?> hold(@PathVariable Long showtimeId, @Valid @RequestBody HoldRequest req, Authentication auth) {
         try {
             User user = current(auth);
             service.holdSeats(user.getId(), showtimeId, req.seatIds());
             return ResponseEntity.ok(Map.of("message", "Đã giữ ghế trong 5 phút"));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", safeMessage(ex, "Không thể giữ ghế")));
         }
     }
 
     @PostMapping("/api/showtimes/{showtimeId}/release")
     @ResponseBody
-    ResponseEntity<?> release(@PathVariable Long showtimeId, @RequestBody HoldRequest req, Authentication auth) {
+    ResponseEntity<?> release(@PathVariable Long showtimeId, @Valid @RequestBody HoldRequest req, Authentication auth) {
         try {
             User user = current(auth);
             service.releaseOwnHolds(user.getId(), showtimeId, req.seatIds());
             return ResponseEntity.ok(Map.of("message", "Đã trả ghế"));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", safeMessage(ex, "Không thể trả ghế")));
         }
     }
 
@@ -90,7 +91,7 @@ public class BookingController {
             return "redirect:/bookings/" + booking.getId() + "?success";
         } catch (Exception ex) {
             service.releaseOwnHolds(user.getId(), showtimeId, ids);
-            model.addAttribute("error", ex.getMessage() + ". Ghế đã được trả lại, vui lòng chọn lại.");
+            model.addAttribute("error", safeMessage(ex, "Không thể tạo booking") + ". Ghế đã được trả lại, vui lòng chọn lại.");
             loadBooking(model, showtimeId);
             return "booking/seat-map";
         }
@@ -162,5 +163,10 @@ public class BookingController {
     private User current(Authentication auth) {
         if (auth == null) throw new IllegalStateException("Bạn cần đăng nhập");
         return users.findByEmailIgnoreCase(auth.getName()).orElseThrow();
+    }
+
+    private String safeMessage(Exception exception, String fallback) {
+        return exception instanceof IllegalArgumentException || exception instanceof IllegalStateException
+                ? Objects.requireNonNullElse(exception.getMessage(), fallback) : fallback;
     }
 }

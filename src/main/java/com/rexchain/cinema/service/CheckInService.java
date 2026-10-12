@@ -119,7 +119,7 @@ public class CheckInService {
     }
 
     private CheckInResult checkInSingleSeat(BookingSeat seat, LocalDateTime now, String operatorEmail) {
-        Booking booking = seat.getBooking();
+        Booking booking = bookings.findByIdForUpdate(seat.getBooking().getId()).orElseThrow();
         CheckInResult statusCheck = validateBookingStatus(booking, now);
         if (statusCheck != null) return statusCheck;
 
@@ -139,7 +139,7 @@ public class CheckInService {
         seat.setCheckedInBy(operatorEmail);
 
         // Nếu tất cả ghế trong đoàn đã vào cổng thì đánh dấu cả booking
-        boolean allCheckedIn = booking.getSeats().stream().allMatch(BookingSeat::isCheckedIn);
+        boolean allCheckedIn = bookingSeats.countByBookingIdAndCheckedInFalse(booking.getId()) == 0;
         if (allCheckedIn && !booking.isCheckedIn()) {
             bookings.atomicCheckIn(booking.getId(), now, operatorEmail);
         }
@@ -149,12 +149,16 @@ public class CheckInService {
     }
 
     private CheckInResult checkInGroupBooking(Booking booking, LocalDateTime now, String operatorEmail) {
+        booking = bookings.findByIdForUpdate(booking.getId()).orElseThrow();
         CheckInResult statusCheck = validateBookingStatus(booking, now);
         if (statusCheck != null) return statusCheck;
 
-        // Atomic check-in tất cả các ghế còn lại trong booking
+        // Claim the group ticket first. Exactly one gate can change NULL -> checked-in.
+        int claimed = bookings.atomicCheckIn(booking.getId(), now, operatorEmail);
+        if (claimed == 0) {
+            return emptyResult(false, "ALREADY_CHECKED_IN", "Vé đoàn đã được check-in trước đó");
+        }
         bookingSeats.atomicCheckInAllSeats(booking.getId(), now, operatorEmail);
-        bookings.atomicCheckIn(booking.getId(), now, operatorEmail);
 
         booking.setCheckedInAt(now);
         booking.setCheckedInBy(operatorEmail);
@@ -185,8 +189,14 @@ public class CheckInService {
             return emptyResult(false, "EXPIRED", "Vé đã hết hạn và không còn hiệu lực");
         if (booking.getStatus() == BookingStatus.REFUND_PENDING || booking.getStatus() == BookingStatus.REFUNDED)
             return emptyResult(false, "REFUNDED", "Vé đã hoặc đang trong quá trình hoàn tiền, không thể check-in");
+        if (booking.getStatus() != BookingStatus.CONFIRMED)
+            return emptyResult(false, "INVALID_STATUS", "Trạng thái vé không hợp lệ để check-in");
 
-        LocalDateTime endTime = booking.getShowtime().getStartTime()
+        LocalDateTime startTime = booking.getShowtime().getStartTime();
+        if (now.isBefore(startTime.minusMinutes(60)))
+            return emptyResult(false, "TOO_EARLY", "Chỉ có thể check-in trong vòng 60 phút trước giờ chiếu");
+
+        LocalDateTime endTime = startTime
                 .plusMinutes(booking.getShowtime().getMovie().getDurationMinutes())
                 .plusMinutes(30);
         if (now.isAfter(endTime))

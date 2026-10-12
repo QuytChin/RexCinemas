@@ -22,13 +22,16 @@ public class SeatReservationService {
 
     private final ShowtimeSeatRepository seats;
     private final ShowtimeRepository showtimes;
+    private final com.rexchain.cinema.repository.BookingSeatRepository bookingSeats;
     private final SeatBroadcastService broadcast;
 
     public SeatReservationService(ShowtimeSeatRepository seats,
                                   ShowtimeRepository showtimes,
+                                  com.rexchain.cinema.repository.BookingSeatRepository bookingSeats,
                                   SeatBroadcastService broadcast) {
         this.seats = seats;
         this.showtimes = showtimes;
+        this.bookingSeats = bookingSeats;
         this.broadcast = broadcast;
     }
 
@@ -48,11 +51,19 @@ public class SeatReservationService {
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(now))
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
 
-        List<ShowtimeSeat> list = seats.findByIdInForUpdate(ids);
-        if (list.size() != ids.size())
+        List<Long> requestedIds = ids.stream().filter(Objects::nonNull).distinct().sorted().toList();
+        if (requestedIds.size() != ids.size())
+            throw new IllegalArgumentException("Danh sách ghế có dữ liệu trùng hoặc không hợp lệ");
+
+        // Lock one stable seat-map snapshot so two concurrent selections cannot bypass the orphan rule.
+        List<ShowtimeSeat> allSeats = seats.findByShowtimeIdForUpdate(showtimeId);
+        Map<Long, ShowtimeSeat> byId = allSeats.stream()
+                .collect(Collectors.toMap(ShowtimeSeat::getId, seat -> seat));
+        List<ShowtimeSeat> list = requestedIds.stream().map(byId::get).filter(Objects::nonNull).toList();
+        if (list.size() != requestedIds.size())
             throw new IllegalArgumentException("Ghế không hợp lệ");
 
-        validateNoOrphanSeats(showtimeId, list, now);
+        validateNoOrphanSeats(list, allSeats, now);
 
         for (ShowtimeSeat seat : list) {
             if (!seat.getShowtime().getId().equals(showtimeId))
@@ -77,7 +88,7 @@ public class SeatReservationService {
             seat.setHoldUntil(now.plusMinutes(5));
         }
         seats.saveAllAndFlush(list);
-        broadcast.send(showtimeId, ids, "HELD");
+        broadcast.send(showtimeId, requestedIds, "HELD");
     }
 
     /**
@@ -87,7 +98,8 @@ public class SeatReservationService {
     public void releaseOwnHolds(Long userId, Long showtimeId, List<Long> ids) {
         if (ids == null || ids.isEmpty())
             return;
-        List<ShowtimeSeat> list = seats.findByIdIn(ids);
+        List<Long> requestedIds = ids.stream().filter(Objects::nonNull).distinct().sorted().toList();
+        List<ShowtimeSeat> list = seats.findByIdInForUpdate(requestedIds);
         List<Long> released = new ArrayList<>();
         for (ShowtimeSeat seat : list) {
             if (seat.getShowtime().getId().equals(showtimeId)
@@ -110,17 +122,29 @@ public class SeatReservationService {
      */
     @Transactional
     public void releaseBookingSeats(Booking booking) {
+        List<Long> bookingSeatIds = booking.getSeats().stream()
+                .map(BookingSeat::getShowtimeSeat)
+                .filter(Objects::nonNull)
+                .map(ShowtimeSeat::getId)
+                .distinct().sorted().toList();
+        if (bookingSeatIds.isEmpty()) return;
+
+        List<ShowtimeSeat> lockedSeats = seats.findByIdInForUpdate(bookingSeatIds);
         List<Long> ids = new ArrayList<>();
-        for (BookingSeat bookingSeat : booking.getSeats()) {
-            ShowtimeSeat seat = bookingSeat.getShowtimeSeat();
-            if (seat.getStatus() == SeatStatus.BOOKED || seat.getStatus() == SeatStatus.HELD) {
+        for (ShowtimeSeat seat : lockedSeats) {
+            boolean ownedHold = seat.getStatus() == SeatStatus.HELD
+                    && Objects.equals(seat.getHeldByUserId(), booking.getUser().getId());
+            boolean bookedByAnotherConfirmedBooking = seat.getStatus() == SeatStatus.BOOKED
+                    && bookingSeats.existsByShowtimeSeatIdAndBookingStatusAndBookingIdNot(
+                        seat.getId(), com.rexchain.cinema.entity.BookingStatus.CONFIRMED, booking.getId());
+            if ((seat.getStatus() == SeatStatus.BOOKED && !bookedByAnotherConfirmedBooking) || ownedHold) {
                 seat.setStatus(SeatStatus.AVAILABLE);
                 seat.setHeldByUserId(null);
                 seat.setHoldUntil(null);
-                seats.save(seat);
                 ids.add(seat.getId());
             }
         }
+        seats.saveAll(lockedSeats);
         if (!ids.isEmpty()) {
             broadcast.send(booking.getShowtime().getId(), ids, "AVAILABLE");
         }
@@ -131,7 +155,14 @@ public class SeatReservationService {
      */
     @Transactional
     public void releaseExpiredHolds() {
-        List<ShowtimeSeat> expired = seats.findByStatusAndHoldUntilBefore(SeatStatus.HELD, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        List<Long> candidateIds = seats.findByStatusAndHoldUntilBefore(SeatStatus.HELD, now).stream()
+                .map(ShowtimeSeat::getId).distinct().sorted().toList();
+        if (candidateIds.isEmpty()) return;
+        List<ShowtimeSeat> expired = seats.findByIdInForUpdate(candidateIds).stream()
+                .filter(seat -> seat.getStatus() == SeatStatus.HELD)
+                .filter(seat -> seat.getHoldUntil() != null && seat.getHoldUntil().isBefore(now))
+                .toList();
         if (!expired.isEmpty()) {
             Map<Long, List<Long>> byShowtime = new HashMap<>();
             for (ShowtimeSeat seat : expired) {
@@ -149,11 +180,17 @@ public class SeatReservationService {
      * Thuật toán kiểm tra không để lại 1 ghế trống đơn lẻ (Orphan Seat Rule).
      */
     public void validateNoOrphanSeats(Long showtimeId, List<ShowtimeSeat> selectedSeats, LocalDateTime now) {
+        validateNoOrphanSeats(selectedSeats,
+                seats.findByShowtimeIdOrderBySeatSeatRowAscSeatSeatNumberAsc(showtimeId), now);
+    }
+
+    private void validateNoOrphanSeats(List<ShowtimeSeat> selectedSeats,
+                                       List<ShowtimeSeat> allSeats,
+                                       LocalDateTime now) {
         Set<String> affectedRows = selectedSeats.stream()
                 .map(s -> s.getSeat().getSeatRow())
                 .collect(Collectors.toSet());
 
-        List<ShowtimeSeat> allSeats = seats.findByShowtimeIdOrderBySeatSeatRowAscSeatSeatNumberAsc(showtimeId);
         Set<Long> selectedIds = selectedSeats.stream().map(ShowtimeSeat::getId).collect(Collectors.toSet());
 
         Map<String, List<ShowtimeSeat>> seatsByRow = allSeats.stream()

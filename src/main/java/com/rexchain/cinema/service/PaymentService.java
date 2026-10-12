@@ -8,15 +8,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
-/**
- * Dịch vụ xử lý thanh toán, callback/webhook idempotency, điểm thưởng thành viên và đối soát voucher.
- */
+/** Coordinates the atomic, idempotent settlement of a booking. */
 @Service
 public class PaymentService {
-
     private final BookingRepository bookings;
     private final ShowtimeSeatRepository seats;
     private final UserRepository users;
@@ -25,12 +22,9 @@ public class PaymentService {
     private final SeatBroadcastService broadcast;
     private final SeatReservationService seatReservationService;
 
-    public PaymentService(BookingRepository bookings,
-                          ShowtimeSeatRepository seats,
-                          UserRepository users,
-                          ComboProductRepository combos,
-                          VoucherRepository vouchers,
-                          SeatBroadcastService broadcast,
+    public PaymentService(BookingRepository bookings, ShowtimeSeatRepository seats,
+                          UserRepository users, ComboProductRepository combos,
+                          VoucherRepository vouchers, SeatBroadcastService broadcast,
                           SeatReservationService seatReservationService) {
         this.bookings = bookings;
         this.seats = seats;
@@ -41,134 +35,184 @@ public class PaymentService {
         this.seatReservationService = seatReservationService;
     }
 
-    /**
-     * Hoàn tất thanh toán trực tuyến (MoMo/VNPAY) với khóa bi quan và bảo vệ Idempotency.
-     */
     @Transactional
     public Booking completeOnlinePayment(String bookingCode, String reference) {
-        // PESSIMISTIC_WRITE — ngăn chặn race condition khi Webhook IPN và Return URL gọi đồng thời
-        Booking booking = bookings.findByBookingCodeForUpdate(bookingCode).orElseThrow();
+        String normalizedReference = requireReference(reference);
+        Booking booking = bookings.findByBookingCodeForUpdate(bookingCode)
+                .orElseThrow(() -> new IllegalArgumentException("Booking không tồn tại"));
 
-        // Idempotency: nếu đơn đã được xác nhận trước đó thì bỏ qua
-        if (booking.getStatus() == BookingStatus.CONFIRMED)
+        if (booking.getStatus() == BookingStatus.CONFIRMED
+                || booking.getStatus() == BookingStatus.REFUND_PENDING
+                || booking.getStatus() == BookingStatus.REFUNDED) {
+            verifySameReference(booking, normalizedReference);
             return booking;
-
-        // Thanh toán đến trễ sau khi đơn đã bị cron job đánh dấu EXPIRED -> chuyển REFUND_PENDING
-        if (booking.getStatus() == BookingStatus.EXPIRED) {
-            booking.setStatus(BookingStatus.REFUND_PENDING);
-            booking.setPaymentReference(reference);
-            booking.setPaidAt(LocalDateTime.now());
-            return bookings.save(booking);
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        if (booking.getStatus() == BookingStatus.EXPIRED
+                || booking.getStatus() == BookingStatus.CANCELLED
+                || (booking.getStatus() == BookingStatus.PENDING
+                    && booking.getExpiresAt() != null && !booking.getExpiresAt().isAfter(now))) {
+            return markPaidForRefund(booking, normalizedReference, now);
+        }
         if (booking.getStatus() != BookingStatus.PENDING)
             throw new IllegalStateException("Booking không còn chờ thanh toán");
 
-        booking.setStatus(BookingStatus.CONFIRMED);
-        booking.setPaymentReference(reference);
-        booking.setPaidAt(LocalDateTime.now());
+        List<Long> seatIds = booking.getSeats().stream()
+                .map(bs -> bs.getShowtimeSeat().getId()).distinct().sorted().toList();
+        List<ShowtimeSeat> lockedSeats = seats.findByIdInForUpdate(seatIds);
+        boolean seatHoldValid = lockedSeats.size() == seatIds.size()
+                && lockedSeats.stream().allMatch(seat -> seat.getStatus() == SeatStatus.HELD
+                    && Objects.equals(seat.getHeldByUserId(), booking.getUser().getId())
+                    && seat.getHoldUntil() != null && seat.getHoldUntil().isAfter(now));
+        if (!seatHoldValid) return markPaidForRefund(booking, normalizedReference, now);
 
-        // Chuyển trạng thái ghế từ HELD → BOOKED
-        List<Long> seatIds = new ArrayList<>();
-        for (BookingSeat bs : booking.getSeats()) {
-            ShowtimeSeat seat = bs.getShowtimeSeat();
+        Map<Long, Integer> requiredStock = booking.getCombos().stream()
+                .filter(line -> line.getCombo() != null)
+                .collect(Collectors.toMap(line -> line.getCombo().getId(), BookingCombo::getQuantity, Integer::sum));
+        List<ComboProduct> lockedCombos = requiredStock.isEmpty() ? List.of()
+                : combos.findByIdInForUpdate(requiredStock.keySet().stream().sorted().toList());
+        boolean stockAvailable = lockedCombos.size() == requiredStock.size()
+                && lockedCombos.stream().allMatch(combo -> combo.isActive()
+                    && combo.getStockQuantity() >= requiredStock.get(combo.getId()));
+
+        Voucher lockedVoucher = booking.getVoucherCode() == null ? null
+                : vouchers.findByCodeIgnoreCaseForUpdate(booking.getVoucherCode()).orElse(null);
+        boolean voucherAvailable = booking.getVoucherCode() == null || (lockedVoucher != null
+                && lockedVoucher.isActive()
+                && (lockedVoucher.getUsageLimit() == null
+                    || lockedVoucher.getUsedCount() < lockedVoucher.getUsageLimit()));
+        if (!stockAvailable || !voucherAvailable)
+            return markPaidForRefund(booking, normalizedReference, now);
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setPaymentReference(normalizedReference);
+        booking.setPaidAt(now);
+        booking.setExpiresAt(null);
+
+        for (ShowtimeSeat seat : lockedSeats) {
             seat.setStatus(SeatStatus.BOOKED);
             seat.setHeldByUserId(null);
             seat.setHoldUntil(null);
-            seats.save(seat);
-            seatIds.add(seat.getId());
         }
-        if (!seatIds.isEmpty()) {
-            broadcast.send(booking.getShowtime().getId(), seatIds, "BOOKED");
+        seats.saveAll(lockedSeats);
+        if (!seatIds.isEmpty()) broadcast.send(booking.getShowtime().getId(), seatIds, "BOOKED");
+
+        for (ComboProduct combo : lockedCombos)
+            combo.setStockQuantity(combo.getStockQuantity() - requiredStock.get(combo.getId()));
+        combos.saveAll(lockedCombos);
+        if (lockedVoucher != null) {
+            lockedVoucher.setUsedCount(lockedVoucher.getUsedCount() + 1);
+            vouchers.save(lockedVoucher);
         }
-
-        // Trừ tồn kho F&B sau khi thanh toán thành công
-        for (BookingCombo bc : booking.getCombos()) {
-            ComboProduct cp = bc.getCombo();
-            if (cp != null) {
-                cp.setStockQuantity(Math.max(0, cp.getStockQuantity() - bc.getQuantity()));
-                combos.save(cp);
-            }
-        }
-
-        if (booking.getVoucherCode() != null)
-            vouchers.findByCodeIgnoreCase(booking.getVoucherCode()).ifPresent(this::incrementVoucher);
-
         awardPoints(booking);
         return bookings.save(booking);
     }
 
-    /**
-     * Hủy giao dịch thanh toán online (khách hủy hoặc thanh toán thất bại).
-     */
     @Transactional
     public Booking cancelOnlinePayment(String bookingCode) {
-        Booking booking = bookings.findByBookingCode(bookingCode).orElseThrow();
-        if (booking.getStatus() != BookingStatus.PENDING
-                && booking.getStatus() != BookingStatus.EXPIRED)
-            return booking;
+        Booking booking = bookings.findByBookingCodeForUpdate(bookingCode)
+                .orElseThrow(() -> new IllegalArgumentException("Booking không tồn tại"));
+        if (booking.getStatus() != BookingStatus.PENDING) return booking;
         booking.setStatus(BookingStatus.CANCELLED);
+        booking.setExpiresAt(null);
         seatReservationService.releaseBookingSeats(booking);
         return bookings.save(booking);
     }
 
-    /**
-     * Duyệt hoàn tiền cho đơn hàng (REFUND_PENDING hoặc đơn đã CANCELLED).
-     */
+    @Transactional
+    public void expirePendingBookings() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Long> ids = bookings.findByStatusAndExpiresAtBefore(BookingStatus.PENDING, now).stream()
+                .map(Booking::getId).sorted().toList();
+        for (Long id : ids) {
+            Booking booking = bookings.findByIdForUpdate(id).orElse(null);
+            if (booking == null || booking.getStatus() != BookingStatus.PENDING
+                    || booking.getExpiresAt() == null || booking.getExpiresAt().isAfter(now)) continue;
+            booking.setStatus(BookingStatus.EXPIRED);
+            seatReservationService.releaseBookingSeats(booking);
+            bookings.save(booking);
+        }
+    }
+
     @Transactional
     public Booking processRefund(Long bookingId, String operatorEmail, String note) {
-        Booking booking = bookings.findById(bookingId).orElseThrow();
-        if (booking.getStatus() != BookingStatus.REFUND_PENDING && booking.getStatus() != BookingStatus.CANCELLED) {
-            throw new IllegalStateException("Chỉ đơn hàng đang chờ hoàn tiền (REFUND_PENDING) hoặc đã hủy mới có thể duyệt hoàn tiền");
-        }
+        Booking booking = bookings.findByIdForUpdate(bookingId).orElseThrow();
+        boolean paidCancellation = booking.getStatus() == BookingStatus.CANCELLED && booking.getPaidAt() != null;
+        if (booking.getStatus() != BookingStatus.REFUND_PENDING && !paidCancellation)
+            throw new IllegalStateException("Chỉ giao dịch đã thu tiền và đang chờ hoàn mới có thể xác nhận hoàn tiền");
         booking.setStatus(BookingStatus.REFUNDED);
         booking.setRefundedAt(LocalDateTime.now());
         booking.setRefundedBy(operatorEmail);
-        booking.setRefundNote(note != null && !note.isBlank() ? note.trim() : "Đã duyệt hoàn tiền thành công qua cổng thanh toán/quầy");
+        booking.setRefundNote(note != null && !note.isBlank() ? note.trim() : "Đã xác nhận hoàn tiền");
         return bookings.save(booking);
     }
 
-    /**
-     * Cộng điểm thành viên Rex Member khi thanh toán thành công.
-     */
     public void awardPoints(Booking booking) {
-        if (booking.isPointsAwarded() || booking.getStatus() != BookingStatus.CONFIRMED)
-            return;
-        int points = booking.getTotalAmount().divide(BigDecimal.valueOf(10_000), 0, RoundingMode.DOWN).intValue();
-        if (points <= 0 && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0)
-            points = 1;
-        User user = booking.getUser();
+        if (booking.isPointsAwarded() || booking.getStatus() != BookingStatus.CONFIRMED) return;
+        User user = users.findByIdForUpdate(booking.getUser().getId()).orElseThrow();
+        int points = pointsFor(booking);
         user.setLoyaltyPoints(user.getLoyaltyPoints() + points);
         user.setLifetimePoints(user.getLifetimePoints() + points);
         users.save(user);
         booking.setPointsAwarded(true);
     }
 
-    /**
-     * Thu hồi điểm thành viên khi đơn hàng bị hủy bởi Admin.
-     */
     public void reversePoints(Booking booking) {
-        if (!booking.isPointsAwarded())
-            return;
-        int points = booking.getTotalAmount().divide(BigDecimal.valueOf(10_000), 0, RoundingMode.DOWN).intValue();
-        if (points <= 0 && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0)
-            points = 1;
-        User user = booking.getUser();
-        user.setLoyaltyPoints(Math.max(0, user.getLoyaltyPoints() - points));
-        user.setLifetimePoints(Math.max(0, user.getLifetimePoints() - points));
+        if (!booking.isPointsAwarded()) return;
+        User user = users.findByIdForUpdate(booking.getUser().getId()).orElseThrow();
+        int points = pointsFor(booking);
+        user.setLoyaltyPoints(user.getLoyaltyPoints() - points);
+        user.setLifetimePoints(user.getLifetimePoints() - points);
         users.save(user);
         booking.setPointsAwarded(false);
     }
 
     public void incrementVoucher(Voucher voucher) {
-        if (voucher.getUsageLimit() != null && voucher.getUsedCount() >= voucher.getUsageLimit())
-            return;
-        voucher.setUsedCount(voucher.getUsedCount() + 1);
-        vouchers.save(voucher);
+        Voucher locked = vouchers.findByIdForUpdate(voucher.getId()).orElseThrow();
+        if (locked.getUsageLimit() != null && locked.getUsedCount() >= locked.getUsageLimit())
+            throw new IllegalStateException("Voucher đã hết lượt sử dụng");
+        locked.setUsedCount(locked.getUsedCount() + 1);
+        vouchers.save(locked);
     }
 
     public void decrementVoucher(Voucher voucher) {
-        voucher.setUsedCount(Math.max(0, voucher.getUsedCount() - 1));
-        vouchers.save(voucher);
+        Voucher locked = vouchers.findByIdForUpdate(voucher.getId()).orElseThrow();
+        locked.setUsedCount(Math.max(0, locked.getUsedCount() - 1));
+        vouchers.save(locked);
+    }
+
+    private Booking markPaidForRefund(Booking booking, String reference, LocalDateTime paidAt) {
+        booking.setStatus(BookingStatus.REFUND_PENDING);
+        booking.setPaymentReference(normalizeReference(reference));
+        booking.setPaidAt(paidAt);
+        booking.setExpiresAt(null);
+        seatReservationService.releaseBookingSeats(booking);
+        return bookings.save(booking);
+    }
+
+    private void verifySameReference(Booking booking, String reference) {
+        String normalized = normalizeReference(reference);
+        if (booking.getPaymentReference() != null && normalized != null
+                && !booking.getPaymentReference().equals(normalized))
+            throw new IllegalStateException("Booking đã được xử lý bởi một giao dịch thanh toán khác");
+    }
+
+    private String normalizeReference(String reference) {
+        if (reference == null || reference.isBlank()) return null;
+        String value = reference.trim();
+        return value.length() > 120 ? value.substring(0, 120) : value;
+    }
+
+    private String requireReference(String reference) {
+        String normalized = normalizeReference(reference);
+        if (normalized == null)
+            throw new IllegalArgumentException("Mã giao dịch thanh toán không hợp lệ");
+        return normalized;
+    }
+
+    private int pointsFor(Booking booking) {
+        int points = booking.getTotalAmount().divide(BigDecimal.valueOf(10_000), 0, RoundingMode.DOWN).intValue();
+        return points <= 0 && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0 ? 1 : points;
     }
 }

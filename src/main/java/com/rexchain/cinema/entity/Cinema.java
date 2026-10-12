@@ -3,7 +3,8 @@ package com.rexchain.cinema.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name="cinemas")
+@Table(name="cinemas", uniqueConstraints =
+        @UniqueConstraint(name = "uk_cinemas_name_address", columnNames = {"name", "address"}))
 public class Cinema {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
     @Column(nullable=false, length=120) private String name;

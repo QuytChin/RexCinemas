@@ -6,6 +6,8 @@ import com.rexchain.cinema.service.*;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -102,6 +104,14 @@ public class AdminController {
             @RequestParam(required = false) String posterUrl,
             @RequestParam(required = false) String trailerUrl,
             @RequestParam(required = false) MultipartFile posterFile) throws Exception {
+        title = requiredText(title, "Tên phim", 180);
+        description = requiredText(description, "Mô tả phim", 10_000);
+        if (durationMinutes < 1 || durationMinutes > 600)
+            throw new IllegalArgumentException("Thời lượng phim phải từ 1 đến 600 phút");
+        boolean duplicateMovie = id == null
+                ? movies.existsByTitleIgnoreCaseAndReleaseDate(title, releaseDate)
+                : movies.existsByTitleIgnoreCaseAndReleaseDateAndIdNot(title, releaseDate, id);
+        if (duplicateMovie) throw new IllegalArgumentException("Phim và ngày phát hành đã tồn tại");
         Movie movie = id == null ? new Movie() : movies.findById(id).orElseThrow();
         movie.setTitle(title);
         movie.setDescription(description);
@@ -160,6 +170,13 @@ public class AdminController {
             @RequestParam String city,
             @RequestParam String address,
             @RequestParam(required = false) String phone) {
+        name = requiredText(name, "Tên rạp", 120);
+        city = requiredText(city, "Thành phố", 100);
+        address = requiredText(address, "Địa chỉ", 255);
+        boolean duplicateCinema = id == null
+                ? cinemas.existsByNameIgnoreCaseAndAddressIgnoreCase(name, address)
+                : cinemas.existsByNameIgnoreCaseAndAddressIgnoreCaseAndIdNot(name, address, id);
+        if (duplicateCinema) throw new IllegalArgumentException("Rạp với tên và địa chỉ này đã tồn tại");
         Cinema cinema = id == null ? new Cinema() : cinemas.findById(id).orElseThrow();
         cinema.setName(name);
         cinema.setCity(city);
@@ -216,6 +233,7 @@ public class AdminController {
     }
 
     @PostMapping("/showtimes/save")
+    @Transactional
     String showtimeSave(@RequestParam(required = false) Long id,
             @RequestParam Long movieId,
             @RequestParam Long auditoriumId,
@@ -254,6 +272,7 @@ public class AdminController {
             redirect.addFlashAttribute("success", create ? "Đã tạo suất chiếu và sơ đồ ghế" : "Đã cập nhật suất chiếu");
             return "redirect:/admin/showtimes";
         } catch (Exception ex) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             redirect.addFlashAttribute("error", ex.getMessage());
             return "redirect:/admin/showtimes" + (id == null ? "" : "?edit=" + id);
         }
@@ -340,12 +359,19 @@ public class AdminController {
             @RequestParam String name,
             @RequestParam(required = false) String description,
             @RequestParam BigDecimal price,
+             @RequestParam int stockQuantity,
             @RequestParam(required = false) String imageUrl,
             @RequestParam(required = false) MultipartFile imageFile) throws Exception {
+        name = requiredText(name, "Tên combo", 120);
+        if (price == null || price.compareTo(BigDecimal.ZERO) <= 0)
+            throw new IllegalArgumentException("Giá combo phải lớn hơn 0");
+        if (stockQuantity < 0 || stockQuantity > 1_000_000)
+            throw new IllegalArgumentException("Tồn kho phải từ 0 đến 1.000.000");
         ComboProduct combo = id == null ? new ComboProduct() : combos.findById(id).orElseThrow();
         combo.setName(name);
         combo.setDescription(description);
         combo.setPrice(price);
+        combo.setStockQuantity(stockQuantity);
         if (imageFile != null && !imageFile.isEmpty())
             combo.setImageUrl(cloudinary.uploadComboImage(imageFile));
         else if (imageUrl != null && !imageUrl.isBlank())
@@ -381,8 +407,23 @@ public class AdminController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime validFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime validUntil,
             @RequestParam(required = false) Integer usageLimit) {
+        code = requiredText(code, "Mã voucher", 40).toUpperCase();
+        name = requiredText(name, "Tên voucher", 160);
+        if (discountValue == null || discountValue.compareTo(BigDecimal.ZERO) <= 0
+                || (discountType == DiscountType.PERCENT && discountValue.compareTo(BigDecimal.valueOf(100)) > 0))
+            throw new IllegalArgumentException("Giá trị voucher không hợp lệ");
+        if (minOrderAmount != null && minOrderAmount.compareTo(BigDecimal.ZERO) < 0
+                || maxDiscountAmount != null && maxDiscountAmount.compareTo(BigDecimal.ZERO) < 0)
+            throw new IllegalArgumentException("Giá trị đơn tối thiểu/giảm tối đa không được âm");
+        if (usageLimit != null && usageLimit <= 0)
+            throw new IllegalArgumentException("Giới hạn lượt dùng phải lớn hơn 0");
+        if (validFrom != null && validUntil != null && !validUntil.isAfter(validFrom))
+            throw new IllegalArgumentException("Thời gian kết thúc phải sau thời gian bắt đầu");
+        boolean duplicateVoucher = id == null ? vouchers.existsByCodeIgnoreCase(code)
+                : vouchers.existsByCodeIgnoreCaseAndIdNot(code, id);
+        if (duplicateVoucher) throw new IllegalArgumentException("Mã voucher đã tồn tại");
         Voucher voucher = id == null ? new Voucher() : vouchers.findById(id).orElseThrow();
-        voucher.setCode(code.trim().toUpperCase());
+        voucher.setCode(code);
         voucher.setName(name);
         voucher.setDiscountType(discountType);
         voucher.setDiscountValue(discountValue);
@@ -413,6 +454,14 @@ public class AdminController {
     String deleteReview(@PathVariable Long id) {
         reviews.deleteById(id);
         return "redirect:/admin/reviews";
+    }
+
+    private String requiredText(String value, String field, int maxLength) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) throw new IllegalArgumentException(field + " không được để trống");
+        if (normalized.length() > maxLength)
+            throw new IllegalArgumentException(field + " không được vượt quá " + maxLength + " ký tự");
+        return normalized;
     }
 
 }

@@ -51,7 +51,7 @@
                             <small th:if="${availableSeats[s.id] > 0}" th:text="${'Còn '+availableSeats[s.id]+'/'+totalSeats[s.id]+' ghế'}"></small>
                             <small class="text-danger" th:if="${availableSeats[s.id] == 0}">Hết ghế</small>
                         </div>
-                        <a sec:authorize="isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="btn btn-rex btn-sm" th:href="@{'/booking/'+${s.id}}">ĐẶT VÉ</a>
+                        <a sec:authorize="isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="btn btn-rex btn-sm btn-booking" th:href="@{'/booking/'+${s.id}}">ĐẶT VÉ</a>
                         <a sec:authorize="!isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="btn btn-rex btn-sm" th:href="@{/auth/login(returnUrl=${'/booking/'+s.id})}">ĐĂNG NHẬP & ĐẶT</a>
                         <button th:if="${availableSeats[s.id] == 0}" class="btn btn-outline-secondary btn-sm" disabled>HẾT GHẾ</button>
                     </div>

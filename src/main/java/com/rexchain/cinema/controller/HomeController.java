@@ -155,10 +155,15 @@ public class HomeController {
     private void populateAvailability(Model model, List<Showtime> list) {
         Map<Long, Long> availableSeats = new HashMap<>();
         Map<Long, Long> totalSeats = new HashMap<>();
-        for (Showtime showtime : list) {
-            availableSeats.put(showtime.getId(), showtimeSeats.countByShowtimeIdAndStatus(showtime.getId(), SeatStatus.AVAILABLE));
-            totalSeats.put(showtime.getId(), showtimeSeats.countByShowtimeId(showtime.getId()));
+        List<Long> ids = list.stream().map(Showtime::getId).distinct().toList();
+        if (!ids.isEmpty()) {
+            for (Object[] row : showtimeSeats.summarizeAvailability(ids)) {
+                Long id = (Long) row[0];
+                totalSeats.put(id, ((Number) row[1]).longValue());
+                availableSeats.put(id, ((Number) row[2]).longValue());
+            }
         }
+        ids.forEach(id -> { availableSeats.putIfAbsent(id, 0L); totalSeats.putIfAbsent(id, 0L); });
         model.addAttribute("availableSeats", availableSeats);
         model.addAttribute("totalSeats", totalSeats);
     }

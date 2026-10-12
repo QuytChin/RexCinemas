@@ -5,7 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "movies")
+@Table(name = "movies", uniqueConstraints =
+        @UniqueConstraint(name = "uk_movies_title_release_date", columnNames = {"title", "release_date"}))
 public class Movie {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

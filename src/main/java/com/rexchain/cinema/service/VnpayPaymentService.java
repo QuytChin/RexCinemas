@@ -1,14 +1,96 @@
 package com.rexchain.cinema.service;
-import com.rexchain.cinema.entity.Booking; import jakarta.servlet.http.HttpServletRequest; import org.springframework.beans.factory.annotation.Value; import org.springframework.stereotype.Service; import java.net.URLEncoder; import java.nio.charset.StandardCharsets; import java.time.*; import java.time.format.DateTimeFormatter; import java.util.*;
+
+import com.rexchain.cinema.entity.Booking;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Map;
+import java.util.TreeMap;
+
 @Service
-public class VnpayPaymentService{
- private final String paymentUrl,tmnCode,hashSecret,baseUrl;
- public VnpayPaymentService(@Value("${payment.vnpay.url}")String paymentUrl,@Value("${payment.vnpay.tmn-code:}")String tmnCode,@Value("${payment.vnpay.hash-secret:}")String hashSecret,@Value("${payment.base-url:http://localhost:8080}")String baseUrl){this.paymentUrl=paymentUrl;this.tmnCode=tmnCode;this.hashSecret=hashSecret;this.baseUrl=baseUrl;}
- public boolean configured(){return !tmnCode.isBlank()&&!hashSecret.isBlank();}
- public String createPaymentUrl(Booking b,HttpServletRequest req){if(!configured())throw new IllegalStateException("Chưa cấu hình VNPAY sandbox credentials");ZoneId zone=ZoneId.of("Asia/Ho_Chi_Minh");LocalDateTime now=LocalDateTime.now(zone);DateTimeFormatter fmt=DateTimeFormatter.ofPattern("yyyyMMddHHmmss");Map<String,String> p=new TreeMap<>();p.put("vnp_Version","2.1.0");p.put("vnp_Command","pay");p.put("vnp_TmnCode",tmnCode);p.put("vnp_Amount",b.getTotalAmount().multiply(java.math.BigDecimal.valueOf(100)).toBigInteger().toString());p.put("vnp_CurrCode","VND");p.put("vnp_TxnRef",b.getBookingCode());p.put("vnp_OrderInfo","Thanh toan ve "+b.getBookingCode());p.put("vnp_OrderType","other");p.put("vnp_Locale","vn");p.put("vnp_ReturnUrl",baseUrl+"/payment/callback/vnpay");p.put("vnp_IpAddr",clientIp(req));p.put("vnp_CreateDate",now.format(fmt));p.put("vnp_ExpireDate",now.plusMinutes(15).format(fmt));String hashData=raw(p);String query=query(p);return paymentUrl+"?"+query+"&vnp_SecureHash="+CryptoUtil.hmac("HmacSHA512",hashSecret,hashData);}
- public boolean verify(Map<String,String> input){String supplied=input.get("vnp_SecureHash");if(supplied==null)return false;Map<String,String> p=new TreeMap<>();input.forEach((k,v)->{if(k.startsWith("vnp_")&&!k.equals("vnp_SecureHash")&&!k.equals("vnp_SecureHashType")&&v!=null&&!v.isBlank())p.put(k,v);});return CryptoUtil.hmac("HmacSHA512",hashSecret,raw(p)).equalsIgnoreCase(supplied);}
- private String raw(Map<String,String> p){return p.entrySet().stream().filter(e->e.getValue()!=null&&!e.getValue().isBlank()).map(e->e.getKey()+"="+e.getValue()).reduce((a,b)->a+"&"+b).orElse("");}
- private String query(Map<String,String> p){return p.entrySet().stream().filter(e->e.getValue()!=null&&!e.getValue().isBlank()).map(e->enc(e.getKey())+"="+enc(e.getValue())).reduce((a,b)->a+"&"+b).orElse("");}
- private String enc(String s){return URLEncoder.encode(s,StandardCharsets.US_ASCII);}
- private String clientIp(HttpServletRequest r){String x=r.getHeader("X-Forwarded-For");if(x!=null&&!x.isBlank())return x.split(",")[0].trim();return r.getRemoteAddr()==null?"127.0.0.1":r.getRemoteAddr();}
+public class VnpayPaymentService {
+    private final String paymentUrl;
+    private final String tmnCode;
+    private final String hashSecret;
+    private final String baseUrl;
+
+    public VnpayPaymentService(@Value("${payment.vnpay.url}") String paymentUrl,
+                               @Value("${payment.vnpay.tmn-code:}") String tmnCode,
+                               @Value("${payment.vnpay.hash-secret:}") String hashSecret,
+                               @Value("${payment.base-url:http://localhost:8080}") String baseUrl) {
+        this.paymentUrl = paymentUrl;
+        this.tmnCode = tmnCode;
+        this.hashSecret = hashSecret;
+        this.baseUrl = baseUrl;
+    }
+
+    public boolean configured() {
+        return !tmnCode.isBlank() && !hashSecret.isBlank();
+    }
+
+    public String createPaymentUrl(Booking booking, HttpServletRequest request) {
+        if (!configured()) throw new IllegalStateException("Chưa cấu hình VNPAY sandbox credentials");
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+        Map<String, String> params = new TreeMap<>();
+        params.put("vnp_Version", "2.1.0");
+        params.put("vnp_Command", "pay");
+        params.put("vnp_TmnCode", tmnCode);
+        params.put("vnp_Amount", expectedAmount(booking));
+        params.put("vnp_CurrCode", "VND");
+        params.put("vnp_TxnRef", booking.getBookingCode());
+        params.put("vnp_OrderInfo", "Thanh toan ve " + booking.getBookingCode());
+        params.put("vnp_OrderType", "other");
+        params.put("vnp_Locale", "vn");
+        params.put("vnp_ReturnUrl", baseUrl + "/payment/callback/vnpay");
+        params.put("vnp_IpAddr", clientIp(request));
+        params.put("vnp_CreateDate", now.format(format));
+        params.put("vnp_ExpireDate", now.plusMinutes(15).format(format));
+        String encoded = encodedFields(params);
+        return paymentUrl + "?" + encoded + "&vnp_SecureHash="
+                + CryptoUtil.hmac("HmacSHA512", hashSecret, encoded);
+    }
+
+    public boolean verify(Map<String, String> input) {
+        if (!configured() || !tmnCode.equals(input.get("vnp_TmnCode"))) return false;
+        String supplied = input.get("vnp_SecureHash");
+        if (supplied == null || supplied.isBlank()) return false;
+        Map<String, String> signed = new TreeMap<>();
+        input.forEach((key, value) -> {
+            if (key.startsWith("vnp_") && !key.equals("vnp_SecureHash")
+                    && !key.equals("vnp_SecureHashType") && value != null && !value.isBlank()) {
+                signed.put(key, value);
+            }
+        });
+        String expected = CryptoUtil.hmac("HmacSHA512", hashSecret, encodedFields(signed));
+        return CryptoUtil.constantTimeEquals(expected, supplied);
+    }
+
+    public String expectedAmount(Booking booking) {
+        return booking.getTotalAmount().multiply(BigDecimal.valueOf(100)).toBigIntegerExact().toString();
+    }
+
+    private String encodedFields(Map<String, String> params) {
+        return params.entrySet().stream()
+                .filter(entry -> entry.getValue() != null && !entry.getValue().isBlank())
+                .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
+                .reduce((left, right) -> left + "&" + right).orElse("");
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) return forwarded.split(",")[0].trim();
+        return request.getRemoteAddr() == null ? "127.0.0.1" : request.getRemoteAddr();
+    }
 }

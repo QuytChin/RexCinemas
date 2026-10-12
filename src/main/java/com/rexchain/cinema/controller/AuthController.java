@@ -2,6 +2,7 @@ package com.rexchain.cinema.controller;
 
 import com.rexchain.cinema.dto.LoginRequest;
 import com.rexchain.cinema.dto.RegisterRequest;
+import com.rexchain.cinema.repository.CinemaRepository;
 import com.rexchain.cinema.service.AuthService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -19,10 +20,13 @@ import java.util.Map;
 @Controller
 public class AuthController {
     private final AuthService auth;
+    private final CinemaRepository cinemas;
     private final boolean secureCookie;
 
-    public AuthController(AuthService auth, @Value("${app.cookie.secure:false}") boolean secureCookie) {
+    public AuthController(AuthService auth, CinemaRepository cinemas,
+                          @Value("${app.cookie.secure:false}") boolean secureCookie) {
         this.auth = auth;
+        this.cinemas = cinemas;
         this.secureCookie = secureCookie;
     }
 
@@ -34,7 +38,9 @@ public class AuthController {
 
     @GetMapping("/auth/register")
     String register(Model model) {
-        model.addAttribute("registerForm", new RegisterRequest("", "", "", ""));
+        model.addAttribute("registerForm", new RegisterRequest(
+                "", null, "", "", "", "", null, "", "", false));
+        addCinemas(model);
         return "auth/register";
     }
 
@@ -43,13 +49,15 @@ public class AuthController {
                         BindingResult bindingResult, Model model) {
         if (bindingResult.hasErrors()) {
             model.addAttribute("error", bindingResult.getAllErrors().get(0).getDefaultMessage());
+            addCinemas(model);
             return "auth/register";
         }
         try {
-            auth.register(form.fullName(), form.email(), form.phone(), form.password());
+            auth.register(form);
             return "redirect:/auth/login?registered";
         } catch (Exception ex) {
             model.addAttribute("error", ex.getMessage());
+            addCinemas(model);
             return "auth/register";
         }
     }
@@ -58,7 +66,7 @@ public class AuthController {
     @ResponseBody
     ResponseEntity<?> apiRegister(@Valid @RequestBody RegisterRequest request) {
         try {
-            auth.register(request.fullName(), request.email(), request.phone(), request.password());
+            auth.register(request);
             return ResponseEntity.ok(Map.of("message", "Đăng ký thành công"));
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
@@ -105,6 +113,10 @@ public class AuthController {
         if (!value.startsWith("/") || value.startsWith("//") || value.contains("\r") || value.contains("\n"))
             return "/";
         return value;
+    }
+
+    private void addCinemas(Model model) {
+        model.addAttribute("cinemas", cinemas.findByActiveTrueOrderByCityAscNameAsc());
     }
 
     private void addCookie(HttpServletResponse response, String token) {

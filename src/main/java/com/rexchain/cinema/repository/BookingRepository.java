@@ -2,8 +2,10 @@ package com.rexchain.cinema.repository;
 
 import com.rexchain.cinema.entity.Booking;
 import com.rexchain.cinema.entity.BookingStatus;
+import com.rexchain.cinema.entity.PaymentMethod;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
+    @EntityGraph(attributePaths = {"showtime", "showtime.movie", "showtime.auditorium", "showtime.auditorium.cinema", "user"})
     List<Booking> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<Booking> findByStatusOrderByCreatedAtAsc(BookingStatus status);
     Optional<Booking> findByBookingCode(String bookingCode);
@@ -36,6 +39,24 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             "order by b.createdAt desc")
     List<Booking> findAllDetailed();
 
+    @Query("select distinct b from Booking b " +
+            "join fetch b.user " +
+            "join fetch b.showtime st " +
+            "join fetch st.movie m " +
+            "join fetch st.auditorium a " +
+            "join fetch a.cinema c " +
+            "left join fetch b.seats " +
+            "where b.createdAt >= :from and b.createdAt < :to " +
+            "and (:cinemaId is null or c.id = :cinemaId) " +
+            "and (:movieId is null or m.id = :movieId) " +
+            "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
+            "order by b.createdAt desc")
+    List<Booking> findDetailedForDashboard(@Param("from") LocalDateTime from,
+                                           @Param("to") LocalDateTime to,
+                                           @Param("cinemaId") Long cinemaId,
+                                           @Param("movieId") Long movieId,
+                                           @Param("paymentMethod") PaymentMethod paymentMethod);
+
 
     /** Fix 1: Find PENDING bookings that have passed their expiry time. */
     List<Booking> findByStatusAndExpiresAtBefore(BookingStatus status, LocalDateTime before);
@@ -45,10 +66,15 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("SELECT b FROM Booking b WHERE b.bookingCode = :code")
     Optional<Booking> findByBookingCodeForUpdate(@Param("code") String code);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM Booking b WHERE b.id = :id")
+    Optional<Booking> findByIdForUpdate(@Param("id") Long id);
+
     /** Fix 5: Atomic check-in — prevents double scan at two gates. */
     @Modifying
     @Query("UPDATE Booking b SET b.checkedInAt = :now, b.checkedInBy = :operator " +
-           "WHERE b.id = :id AND b.checkedInAt IS NULL")
+           "WHERE b.id = :id AND b.checkedInAt IS NULL " +
+           "AND b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED")
     int atomicCheckIn(@Param("id") Long id,
                       @Param("now") LocalDateTime now,
                       @Param("operator") String operator);

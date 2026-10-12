@@ -4,6 +4,7 @@ import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.CinemaSetupService;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,10 +21,16 @@ public class DataSeeder {
                            PasswordEncoder passwordEncoder, CinemaSetupService setup,
                            ComboProductRepository combos, VoucherRepository vouchers,
                            EventRepository events, ArticleRepository articles, MediaItemRepository mediaItems,
-                           SeatRepository seats, ShowtimeSeatRepository showtimeSeats) {
+                           SeatRepository seats, ShowtimeSeatRepository showtimeSeats,
+                           @Value("${app.seed.admin-email:admin@rexchain.vn}") String adminEmail,
+                           @Value("${app.seed.admin-password:}") String adminPassword,
+                           @Value("${app.seed.demo-users:false}") boolean seedDemoUsers,
+                           @Value("${app.seed.demo-customer-password:}") String demoCustomerPassword,
+                           @Value("${app.seed.demo-manager-password:}") String demoManagerPassword) {
         return args -> {
-            seedUsers(users, passwordEncoder);
-            ensureDemoMembership(users);
+            seedUsers(users, passwordEncoder, adminEmail, adminPassword, seedDemoUsers,
+                    demoCustomerPassword, demoManagerPassword);
+            if (seedDemoUsers) ensureDemoMembership(users);
             seedMovies(movies);
             upgradeLegacyMovies(movies);
             seedCinemas(cinemas, setup);
@@ -53,29 +60,39 @@ public class DataSeeder {
         }
     }
 
-    private void seedUsers(UserRepository users, PasswordEncoder encoder) {
+    private void seedUsers(UserRepository users, PasswordEncoder encoder, String adminEmail,
+                           String adminPassword, boolean seedDemoUsers,
+                           String demoCustomerPassword, String demoManagerPassword) {
         if (users.count() != 0) return;
-        User admin = new User();
-        admin.setFullName("Rex Administrator");
-        admin.setEmail("admin@rexchain.vn");
-        admin.setPassword(encoder.encode("admin123"));
-        admin.setRole(Role.ADMIN);
-        users.save(admin);
+        if (adminPassword != null && !adminPassword.isBlank()) {
+            User admin = new User();
+            admin.setFullName("Rex Administrator");
+            admin.setEmail(adminEmail.trim().toLowerCase());
+            admin.setPassword(encoder.encode(adminPassword));
+            admin.setRole(Role.ADMIN);
+            users.save(admin);
+        }
 
-        User customer = new User();
-        customer.setFullName("Khách hàng Demo");
-        customer.setEmail("user@rexchain.vn");
-        customer.setPassword(encoder.encode("123456"));
-        customer.setLoyaltyPoints(168);
-        customer.setLifetimePoints(168);
-        users.save(customer);
+        if (!seedDemoUsers) return;
 
-        User manager = new User();
-        manager.setFullName("Cinema Manager Demo");
-        manager.setEmail("manager@rexchain.vn");
-        manager.setPassword(encoder.encode("manager123"));
-        manager.setRole(Role.CINEMA_MANAGER);
-        users.save(manager);
+        if (demoCustomerPassword != null && !demoCustomerPassword.isBlank()) {
+            User customer = new User();
+            customer.setFullName("Khách hàng Demo");
+            customer.setEmail("user@rexchain.vn");
+            customer.setPassword(encoder.encode(demoCustomerPassword));
+            customer.setLoyaltyPoints(168);
+            customer.setLifetimePoints(168);
+            users.save(customer);
+        }
+
+        if (demoManagerPassword != null && !demoManagerPassword.isBlank()) {
+            User manager = new User();
+            manager.setFullName("Cinema Manager Demo");
+            manager.setEmail("manager@rexchain.vn");
+            manager.setPassword(encoder.encode(demoManagerPassword));
+            manager.setRole(Role.CINEMA_MANAGER);
+            users.save(manager);
+        }
     }
 
     private void ensureDemoMembership(UserRepository users) {

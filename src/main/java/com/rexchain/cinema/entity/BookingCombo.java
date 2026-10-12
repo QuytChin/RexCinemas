@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name="booking_combos")
+@Table(name="booking_combos", indexes = {
+    @Index(name = "idx_booking_combos_booking", columnList = "booking_id"),
+    @Index(name = "idx_booking_combos_combo", columnList = "combo_id")
+})
 public class BookingCombo {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
     @ManyToOne(fetch=FetchType.LAZY, optional=false) @JoinColumn(name="booking_id") private Booking booking;

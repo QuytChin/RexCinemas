@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 @Table(name="vouchers", uniqueConstraints=@UniqueConstraint(columnNames="code"))
 public class Voucher {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
-    @Version private Long version;
+    @Version @Column(nullable=false) private Long version;
     @Column(nullable=false, length=40) private String code;
     @Column(nullable=false, length=160) private String name;
     @Enumerated(EnumType.STRING) @Column(nullable=false, length=20) private DiscountType discountType=DiscountType.PERCENT;

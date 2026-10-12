@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name="booking_seats", indexes = {
     @Index(name = "idx_booking_seats_qr_token", columnList = "qr_token"),
-    @Index(name = "idx_booking_seats_ticket_code", columnList = "ticket_code")
+    @Index(name = "idx_booking_seats_ticket_code", columnList = "ticket_code"),
+    @Index(name = "idx_booking_seats_booking", columnList = "booking_id")
 })
 public class BookingSeat {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;

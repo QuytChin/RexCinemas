@@ -1,8 +1,9 @@
-# Rex Chain Cinema V4 — Spring Boot + QR Check-in
+# Rex Chain Cinema — Spring Boot + QR Check-in
 
 Hệ thống quản lý chuỗi rạp và đặt vé xem phim trực tuyến bằng **Spring Boot + Thymeleaf + Bootstrap + JPA + MySQL/PostgreSQL/SQL Server + JWT + WebSocket + Cloudinary**, có luồng booking realtime và **vé điện tử QR check-in tại cổng**.
 
-> Bản này được nâng trực tiếp từ file V3 local-ready đã chạy trên máy. Cấu hình MySQL hiện tại được giữ nguyên.
+Các secret không có giá trị mặc định trong source. Tối thiểu phải đặt `JWT_SECRET` (32 byte trở lên)
+và `DB_PASSWORD` trước khi chạy. Khi triển khai HTTPS, đặt thêm `COOKIE_SECURE=true`.
 
 ## 1. Luồng hoàn chỉnh
 
@@ -263,21 +264,12 @@ checked_in_by
 
 `application-mysql.properties` trong bản này chính là cấu hình từ project local-ready đã chạy trên máy bạn.
 
-## 13. Tài khoản demo
+## 13. Tài khoản khởi tạo và demo
 
-```text
-ADMIN
-admin@rexchain.vn
-admin123
-
-CINEMA_MANAGER
-manager@rexchain.vn
-manager123
-
-CUSTOMER
-user@rexchain.vn
-123456
-```
+Project không chứa mật khẩu mặc định. Trước lần chạy đầu, đặt `ADMIN_INITIAL_PASSWORD`
+để tạo tài khoản quản trị tại email trong `ADMIN_INITIAL_EMAIL` (mặc định chỉ là tên đăng nhập
+`admin@rexchain.vn`). Tài khoản demo chỉ được tạo khi `SEED_DEMO_USERS=true` và đã đặt cả
+`DEMO_CUSTOMER_PASSWORD`, `DEMO_MANAGER_PASSWORD`.
 
 Voucher:
 ```text
@@ -286,12 +278,12 @@ REX10
 
 ## 14. Cách test QR nhanh
 
-1. Login `user@rexchain.vn`.
+1. Login bằng tài khoản customer đã đăng ký hoặc tài khoản demo được cấu hình qua biến môi trường.
 2. Vào **Lịch chiếu**.
 3. Bấm **ĐẶT VÉ** ở một suất còn ghế.
 4. Chọn ghế → giữ ghế → combo → thanh toán `PAY_AT_COUNTER`.
 5. Mở vé điện tử, QR sẽ xuất hiện.
-6. Mở trình duyệt/thiết bị khác, login `admin@rexchain.vn` hoặc `manager@rexchain.vn`.
+6. Mở trình duyệt/thiết bị khác, login bằng tài khoản `ADMIN` hoặc `CINEMA_MANAGER` đã cấu hình.
 7. Vào `/admin/checkin`.
 8. Dùng camera quét QR trên màn hình vé.
 9. Kết quả đúng: `CHECKED_IN` + thông tin phim/rạp/phòng/ghế.
@@ -301,8 +293,8 @@ REX10
 Cloudinary và MoMo/VNPAY vẫn là tùy chọn. Không cần cấu hình để test luồng booking + QR bằng `PAY_AT_COUNTER`.
 
 Khi deploy thật:
-- đổi JWT secret;
-- đổi mật khẩu demo;
-- bật HTTPS;
+- đặt `JWT_SECRET` mạnh và riêng cho từng môi trường;
+- không bật `SEED_DEMO_USERS`;
+- đặt `COOKIE_SECURE=true` và dùng HTTPS;
 - `COOKIE_SECURE=true`;
 - cấu hình public callback/IPN cho MoMo/VNPAY.

@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
        })
 public class ShowtimeSeat {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
-    @Version private Long version;
+    @Version @Column(nullable=false) private Long version;
     @ManyToOne(fetch=FetchType.LAZY, optional=false) @JoinColumn(name="showtime_id") private Showtime showtime;
     @ManyToOne(fetch=FetchType.LAZY, optional=false) @JoinColumn(name="seat_id") private Seat seat;
     @Enumerated(EnumType.STRING) @Column(nullable=false, length=20) private SeatStatus status=SeatStatus.AVAILABLE;

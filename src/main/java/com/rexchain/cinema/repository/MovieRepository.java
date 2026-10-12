@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface MovieRepository extends JpaRepository<Movie, Long> {
     List<Movie> findByActiveTrueOrderByReleaseDateDesc();
     Optional<Movie> findByTitleIgnoreCase(String title);
+    boolean existsByTitleIgnoreCaseAndReleaseDate(String title, LocalDate releaseDate);
+    boolean existsByTitleIgnoreCaseAndReleaseDateAndIdNot(String title, LocalDate releaseDate, Long id);
     List<Movie> findByActiveTrueAndReleaseDateLessThanEqualOrderByReleaseDateDesc(LocalDate date);
     List<Movie> findByActiveTrueAndReleaseDateGreaterThanOrderByReleaseDateAsc(LocalDate date);
     List<Movie> findByActiveTrueAndStatusOrderByReleaseDateDesc(MovieStatus status);

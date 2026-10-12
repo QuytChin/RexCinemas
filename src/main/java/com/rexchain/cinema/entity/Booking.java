@@ -9,14 +9,15 @@ import java.util.List;
 @Entity
 @Table(name = "bookings", indexes = {
     @Index(name = "idx_bookings_status_created_at", columnList = "status, created_at"),
-    @Index(name = "idx_bookings_user_created_at", columnList = "user_id, created_at")
+    @Index(name = "idx_bookings_user_created_at", columnList = "user_id, created_at"),
+    @Index(name = "idx_bookings_payment_reference", columnList = "payment_method, payment_reference")
 })
 public class Booking {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Version
+    @Version @Column(nullable = false)
     private Long version;
 
     @Column(nullable = false, unique = true, length = 30)
