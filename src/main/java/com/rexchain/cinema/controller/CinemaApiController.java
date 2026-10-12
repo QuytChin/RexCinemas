@@ -62,8 +62,10 @@ public class CinemaApiController {
     @GetMapping("/movies/{id}/showtimes")
     @Transactional(readOnly = true)
     public List<Map<String, Object>> movieShowtimes(@PathVariable Long id) {
-        return showtimes.findByMovieIdAndActiveTrueAndStartTimeAfterOrderByStartTimeAsc(id, LocalDateTime.now())
-                .stream().map(this::showtimeJson).toList();
+        List<Showtime> result = showtimes.findByMovieIdAndActiveTrueAndStartTimeAfterOrderByStartTimeAsc(
+                id, LocalDateTime.now());
+        Map<Long, long[]> availability = availabilityFor(result);
+        return result.stream().map(showtime -> showtimeJson(showtime, availability.get(showtime.getId()))).toList();
     }
 
     @GetMapping("/showtimes/{id}/seats")
@@ -171,7 +173,9 @@ public class CinemaApiController {
             return ResponseEntity.ok(body);
         } catch (Exception ex) {
             bookingService.releaseOwnHolds(user.getId(), request.showtimeId(), request.seatIds());
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage() == null ? "Không thể tạo booking" : ex.getMessage()));
+            String message = ex instanceof IllegalArgumentException || ex instanceof IllegalStateException
+                    ? Objects.requireNonNullElse(ex.getMessage(), "Không thể tạo booking") : "Không thể tạo booking";
+            return ResponseEntity.badRequest().body(Map.of("error", message));
         }
     }
 
@@ -197,6 +201,10 @@ public class CinemaApiController {
     }
 
     private Map<String, Object> showtimeJson(Showtime s) {
+        return showtimeJson(s, null);
+    }
+
+    private Map<String, Object> showtimeJson(Showtime s, long[] availability) {
         Map<String, Object> x = new LinkedHashMap<>();
         x.put("id", s.getId());
         x.put("startTime", s.getStartTime());
@@ -206,10 +214,22 @@ public class CinemaApiController {
         x.put("cinemaId", s.getAuditorium().getCinema().getId());
         x.put("cinema", s.getAuditorium().getCinema().getName());
         x.put("auditorium", s.getAuditorium().getName());
-        x.put("availableSeats", showtimeSeats.countByShowtimeIdAndStatus(s.getId(), SeatStatus.AVAILABLE));
-        x.put("totalSeats", showtimeSeats.countByShowtimeId(s.getId()));
+        x.put("availableSeats", availability == null ? showtimeSeats.countByShowtimeIdAndStatus(s.getId(), SeatStatus.AVAILABLE) : availability[0]);
+        x.put("totalSeats", availability == null ? showtimeSeats.countByShowtimeId(s.getId()) : availability[1]);
         x.put("bookingUrl", "/booking/" + s.getId());
         return x;
+    }
+
+    private Map<Long, long[]> availabilityFor(List<Showtime> list) {
+        Map<Long, long[]> result = new HashMap<>();
+        List<Long> ids = list.stream().map(Showtime::getId).distinct().toList();
+        if (!ids.isEmpty()) {
+            for (Object[] row : showtimeSeats.summarizeAvailability(ids)) {
+                result.put((Long) row[0], new long[]{((Number) row[2]).longValue(), ((Number) row[1]).longValue()});
+            }
+        }
+        ids.forEach(id -> result.putIfAbsent(id, new long[]{0, 0}));
+        return result;
     }
 
     private Map<String, Object> bookingJson(Booking b) {

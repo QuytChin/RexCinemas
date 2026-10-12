@@ -79,6 +79,8 @@ public class BookingService {
             throw new IllegalArgumentException("Hãy chọn ít nhất một ghế");
         if (ids.size() > 10)
             throw new IllegalArgumentException("Mỗi booking tối đa 10 ghế");
+        if (method == null)
+            throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ");
         LocalDateTime now = LocalDateTime.now();
         User user = users.findById(userId).orElseThrow();
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
@@ -131,7 +133,7 @@ public class BookingService {
 
         for (ShowtimeSeat seat : list) {
             if (online) {
-                seat.setHoldUntil(now.plusMinutes(20));
+                seat.setHoldUntil(booking.getExpiresAt());
             } else {
                 seat.setStatus(SeatStatus.BOOKED);
                 seat.setHeldByUserId(null);
@@ -192,27 +194,36 @@ public class BookingService {
 
     @Transactional
     public Booking cancelByAdmin(Long bookingId) {
-        Booking booking = bookings.findById(bookingId).orElseThrow();
-        if (booking.getStatus() == BookingStatus.CANCELLED)
+        Booking booking = bookings.findByIdForUpdate(bookingId).orElseThrow();
+        if (booking.getStatus() == BookingStatus.CANCELLED
+                || booking.getStatus() == BookingStatus.REFUND_PENDING
+                || booking.getStatus() == BookingStatus.REFUNDED)
             return booking;
         if (booking.isCheckedIn())
             throw new IllegalStateException("Vé đã check-in nên không thể hủy");
         boolean wasConfirmed = booking.getStatus() == BookingStatus.CONFIRMED;
-        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setStatus(wasConfirmed ? BookingStatus.REFUND_PENDING : BookingStatus.CANCELLED);
+        booking.setExpiresAt(null);
         seatReservationService.releaseBookingSeats(booking);
-        paymentService.reversePoints(booking);
         if (wasConfirmed) {
-            for (BookingCombo bc : booking.getCombos()) {
-                ComboProduct cp = bc.getCombo();
-                if (cp != null) {
-                    cp.setStockQuantity(cp.getStockQuantity() + bc.getQuantity());
-                    combos.save(cp);
-                }
+            Map<Long, Integer> restore = new TreeMap<>();
+            for (BookingCombo line : booking.getCombos()) {
+                if (line.getCombo() != null)
+                    restore.merge(line.getCombo().getId(), line.getQuantity(), Integer::sum);
+            }
+            if (!restore.isEmpty()) {
+                List<ComboProduct> locked = combos.findByIdInForUpdate(new ArrayList<>(restore.keySet()));
+                for (ComboProduct combo : locked)
+                    combo.setStockQuantity(combo.getStockQuantity() + restore.get(combo.getId()));
+                combos.saveAll(locked);
             }
             if (booking.getVoucherCode() != null) {
-                vouchers.findByCodeIgnoreCase(booking.getVoucherCode()).ifPresent(paymentService::decrementVoucher);
+                vouchers.findByCodeIgnoreCaseForUpdate(booking.getVoucherCode())
+                        .ifPresent(paymentService::decrementVoucher);
             }
         }
+        // Keep the same resource lock order as payment settlement: seats -> combos -> voucher -> user.
+        paymentService.reversePoints(booking);
         return bookings.save(booking);
     }
 
@@ -241,16 +252,9 @@ public class BookingService {
     /* ──────────────────────── SCHEDULED: RELEASE EXPIRED ──────────────────────── */
 
     @Scheduled(fixedRate = 60_000)
-    @Transactional
     public void releaseExpired() {
         seatReservationService.releaseExpiredHolds();
-
-        for (Booking booking : bookings.findByStatusAndExpiresAtBefore(
-                BookingStatus.PENDING, LocalDateTime.now())) {
-            booking.setStatus(BookingStatus.EXPIRED);
-            seatReservationService.releaseBookingSeats(booking);
-            bookings.save(booking);
-        }
+        paymentService.expirePendingBookings();
     }
 
     /* ──────────────────────── PRIVATE HELPERS ──────────────────────── */
@@ -260,14 +264,25 @@ public class BookingService {
         if (ids == null || qtys == null)
             return result;
         int n = Math.min(ids.size(), qtys.size());
+        Map<Long, Integer> requested = new TreeMap<>();
         for (int i = 0; i < n; i++) {
             Integer qty = qtys.get(i);
             if (qty == null || qty <= 0)
                 continue;
             if (qty > 10)
                 throw new IllegalArgumentException("Mỗi combo tối đa 10 phần");
-            ComboProduct combo = combos.findById(ids.get(i))
-                    .orElseThrow(() -> new IllegalArgumentException("Combo không tồn tại"));
+            Long comboId = ids.get(i);
+            if (comboId == null) throw new IllegalArgumentException("Combo không tồn tại");
+            requested.merge(comboId, qty, Integer::sum);
+            if (requested.get(comboId) > 10)
+                throw new IllegalArgumentException("Mỗi combo tối đa 10 phần");
+        }
+        if (requested.isEmpty()) return result;
+        List<ComboProduct> locked = combos.findByIdInForUpdate(new ArrayList<>(requested.keySet()));
+        if (locked.size() != requested.size())
+            throw new IllegalArgumentException("Combo không tồn tại");
+        for (ComboProduct combo : locked) {
+            int qty = requested.get(combo.getId());
             if (!combo.isActive())
                 throw new IllegalArgumentException("Combo " + combo.getName() + " hiện không khả dụng");
             if (combo.getStockQuantity() < qty)
@@ -280,7 +295,7 @@ public class BookingService {
     private Voucher resolveVoucher(String code, BigDecimal subtotal, LocalDateTime now) {
         if (code == null || code.isBlank())
             return null;
-        Voucher voucher = vouchers.findByCodeIgnoreCase(code.trim())
+        Voucher voucher = vouchers.findByCodeIgnoreCaseForUpdate(code.trim())
                 .orElseThrow(() -> new IllegalArgumentException("Mã voucher không tồn tại"));
         if (!voucher.isActive())
             throw new IllegalArgumentException("Voucher đã bị khóa");

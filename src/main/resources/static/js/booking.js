@@ -1,4 +1,5 @@
 (()=>{
+ const csrfHeaders=()=>{const pair=document.cookie.split('; ').find(x=>x.startsWith('XSRF-TOKEN='));return pair?{'X-XSRF-TOKEN':decodeURIComponent(pair.substring('XSRF-TOKEN='.length))}:{}};
  const selected=new Map();
  const seats=[...document.querySelectorAll('.seat')];
  const labels=document.getElementById('selectedLabels');
@@ -50,7 +51,7 @@
  holdBtn.addEventListener('click',async()=>{
   holdBtn.disabled=true; const ids=[...selected.keys()];
   try{
-   const r=await fetch(`/api/showtimes/${window.SHOWTIME_ID}/hold`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seatIds:ids})});
+   const r=await fetch(`/api/showtimes/${window.SHOWTIME_ID}/hold`,{method:'POST',headers:{'Content-Type':'application/json',...csrfHeaders()},body:JSON.stringify({seatIds:ids})});
    const data=await r.json(); if(!r.ok)throw new Error(data.error||'Không thể giữ ghế');
    held=true; holdBtn.classList.add('d-none'); holdNotice.classList.remove('d-none');
    seats.forEach(b=>{b.disabled=true;if(selected.has(Number(b.dataset.id)))b.classList.add('selected')});
@@ -61,7 +62,7 @@
  document.getElementById('backToCombos')?.addEventListener('click',()=>showStage('combo'));
  document.getElementById('backToSeats')?.addEventListener('click',async()=>{
   const ids=[...selected.keys()];
-  try{await fetch(`/api/showtimes/${window.SHOWTIME_ID}/release`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seatIds:ids})})}catch(e){}
+  try{await fetch(`/api/showtimes/${window.SHOWTIME_ID}/release`,{method:'POST',headers:{'Content-Type':'application/json',...csrfHeaders()},body:JSON.stringify({seatIds:ids})})}catch(e){}
   held=false; if(countdownTimer)clearInterval(countdownTimer); holdNotice.classList.add('d-none');holdBtn.classList.remove('d-none');
   seats.forEach(b=>{
    const id=Number(b.dataset.id);

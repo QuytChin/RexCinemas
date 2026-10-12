@@ -1,4 +1,5 @@
 (()=>{
+ const csrfHeaders=()=>{const pair=document.cookie.split('; ').find(x=>x.startsWith('XSRF-TOKEN='));return pair?{'X-XSRF-TOKEN':decodeURIComponent(pair.substring('XSRF-TOKEN='.length))}:{}};
  const result=document.getElementById('scanResult');
  const manual=document.getElementById('manualCode');
  const manualBtn=document.getElementById('manualScanBtn');
@@ -9,7 +10,7 @@
   const now=Date.now(); if(code===lastCode&&now-lastAt<2500)return; lastCode=code;lastAt=now;busy=true;
   result.className='scan-result loading'; result.innerHTML='<div class="scan-icon">...</div><h3>Đang kiểm tra vé</h3><p>Vui lòng giữ nguyên mã QR.</p>';
   try{
-   const r=await fetch('/admin/checkin/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+   const r=await fetch('/admin/checkin/api/scan',{method:'POST',headers:{'Content-Type':'application/json',...csrfHeaders()},body:JSON.stringify({code})});
    const d=await r.json();
    const ok=!!d.success;
    result.className='scan-result '+(ok?'success':'danger');

@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface CinemaRepository extends JpaRepository<Cinema, Long> {
     List<Cinema> findByActiveTrueOrderByCityAscNameAsc();
+    boolean existsByNameIgnoreCaseAndAddressIgnoreCase(String name, String address);
+    boolean existsByNameIgnoreCaseAndAddressIgnoreCaseAndIdNot(String name, String address, Long id);
 }

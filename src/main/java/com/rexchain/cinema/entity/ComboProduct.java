@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 @Table(name="combo_products")
 public class ComboProduct {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
+    @Version @Column(nullable=false) private Long version;
     @Column(nullable=false, length=120) private String name;
     @Column(length=500) private String description;
     @Column(nullable=false, precision=12, scale=2) private BigDecimal price;
@@ -22,6 +23,7 @@ public class ComboProduct {
     private int stockQuantity = 100;
 
     public Long getId(){return id;} public void setId(Long v){id=v;}
+    public Long getVersion(){return version;} public void setVersion(Long v){version=v;}
     public String getName(){return name;} public void setName(String v){name=v;}
     public String getDescription(){return description;} public void setDescription(String v){description=v;}
     public BigDecimal getPrice(){return price;} public void setPrice(BigDecimal v){price=v;}

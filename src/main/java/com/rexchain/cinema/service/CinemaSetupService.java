@@ -22,13 +22,21 @@ public class CinemaSetupService {
 
     @Transactional
     public Auditorium createAuditorium(Cinema cinema, String name, int rows, int cols) {
+        String normalizedName = name == null ? "" : name.trim();
+        if (normalizedName.isEmpty() || normalizedName.length() > 80)
+            throw new IllegalArgumentException("Tên phòng chiếu phải từ 1 đến 80 ký tự");
+        if (rows < 1 || rows > 26 || cols < 1 || cols > 50)
+            throw new IllegalArgumentException("Phòng chiếu hỗ trợ 1-26 hàng và 1-50 ghế mỗi hàng");
+        if (auditoriums.existsByCinemaIdAndNameIgnoreCase(cinema.getId(), normalizedName))
+            throw new IllegalArgumentException("Tên phòng chiếu đã tồn tại trong rạp");
         Auditorium auditorium = new Auditorium();
         auditorium.setCinema(cinema);
-        auditorium.setName(name);
+        auditorium.setName(normalizedName);
         auditorium.setTotalRows(rows);
         auditorium.setSeatsPerRow(cols);
         auditorium = auditoriums.save(auditorium);
 
+        java.util.ArrayList<Seat> generatedSeats = new java.util.ArrayList<>(rows * cols);
         for (int r = 0; r < rows; r++) {
             String row = String.valueOf((char) ('A' + r));
             for (int n = 1; n <= cols; n++) {
@@ -39,15 +47,17 @@ public class CinemaSetupService {
                 if (r == rows - 1) seat.setType(SeatType.COUPLE);
                 else if (r >= Math.max(0, rows - 3)) seat.setType(SeatType.VIP);
                 else seat.setType(SeatType.STANDARD);
-                seats.save(seat);
+                generatedSeats.add(seat);
             }
         }
+        seats.saveAll(generatedSeats);
         return auditorium;
     }
 
     @Transactional
     public void createShowtimeSeats(Showtime showtime) {
         List<Seat> baseSeats = seats.findByAuditoriumIdOrderBySeatRowAscSeatNumberAsc(showtime.getAuditorium().getId());
+        java.util.ArrayList<ShowtimeSeat> generated = new java.util.ArrayList<>(baseSeats.size());
         for (Seat seat : baseSeats) {
             ShowtimeSeat showtimeSeat = new ShowtimeSeat();
             showtimeSeat.setShowtime(showtime);
@@ -56,8 +66,9 @@ public class CinemaSetupService {
             if (seat.getType() == SeatType.VIP) price = price.add(new BigDecimal("20000"));
             if (seat.getType() == SeatType.COUPLE) price = price.add(new BigDecimal("40000"));
             showtimeSeat.setPrice(price);
-            showSeats.save(showtimeSeat);
+            generated.add(showtimeSeat);
         }
+        showSeats.saveAll(generated);
     }
     @Transactional
     public void repriceShowtimeSeats(Showtime showtime) {

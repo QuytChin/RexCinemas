@@ -65,7 +65,8 @@ public class PaymentController {
             }
             throw new IllegalStateException("Phương thức thanh toán không hợp lệ");
         } catch (Exception ex) {
-            bookingService.cancelOnlinePayment(booking.getBookingCode());
+            // Starting a provider redirect is a GET. Keep the pending booking intact so a
+            // cross-site GET or a temporary provider outage cannot cancel the user's hold.
             return "redirect:/bookings/" + booking.getId() + "?paymentError";
         }
     }
@@ -80,21 +81,21 @@ public class PaymentController {
 
         boolean signatureValid = booking.getPaymentMethod() == PaymentMethod.MOMO_SANDBOX
                 && momo.verifyResult(params);
-        boolean ok = signatureValid
+        boolean successfulGatewayResult = signatureValid
                 && "0".equals(params.get("resultCode"))
                 && momoAmountMatches(booking, params.get("amount"));
 
         try {
-            if (ok) {
-                bookingService.completeOnlinePayment(code, params.get("transId"));
+            if (successfulGatewayResult) {
+                booking = bookingService.completeOnlinePayment(code, params.get("transId"));
             } else if (signatureValid) {
-                bookingService.cancelOnlinePayment(code);
+                booking = bookingService.cancelOnlinePayment(code);
             }
         } catch (Exception ex) {
-            ok = false;
+            successfulGatewayResult = false;
         }
 
-        return "redirect:/bookings/" + booking.getId() + (ok ? "?success" : "?paymentError");
+        return paymentRedirect(booking, successfulGatewayResult);
     }
 
     @PostMapping("/payment/callback/momo/ipn")
@@ -134,22 +135,22 @@ public class PaymentController {
 
         boolean signatureValid = booking.getPaymentMethod() == PaymentMethod.VNPAY_SANDBOX
                 && vnpay.verify(params);
-        boolean ok = signatureValid
+        boolean successfulGatewayResult = signatureValid
                 && "00".equals(params.get("vnp_ResponseCode"))
                 && "00".equals(params.get("vnp_TransactionStatus"))
-                && expectedVnpayAmount(booking).equals(params.get("vnp_Amount"));
+                && vnpay.expectedAmount(booking).equals(params.get("vnp_Amount"));
 
         try {
-            if (ok) {
-                bookingService.completeOnlinePayment(code, params.get("vnp_TransactionNo"));
+            if (successfulGatewayResult) {
+                booking = bookingService.completeOnlinePayment(code, params.get("vnp_TransactionNo"));
             } else if (signatureValid) {
-                bookingService.cancelOnlinePayment(code);
+                booking = bookingService.cancelOnlinePayment(code);
             }
         } catch (Exception ex) {
-            ok = false;
+            successfulGatewayResult = false;
         }
 
-        return "redirect:/bookings/" + booking.getId() + (ok ? "?success" : "?paymentError");
+        return paymentRedirect(booking, successfulGatewayResult);
     }
 
     /**
@@ -168,11 +169,8 @@ public class PaymentController {
         if (booking == null || booking.getPaymentMethod() != PaymentMethod.VNPAY_SANDBOX) {
             return vnpayReply("01", "Order not found");
         }
-        if (!expectedVnpayAmount(booking).equals(params.get("vnp_Amount"))) {
+        if (!vnpay.expectedAmount(booking).equals(params.get("vnp_Amount"))) {
             return vnpayReply("04", "Invalid amount");
-        }
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            return vnpayReply("02", "Order already confirmed");
         }
 
         try {
@@ -197,18 +195,19 @@ public class PaymentController {
         }
     }
 
-    private String expectedVnpayAmount(Booking booking) {
-        return booking.getTotalAmount()
-                .multiply(BigDecimal.valueOf(100))
-                .toBigIntegerExact()
-                .toString();
-    }
-
     private Map<String, String> vnpayReply(String code, String message) {
         return Map.of("RspCode", code, "Message", message);
     }
 
     private String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private String paymentRedirect(Booking booking, boolean gatewaySuccess) {
+        String query;
+        if (booking.getStatus() == BookingStatus.CONFIRMED) query = "?success";
+        else if (booking.getStatus() == BookingStatus.REFUND_PENDING) query = "?refundPending";
+        else query = gatewaySuccess ? "?paymentPending" : "?paymentError";
+        return "redirect:/bookings/" + booking.getId() + query;
     }
 }

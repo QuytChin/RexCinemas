@@ -9,7 +9,7 @@
 </head>
 <body class="auth-bg">
 <div class="auth-card">
-    <a th:href="@{/}" class="brand-big">R</a>
+    <a th:href="@{/}" class="auth-logo" aria-label="Rex Chain Cinemas"><img class="site-logo" th:src="@{/images/rex-chain-cinemas-logo.png}" alt="Rex Chain Cinemas" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="site-logo-fallback" hidden>REX</span></a>
     <h2>Chào mừng trở lại</h2>
     <p class="text-secondary">Đăng nhập để chọn suất chiếu, giữ ghế và quản lý vé điện tử.</p>
     <div class="alert alert-info" th:if="${returnUrl != null and #strings.startsWith(returnUrl,'/booking/')}">
@@ -24,7 +24,6 @@
         <button class="btn btn-danger btn-lg">Đăng nhập</button>
     </form>
     <p class="mt-4 mb-0">Chưa có tài khoản? <a th:href="@{/auth/register}">Đăng ký</a></p>
-    <div class="demo-box mt-4"><small>Demo: user@rexchain.vn / 123456<br>Admin: admin@rexchain.vn / admin123</small></div>
 </div>
 </body>
 </html>

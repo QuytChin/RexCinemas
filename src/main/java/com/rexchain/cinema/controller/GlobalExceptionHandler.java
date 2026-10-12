@@ -12,6 +12,8 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -21,6 +23,7 @@ import java.util.NoSuchElementException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     private boolean isApiRequest(HttpServletRequest request) {
         String uri = request.getRequestURI();
@@ -127,6 +130,21 @@ public class GlobalExceptionHandler {
 
         model.addAttribute("status", 404);
         model.addAttribute("message", msg);
+        model.addAttribute("path", request.getRequestURI());
+        return "error";
+    }
+
+    @ExceptionHandler(Exception.class)
+    public Object unexpectedError(Exception exception, HttpServletRequest request, Model model) {
+        log.error("Unhandled error for {} {}", request.getMethod(), request.getRequestURI(), exception);
+        String message = "Hệ thống chưa thể xử lý yêu cầu. Vui lòng thử lại sau.";
+        if (isApiRequest(request)) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "status", 500, "error", message, "path", request.getRequestURI(),
+                    "timestamp", LocalDateTime.now()));
+        }
+        model.addAttribute("status", 500);
+        model.addAttribute("message", message);
         model.addAttribute("path", request.getRequestURI());
         return "error";
     }

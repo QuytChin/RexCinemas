@@ -1,6 +1,7 @@
 package com.rexchain.cinema.config;
 
 import com.rexchain.cinema.security.CustomUserDetailsService;
+import com.rexchain.cinema.security.CsrfCookieFilter;
 import com.rexchain.cinema.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,7 +14,10 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -40,8 +44,18 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
+        CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/"));
+        CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
+        csrfHandler.setCsrfRequestAttributeName(null);
         http.csrf(csrf -> csrf
-                .ignoringRequestMatchers("/api/**", "/payment/callback/**", "/admin/checkin/api/**", "/ws/**"))
+                .csrfTokenRepository(csrfRepository)
+                .csrfTokenRequestHandler(csrfHandler)
+                .ignoringRequestMatchers("/api/auth/**", "/payment/callback/**", "/ws/**")
+                .ignoringRequestMatchers(request -> {
+                    String authorization = request.getHeader("Authorization");
+                    return authorization != null && authorization.startsWith("Bearer ");
+                }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/error", "/auth/**", "/css/**", "/js/**", "/images/**", "/ws/**",
                                 "/api/auth/**", "/payment/callback/**").permitAll()
@@ -63,7 +77,8 @@ public class SecurityConfig {
                 }))
                 .formLogin(form -> form.disable())
                 .logout(logout -> logout.disable())
-                .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
         return http.build();
     }
 }

@@ -45,12 +45,8 @@ public class DashboardService {
         LocalDateTime fromTime = from.atStartOfDay();
         LocalDateTime toExclusive = to.plusDays(1).atStartOfDay();
 
-        List<Booking> filtered = bookings.findAllDetailed().stream()
-                .filter(b -> !b.getCreatedAt().isBefore(fromTime) && b.getCreatedAt().isBefore(toExclusive))
-                .filter(b -> cinemaId == null || Objects.equals(b.getShowtime().getAuditorium().getCinema().getId(), cinemaId))
-                .filter(b -> movieId == null || Objects.equals(b.getShowtime().getMovie().getId(), movieId))
-                .filter(b -> paymentMethod == null || b.getPaymentMethod() == paymentMethod)
-                .toList();
+        List<Booking> filtered = bookings.findDetailedForDashboard(
+                fromTime, toExclusive, cinemaId, movieId, paymentMethod);
 
         long confirmed = filtered.stream().filter(b -> b.getStatus() == BookingStatus.CONFIRMED).count();
         long pending = filtered.stream().filter(b -> b.getStatus() == BookingStatus.PENDING).count();
