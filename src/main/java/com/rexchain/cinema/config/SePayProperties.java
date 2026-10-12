@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "sepay")
 public class SePayProperties {
     private boolean enabled;
+    private String apiKey = "";
     private String bankAccount = "";
     private String bankCode = "";
     private String webhookSecret = "";
@@ -14,6 +15,8 @@ public class SePayProperties {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public String getApiKey() { return apiKey; }
+    public void setApiKey(String apiKey) { this.apiKey = apiKey; }
     public String getBankAccount() { return bankAccount; }
     public void setBankAccount(String bankAccount) { this.bankAccount = bankAccount; }
     public String getBankCode() { return bankCode; }

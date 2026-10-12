@@ -51,14 +51,14 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf
                 .csrfTokenRepository(csrfRepository)
                 .csrfTokenRequestHandler(csrfHandler)
-                .ignoringRequestMatchers("/api/auth/**", "/payment/callback/**", "/ws/**")
+                .ignoringRequestMatchers("/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook", "/ws/**")
                 .ignoringRequestMatchers(request -> {
                     String authorization = request.getHeader("Authorization");
                     return authorization != null && authorization.startsWith("Bearer ");
                 }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/error", "/auth/**", "/css/**", "/js/**", "/images/**", "/ws/**",
-                                "/api/auth/**", "/payment/callback/**").permitAll()
+                                "/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/movies/**", "/schedule", "/articles/**",
                                 "/api/movies/**", "/api/showtimes/*/seats", "/api/snacks").permitAll()
                         .requestMatchers("/admin/users/**").hasRole("ADMIN")
