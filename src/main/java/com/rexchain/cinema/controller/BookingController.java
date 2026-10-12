@@ -5,6 +5,7 @@ import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.BookingService;
 import com.rexchain.cinema.service.QrCodeService;
+import com.rexchain.cinema.config.SePayProperties;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -26,10 +27,12 @@ public class BookingController {
     private final BookingService service;
     private final ComboProductRepository combos;
     private final QrCodeService qrCodes;
+    private final SePayProperties sepayProperties;
 
     public BookingController(ShowtimeRepository showtimes, ShowtimeSeatRepository showSeats,
                              UserRepository users, BookingRepository bookings, BookingService service,
-                             ComboProductRepository combos, QrCodeService qrCodes) {
+                             ComboProductRepository combos, QrCodeService qrCodes,
+                             SePayProperties sepayProperties) {
         this.showtimes = showtimes;
         this.showSeats = showSeats;
         this.users = users;
@@ -37,6 +40,7 @@ public class BookingController {
         this.service = service;
         this.combos = combos;
         this.qrCodes = qrCodes;
+        this.sepayProperties = sepayProperties;
     }
 
     @GetMapping("/booking/{showtimeId}")
@@ -158,6 +162,9 @@ public class BookingController {
         model.addAttribute("showtime", showtimes.findById(showtimeId).orElseThrow());
         model.addAttribute("showSeats", showSeats.findByShowtimeIdOrderBySeatSeatRowAscSeatSeatNumberAsc(showtimeId));
         model.addAttribute("combos", combos.findByActiveTrueOrderByIdAsc());
+        model.addAttribute("sepayEnabled", sepayProperties.isEnabled()
+                && sepayProperties.getBankAccount() != null && !sepayProperties.getBankAccount().isBlank()
+                && sepayProperties.getBankCode() != null && !sepayProperties.getBankCode().isBlank());
     }
 
     private User current(Authentication auth) {

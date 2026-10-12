@@ -35,6 +35,7 @@ public class BookingService {
     private final SeatReservationService seatReservationService;
     private final PaymentService paymentService;
     private final CheckInService checkInService;
+    private final SePayPaymentService sepay;
 
     public BookingService(ShowtimeSeatRepository seats,
                           BookingRepository bookings,
@@ -45,7 +46,8 @@ public class BookingService {
                           VoucherRepository vouchers,
                           SeatReservationService seatReservationService,
                           PaymentService paymentService,
-                          CheckInService checkInService) {
+                          CheckInService checkInService,
+                          SePayPaymentService sepay) {
         this.seats = seats;
         this.bookings = bookings;
         this.users = users;
@@ -56,6 +58,7 @@ public class BookingService {
         this.seatReservationService = seatReservationService;
         this.paymentService = paymentService;
         this.checkInService = checkInService;
+        this.sepay = sepay;
     }
 
     /* ──────────────────────────── HOLD & RELEASE (DELEGATED) ──────────────────────────── */
@@ -85,6 +88,7 @@ public class BookingService {
         User user = users.findById(userId).orElseThrow();
         if (user.getRole() == Role.CUSTOMER && method == PaymentMethod.PAY_AT_COUNTER)
             throw new IllegalArgumentException("Khách hàng cần chọn phương thức thanh toán trực tuyến");
+        if (method == PaymentMethod.BANK_QR) sepay.requireAvailable();
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(now))
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
@@ -113,7 +117,9 @@ public class BookingService {
         Voucher voucher = resolveVoucher(voucherCode, beforeDiscount, now);
         BigDecimal discount = voucher == null ? BigDecimal.ZERO : calculateDiscount(voucher, beforeDiscount);
         BigDecimal total = beforeDiscount.subtract(discount).max(BigDecimal.ZERO);
-        boolean online = method == PaymentMethod.MOMO_SANDBOX || method == PaymentMethod.VNPAY_SANDBOX;
+        boolean online = method == PaymentMethod.MOMO_SANDBOX
+                || method == PaymentMethod.VNPAY_SANDBOX
+                || method == PaymentMethod.BANK_QR;
 
         Booking booking = new Booking();
         booking.setBookingCode("REX" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase());
@@ -121,6 +127,8 @@ public class BookingService {
         booking.setUser(user);
         booking.setShowtime(showtime);
         booking.setPaymentMethod(method);
+        if (method == PaymentMethod.BANK_QR)
+            booking.setPaymentReference(sepay.newPaymentReference(bookings::existsByPaymentReference));
         booking.setStatus(online ? BookingStatus.PENDING : BookingStatus.CONFIRMED);
         booking.setSeatAmount(seatAmount);
         booking.setComboAmount(comboAmount);

@@ -22,6 +22,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByStatusOrderByCreatedAtAsc(BookingStatus status);
     Optional<Booking> findByBookingCode(String bookingCode);
     Optional<Booking> findByQrToken(String qrToken);
+    boolean existsByPaymentReference(String paymentReference);
     boolean existsByShowtimeIdAndStatusNot(Long showtimeId, BookingStatus status);
     List<Booking> findTop20ByCheckedInAtIsNotNullOrderByCheckedInAtDesc();
 
