@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
     let activeLink = null;
     links.forEach((link) => {
+        link.classList.remove('active');
+        link.removeAttribute('aria-current');
+        link.addEventListener('click', () => setOpen(false));
         const route = link.dataset.adminRoute;
         const matches = route === '/admin'
             ? currentPath === route
