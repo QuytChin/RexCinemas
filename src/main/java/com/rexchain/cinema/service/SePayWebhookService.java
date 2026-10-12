@@ -39,7 +39,9 @@ public class SePayWebhookService {
         if (booking.getPaymentReference() == null || reference == null
                 || !booking.getPaymentReference().equalsIgnoreCase(reference))
             throw new IllegalArgumentException("Mã thanh toán không khớp booking");
-        if (booking.getStatus() != BookingStatus.PENDING)
+        if (booking.getStatus() != BookingStatus.PENDING
+                && booking.getStatus() != BookingStatus.EXPIRED
+                && booking.getStatus() != BookingStatus.CANCELLED)
             throw new IllegalStateException("Booking không còn chờ thanh toán");
         if (transaction.transferAmount() == null
                 || transaction.transferAmount().compareTo(booking.getTotalAmount()) != 0)
