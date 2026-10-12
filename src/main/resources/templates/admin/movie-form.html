@@ -8,7 +8,7 @@
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container pt-page pb-5">
+<main class="container-fluid admin-page-wrap pt-page pb-5">
     <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
     <h1 th:text="${movie.id == null ? 'Thêm phim mới' : 'Cập nhật phim'}"></h1>
     <form class="admin-form mt-4" th:action="@{/admin/movies/save}" method="post" enctype="multipart/form-data">

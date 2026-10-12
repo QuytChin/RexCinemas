@@ -1,7 +1,52 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"><body>
-<div th:fragment="adminNav" class="admin-sidebar-shell"><button class="admin-sidebar-toggle" type="button" onclick="document.body.classList.toggle('admin-sidebar-open')" aria-label="Mở menu quản trị">MENU</button><aside class="admin-sidebar">
-<div class="admin-sidebar-head"><img class="admin-sidebar-logo" th:src="@{/images/rex-chain-cinemas-logo.png}" alt="Rex Chain Cinemas"><span class="admin-role-badge" sec:authorize="hasRole('ADMIN')">ADMIN</span><span class="admin-role-badge manager" sec:authorize="hasRole('CINEMA_MANAGER')">MANAGER</span></div>
-<nav class="admin-sidebar-menu" aria-label="Menu quản trị">
-<a th:classappend="${#request.requestURI == '/admin' ? ' active' : ''}" th:href="@{/admin}">Dashboard</a><a th:classappend="${#request.requestURI.startsWith('/admin/movies') ? ' active' : ''}" th:href="@{/admin/movies}">Phim</a><a th:classappend="${#request.requestURI.startsWith('/admin/cinemas') ? ' active' : ''}" th:href="@{/admin/cinemas}">Rạp</a><a th:classappend="${#request.requestURI.startsWith('/admin/auditoriums') ? ' active' : ''}" th:href="@{/admin/auditoriums}">Phòng chiếu</a><a th:classappend="${#request.requestURI.startsWith('/admin/showtimes') ? ' active' : ''}" th:href="@{/admin/showtimes}">Suất chiếu</a><a th:classappend="${#request.requestURI.startsWith('/admin/bookings') ? ' active' : ''}" th:href="@{/admin/bookings}">Booking</a><a class="checkin-nav-link" th:classappend="${#request.requestURI.startsWith('/admin/checkin') ? ' active' : ''}" th:href="@{/admin/checkin}">Check-in QR</a><a th:classappend="${#request.requestURI.startsWith('/admin/combos') ? ' active' : ''}" th:href="@{/admin/combos}">Combo / F&amp;B</a><a th:classappend="${#request.requestURI.startsWith('/admin/vouchers') ? ' active' : ''}" th:href="@{/admin/vouchers}">Voucher</a><a th:classappend="${#request.requestURI.startsWith('/admin/reviews') ? ' active' : ''}" th:href="@{/admin/reviews}">Review</a><a th:classappend="${#request.requestURI.startsWith('/admin/events') ? ' active' : ''}" th:href="@{/admin/events}">Sự kiện</a><a th:classappend="${#request.requestURI.startsWith('/admin/articles') ? ' active' : ''}" th:href="@{/admin/articles}">Bài viết</a><a th:classappend="${#request.requestURI.startsWith('/admin/media') ? ' active' : ''}" th:href="@{/admin/media}">Media</a><a sec:authorize="hasRole('ADMIN')" th:classappend="${#request.requestURI.startsWith('/admin/users') ? ' active' : ''}" th:href="@{/admin/users}">Người dùng</a>
-</nav><div class="admin-sidebar-footer"><a th:href="@{/}">Về trang khách</a><form sec:authorize="isAuthenticated()" th:action="@{/auth/logout}" method="post"><button type="submit">Đăng xuất</button></form></div>
-</aside></div></body></html>
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<th:block th:fragment="adminNav">
+    <button class="admin-sidebar-toggle" type="button" aria-controls="adminSidebar" aria-expanded="false">
+        <span aria-hidden="true">☰</span>
+        <span>Menu quản trị</span>
+    </button>
+    <button class="admin-sidebar-backdrop" type="button" aria-label="Đóng menu quản trị" tabindex="-1"></button>
+
+    <aside id="adminSidebar" class="admin-sidebar" aria-label="Điều hướng quản trị">
+        <div class="admin-sidebar-head">
+            <a class="admin-sidebar-brand" th:href="@{/admin}" aria-label="Rex Chain Cinemas Admin">
+                <img class="admin-sidebar-logo" th:src="@{/images/rex-chain-cinemas-logo.png}" alt="Rex Chain Cinemas">
+            </a>
+            <button class="admin-sidebar-close" type="button" aria-label="Đóng menu">×</button>
+        </div>
+
+        <div class="admin-sidebar-role">
+            <span class="admin-role-badge" sec:authorize="hasRole('ADMIN')">ADMIN</span>
+            <span class="admin-role-badge manager" sec:authorize="hasRole('CINEMA_MANAGER')">MANAGER</span>
+            <span sec:authentication="name"></span>
+        </div>
+
+        <nav class="admin-sidebar-menu">
+            <a data-admin-route="/admin" th:href="@{/admin}">Dashboard</a>
+            <a data-admin-route="/admin/movies" th:href="@{/admin/movies}">Phim</a>
+            <a data-admin-route="/admin/cinemas" th:href="@{/admin/cinemas}">Rạp</a>
+            <a data-admin-route="/admin/auditoriums" th:href="@{/admin/auditoriums}">Phòng chiếu</a>
+            <a data-admin-route="/admin/showtimes" th:href="@{/admin/showtimes}">Suất chiếu</a>
+            <a data-admin-route="/admin/bookings" th:href="@{/admin/bookings}">Booking</a>
+            <a data-admin-route="/admin/checkin" th:href="@{/admin/checkin}">Check-in QR</a>
+            <a data-admin-route="/admin/combos" th:href="@{/admin/combos}">Combo / F&amp;B</a>
+            <a data-admin-route="/admin/vouchers" th:href="@{/admin/vouchers}">Voucher</a>
+            <a data-admin-route="/admin/reviews" th:href="@{/admin/reviews}">Review</a>
+            <a data-admin-route="/admin/events" th:href="@{/admin/events}">Sự kiện</a>
+            <a data-admin-route="/admin/articles" th:href="@{/admin/articles}">Bài viết</a>
+            <a data-admin-route="/admin/media" th:href="@{/admin/media}">Media</a>
+            <a data-admin-route="/admin/users" sec:authorize="hasRole('ADMIN')" th:href="@{/admin/users}">Người dùng</a>
+        </nav>
+
+        <div class="admin-sidebar-footer">
+            <a th:href="@{/}">← Về trang khách</a>
+            <form sec:authorize="isAuthenticated()" th:action="@{/auth/logout}" method="post">
+                <button type="submit">Đăng xuất</button>
+            </form>
+        </div>
+    </aside>
+    <script th:src="@{/js/admin-layout.js}" defer></script>
+</th:block>
+</body>
+</html>
