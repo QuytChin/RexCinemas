@@ -33,13 +33,14 @@
                 <div class="rex-ticket-title-block">
                     <span class="rex-ticket-label">PHIM</span>
                     <h1 th:text="${booking.showtime.movie.title}"></h1>
-                    <div class="rex-ticket-venue"><span class="rex-ticket-icon">⌖</span><div><small>RẠP CHIẾU</small><strong th:text="${booking.showtime.auditorium.cinema.name}"></strong></div></div>
+                    <div class="rex-ticket-venue"><span class="rex-ticket-icon">⌖</span><div><small>RẠP CHIẾU</small><strong th:text="${booking.showtime.auditorium.cinema.name}"></strong><small class="rex-ticket-address" th:text="${booking.showtime.auditorium.cinema.address}"></small></div></div>
                     <div class="rex-ticket-venue"><span class="rex-ticket-icon">▣</span><div><small>PHÒNG</small><strong th:text="${booking.showtime.auditorium.name}"></strong></div></div>
                 </div>
                 <div class="rex-ticket-status">
                     <span class="rex-ticket-label">TRẠNG THÁI</span>
-                    <span class="badge rex-ticket-status-badge" th:classappend="${booking.status.name()=='CONFIRMED'?' rex-ticket-status-confirmed':(booking.status.name()=='PENDING'?' rex-ticket-status-pending':' rex-ticket-status-other')}" th:text="${booking.status}"></span>
+                    <span class="badge rex-ticket-status-badge" th:classappend="${booking.status.name()=='CONFIRMED'?' rex-ticket-status-confirmed':(booking.status.name()=='PENDING'?' rex-ticket-status-pending':' rex-ticket-status-other')}" th:text="${booking.status.name()=='CONFIRMED'?'ĐÃ XÁC NHẬN':(booking.status.name()=='PENDING'?'CHỜ THANH TOÁN':(booking.status.name()=='CANCELLED'?'ĐÃ HỦY':(booking.status.name()=='REFUNDED'?'ĐÃ HOÀN TIỀN':'CHỜ HOÀN TIỀN')))}"></span>
                     <div class="rex-ticket-code-meta"><small>MÃ ĐẶT VÉ</small><strong th:text="${booking.bookingCode}"></strong></div>
+                    <div class="rex-ticket-code-meta"><small>KHÁCH HÀNG</small><strong th:text="${booking.user.fullName}"></strong></div>
                     <div class="rex-ticket-code-meta" th:if="${booking.checkedIn}"><small>CHECK-IN</small><strong>ĐÃ SỬ DỤNG</strong></div>
                 </div>
             </div>
@@ -48,7 +49,8 @@
                 <div class="rex-ticket-info-cell"><span class="rex-ticket-label">SUẤT CHIẾU</span><strong th:text="${#temporals.format(booking.showtime.startTime,'HH:mm dd/MM/yyyy')}"></strong></div>
                 <div class="rex-ticket-info-cell"><span class="rex-ticket-label">GHẾ</span><strong><span th:each="s,i:${booking.seats}" th:text="${s.seatLabel+(i.last?'':', ')}"></span></strong></div>
                 <div class="rex-ticket-info-cell"><span class="rex-ticket-label">SỐ LƯỢNG VÉ</span><strong th:text="${booking.seats.size()+' vé'}"></strong></div>
-                <div class="rex-ticket-info-cell"><span class="rex-ticket-label">THANH TOÁN</span><strong th:text="${booking.paymentMethod}"></strong></div>
+                <div class="rex-ticket-info-cell"><span class="rex-ticket-label">NGÀY ĐẶT</span><strong th:text="${#temporals.format(booking.createdAt,'dd/MM/yyyy HH:mm')}"></strong></div>
+                <div class="rex-ticket-info-cell"><span class="rex-ticket-label">THANH TOÁN</span><strong th:text="${booking.paymentMethod.name()=='BANK_QR'?'Chuyển khoản ngân hàng':(booking.paymentMethod.name()=='MOMO_SANDBOX'?'Ví MoMo':(booking.paymentMethod.name()=='VNPAY_SANDBOX'?'VNPAY':'Thanh toán tại quầy'))}"></strong></div>
             </div>
 
             <div class="rex-ticket-payment-grid">
@@ -76,9 +78,10 @@
             <div th:unless="${booking.status.name()=='CONFIRMED'}" class="rex-ticket-qr-disabled">QR<br>CHƯA KHẢ DỤNG</div>
             <span class="rex-ticket-label">MÃ CHECK-IN</span>
             <strong class="rex-ticket-stub-code" th:text="${booking.bookingCode}"></strong>
-            <small th:if="${booking.status.name()=='CONFIRMED' and !booking.checkedIn}">Đưa QR này cho nhân viên quét tại cổng (cả đoàn)</small>
+            <small th:if="${booking.status.name()=='CONFIRMED' and !booking.checkedIn}">Đưa QR này cho nhân viên quét tại cổng</small>
             <small th:if="${booking.checkedIn}">Vé đã được sử dụng để check-in</small>
             <small th:if="${booking.status.name()!='CONFIRMED'}">QR chỉ hoạt động khi booking được xác nhận</small>
+            <p class="rex-ticket-qr-notice" th:if="${booking.status.name()=='CONFIRMED' and !booking.checkedIn}">Vui lòng có mặt trước giờ chiếu 10–15 phút<br>QR chỉ có hiệu lực cho booking này</p>
         </aside>
     </article>
 
