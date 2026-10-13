@@ -86,7 +86,7 @@ public class PaymentService {
             return markPaidForRefund(booking, normalizedReference, now);
 
         booking.setStatus(BookingStatus.CONFIRMED);
-        booking.setPaymentReference(normalizedReference);
+        recordProviderReference(booking, normalizedReference);
         booking.setPaidAt(now);
         booking.setExpiresAt(null);
 
@@ -184,7 +184,7 @@ public class PaymentService {
 
     private Booking markPaidForRefund(Booking booking, String reference, LocalDateTime paidAt) {
         booking.setStatus(BookingStatus.REFUND_PENDING);
-        booking.setPaymentReference(normalizeReference(reference));
+        recordProviderReference(booking, normalizeReference(reference));
         booking.setPaidAt(paidAt);
         booking.setExpiresAt(null);
         seatReservationService.releaseBookingSeats(booking);
@@ -193,9 +193,17 @@ public class PaymentService {
 
     private void verifySameReference(Booking booking, String reference) {
         String normalized = normalizeReference(reference);
-        if (booking.getPaymentReference() != null && normalized != null
-                && !booking.getPaymentReference().equals(normalized))
+        String previous = booking.getPaymentMethod() == PaymentMethod.BANK_QR
+                ? booking.getSepayTransactionId() : booking.getPaymentReference();
+        if (previous != null && normalized != null && !previous.equals(normalized))
             throw new IllegalStateException("Booking đã được xử lý bởi một giao dịch thanh toán khác");
+    }
+
+    private void recordProviderReference(Booking booking, String reference) {
+        if (booking.getPaymentMethod() == PaymentMethod.BANK_QR)
+            booking.setSepayTransactionId(reference);
+        else
+            booking.setPaymentReference(reference);
     }
 
     private String normalizeReference(String reference) {

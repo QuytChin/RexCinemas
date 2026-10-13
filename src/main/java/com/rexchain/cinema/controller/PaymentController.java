@@ -8,6 +8,7 @@ import com.rexchain.cinema.repository.BookingRepository;
 import com.rexchain.cinema.repository.UserRepository;
 import com.rexchain.cinema.service.BookingService;
 import com.rexchain.cinema.service.MomoPaymentService;
+import com.rexchain.cinema.service.SePayPaymentService;
 import com.rexchain.cinema.service.VnpayPaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.ui.Model;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -30,18 +32,21 @@ public class PaymentController {
     private final BookingService bookingService;
     private final MomoPaymentService momo;
     private final VnpayPaymentService vnpay;
+    private final SePayPaymentService sepay;
 
     public PaymentController(
             BookingRepository bookings,
             UserRepository users,
             BookingService bookingService,
             MomoPaymentService momo,
-            VnpayPaymentService vnpay) {
+            VnpayPaymentService vnpay,
+            SePayPaymentService sepay) {
         this.bookings = bookings;
         this.users = users;
         this.bookingService = bookingService;
         this.momo = momo;
         this.vnpay = vnpay;
+        this.sepay = sepay;
     }
 
     @GetMapping("/payment/{bookingId}/start")
@@ -56,6 +61,10 @@ public class PaymentController {
             return "redirect:/bookings/" + booking.getId();
         }
 
+        if (booking.getPaymentMethod() == PaymentMethod.BANK_QR) {
+            return "redirect:/payment/" + booking.getId() + "/bank-qr";
+        }
+
         try {
             if (booking.getPaymentMethod() == PaymentMethod.MOMO_SANDBOX) {
                 return "redirect:" + momo.createPaymentUrl(booking);
@@ -67,6 +76,27 @@ public class PaymentController {
         } catch (Exception ex) {
             // Starting a provider redirect is a GET. Keep the pending booking intact so a
             // cross-site GET or a temporary provider outage cannot cancel the user's hold.
+            return "redirect:/bookings/" + booking.getId() + "?paymentError";
+        }
+    }
+
+    @GetMapping("/payment/{bookingId}/bank-qr")
+    String bankQr(@PathVariable Long bookingId, Authentication authentication, Model model) {
+        Booking booking = bookings.findById(bookingId).orElseThrow();
+        User user = users.findByEmailIgnoreCase(authentication.getName()).orElseThrow();
+        if (!booking.getUser().getId().equals(user.getId()))
+            throw new IllegalStateException("Không có quyền xem thanh toán booking này");
+        if (booking.getPaymentMethod() != PaymentMethod.BANK_QR)
+            return "redirect:/payment/" + booking.getId() + "/start";
+        if (booking.getStatus() != BookingStatus.PENDING)
+            return "redirect:/bookings/" + booking.getId();
+        try {
+            sepay.requireAvailable();
+            model.addAttribute("booking", booking);
+            model.addAttribute("bankAccount", sepay.bankAccount());
+            model.addAttribute("qrImageUrl", sepay.qrImageUrl(booking.getPaymentReference(), booking.getTotalAmount()));
+            return "booking/bank-qr-waiting";
+        } catch (Exception ex) {
             return "redirect:/bookings/" + booking.getId() + "?paymentError";
         }
     }

@@ -46,6 +46,9 @@ public class Booking {
     @Column(length = 120)
     private String paymentReference;
 
+    @Column(length = 80, unique = true)
+    private String sepayTransactionId;
+
     private LocalDateTime paidAt;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -115,6 +118,8 @@ public class Booking {
     public void setVoucherCode(String voucherCode) { this.voucherCode = voucherCode; }
     public String getPaymentReference() { return paymentReference; }
     public void setPaymentReference(String paymentReference) { this.paymentReference = paymentReference; }
+    public String getSepayTransactionId() { return sepayTransactionId; }
+    public void setSepayTransactionId(String sepayTransactionId) { this.sepayTransactionId = sepayTransactionId; }
     public LocalDateTime getPaidAt() { return paidAt; }
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
     public BigDecimal getTotalAmount() { return totalAmount; }
