@@ -9,6 +9,7 @@ import com.rexchain.cinema.repository.BookingRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Locale;
 
 @Service
@@ -32,8 +33,14 @@ public class SePayWebhookService {
         if (bookings.findBySepayTransactionId(trim(transaction.id())).isPresent()) return;
 
         String reference = trim(transaction.code());
-        Booking booking = reference == null ? findByContent(transaction.content())
+        Booking booking = reference == null ? null
                 : bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, reference).orElse(null);
+        if (booking == null) {
+            booking = findByContent(transaction.content());
+            reference = booking == null ? null : trim(booking.getPaymentReference());
+        } else {
+            reference = trim(booking.getPaymentReference());
+        }
         if (booking == null || booking.getPaymentMethod() != PaymentMethod.BANK_QR)
             throw new IllegalArgumentException("Không tìm thấy booking BANK_QR phù hợp");
         if (booking.getPaymentReference() == null || reference == null
@@ -56,7 +63,8 @@ public class SePayWebhookService {
     private Booking findByContent(String content) {
         if (blank(content)) return null;
         String normalized = content.toUpperCase(Locale.ROOT);
-        return bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.PENDING).stream()
+        return List.of(BookingStatus.PENDING, BookingStatus.EXPIRED, BookingStatus.CANCELLED).stream()
+                .flatMap(status -> bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, status).stream())
                 .filter(b -> b.getPaymentReference() != null
                         && normalized.contains(b.getPaymentReference().toUpperCase(Locale.ROOT)))
                 .findFirst().orElse(null);

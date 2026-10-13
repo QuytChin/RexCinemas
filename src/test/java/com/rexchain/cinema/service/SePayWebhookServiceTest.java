@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,7 +30,7 @@ class SePayWebhookServiceTest {
     @BeforeEach
     void setUp() {
         properties = new SePayProperties();
-        properties.setBankAccount("0123456789");
+        properties.setBankAccount("0000501454103");
         service = new SePayWebhookService(bookings, bookingService, properties);
     }
 
@@ -53,6 +54,54 @@ class SePayWebhookServiceTest {
                 .thenReturn(Optional.of(booking));
 
         assertThatThrownBy(() -> service.process(transaction("tx-2", "in", "REXABC", "999")))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(bookingService);
+    }
+
+    @Test
+    void nullCodeResolvesPaymentReferenceFromContent() {
+        Booking booking = bookingWithReference("REXELEL7PKS", BookingStatus.PENDING, BigDecimal.valueOf(2_000));
+        when(bookings.findBySepayTransactionId("999002")).thenReturn(Optional.empty());
+        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.PENDING))
+                .thenReturn(List.of(booking));
+
+        service.process(new SePayWebhookRequest(
+                "999002", "MBBank", "2026-10-13T10:00:00", "0000501454103", null,
+                null, "TEST-REXELEL7PKS-CHUYEN TIEN", "in", BigDecimal.valueOf(2_000),
+                "LOCAL_TEST_999002"));
+
+        verify(bookingService).completeOnlinePayment("REX7B978F6FAD", "999002");
+    }
+
+    @Test
+    void invalidCodeFallsBackToPaymentReferenceInContent() {
+        Booking booking = bookingWithReference("REXELEL7PKS", BookingStatus.PENDING, BigDecimal.valueOf(2_000));
+        when(bookings.findBySepayTransactionId("tx-content-fallback")).thenReturn(Optional.empty());
+        when(bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, "WRONG"))
+                .thenReturn(Optional.empty());
+        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.PENDING))
+                .thenReturn(List.of(booking));
+
+        service.process(new SePayWebhookRequest(
+                "tx-content-fallback", "MBBank", null, "0000501454103", null,
+                "WRONG", "TEST-REXELEL7PKS-CHUYEN TIEN", "in", BigDecimal.valueOf(2_000), null));
+
+        verify(bookingService).completeOnlinePayment("REX7B978F6FAD", "tx-content-fallback");
+    }
+
+    @Test
+    void contentWithoutKnownPaymentReferenceIsRejected() {
+        when(bookings.findBySepayTransactionId("tx-no-reference")).thenReturn(Optional.empty());
+        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.PENDING))
+                .thenReturn(List.of());
+        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.EXPIRED))
+                .thenReturn(List.of());
+        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.CANCELLED))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.process(new SePayWebhookRequest(
+                "tx-no-reference", "MBBank", null, "0123456789", null,
+                null, "TEST-NOT-A-BOOKING-CHUYEN TIEN", "in", BigDecimal.valueOf(2_000), null)))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(bookingService);
     }
@@ -91,17 +140,21 @@ class SePayWebhookServiceTest {
     }
 
     private Booking booking(BookingStatus status) {
+        return bookingWithReference("REXABC", status, BigDecimal.valueOf(100_000));
+    }
+
+    private Booking bookingWithReference(String reference, BookingStatus status, BigDecimal amount) {
         Booking booking = new Booking();
-        booking.setBookingCode("REX-1");
+        booking.setBookingCode(reference.equals("REXELEL7PKS") ? "REX7B978F6FAD" : "REX-1");
         booking.setPaymentMethod(PaymentMethod.BANK_QR);
-        booking.setPaymentReference("REXABC");
+        booking.setPaymentReference(reference);
         booking.setStatus(status);
-        booking.setTotalAmount(BigDecimal.valueOf(100_000));
+        booking.setTotalAmount(amount);
         return booking;
     }
 
     private SePayWebhookRequest transaction(String id, String type, String code, String amount) {
-        return new SePayWebhookRequest(id, "BANK", "2026-10-13T10:00:00", "0123456789", null,
+        return new SePayWebhookRequest(id, "BANK", "2026-10-13T10:00:00", "0000501454103", null,
                 code, "Thanh toan " + code, type, new BigDecimal(amount), "REF-1");
     }
 }
