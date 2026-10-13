@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<th:block th:fragment="timeChip(showtime, availableCount)">
+    <a sec:authorize="isAuthenticated()"
+       th:if="${availableCount != null and availableCount > 0}"
+       class="showtime-chip" th:href="@{'/booking/'+${showtime.id}}"
+       th:title="${showtime.auditorium.name != null ? showtime.auditorium.name : 'Phòng chiếu'}">
+        <strong th:text="${#temporals.format(showtime.startTime,'HH:mm')}"></strong>
+        <small th:text="${showtime.auditorium.name != null ? showtime.auditorium.name : 'Phòng chiếu'}"></small>
+    </a>
+    <a sec:authorize="!isAuthenticated()"
+       th:if="${availableCount != null and availableCount > 0}"
+       class="showtime-chip" th:href="@{/auth/login(returnUrl=${'/booking/'+showtime.id})}"
+       th:title="${showtime.auditorium.name != null ? showtime.auditorium.name : 'Phòng chiếu'}">
+        <strong th:text="${#temporals.format(showtime.startTime,'HH:mm')}"></strong>
+        <small th:text="${showtime.auditorium.name != null ? showtime.auditorium.name : 'Phòng chiếu'}"></small>
+    </a>
+    <span class="showtime-chip sold-out"
+          th:if="${availableCount == null or availableCount <= 0}"
+          th:title="${showtime.auditorium.name != null ? showtime.auditorium.name : 'Phòng chiếu'}">
+        <strong th:text="${#temporals.format(showtime.startTime,'HH:mm')}"></strong>
+        <small>Hết ghế</small>
+    </span>
+</th:block>
+</body>
+</html>

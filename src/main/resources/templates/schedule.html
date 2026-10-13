@@ -76,26 +76,7 @@
                     </div>
                     <div class="showtime-chip-list">
                         <th:block th:each="s : ${cinemaEntry.value}" th:if="${s != null and s.id != null and s.startTime != null and s.auditorium != null}">
-                            <a sec:authorize="isAuthenticated()"
-                               th:if="${availableSeats != null and availableSeats[s.id] != null and availableSeats[s.id] > 0}"
-                               class="showtime-chip" th:href="@{'/booking/'+${s.id}}"
-                               th:title="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}">
-                                <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
-                                <small th:text="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}"></small>
-                            </a>
-                            <a sec:authorize="!isAuthenticated()"
-                               th:if="${availableSeats != null and availableSeats[s.id] != null and availableSeats[s.id] > 0}"
-                               class="showtime-chip" th:href="@{/auth/login(returnUrl=${'/booking/'+s.id})}"
-                               th:title="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}">
-                                <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
-                                <small th:text="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}"></small>
-                            </a>
-                            <span class="showtime-chip sold-out"
-                                  th:if="${availableSeats == null or availableSeats[s.id] == null or availableSeats[s.id] <= 0}"
-                                  th:title="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}">
-                                <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
-                                <small>Hết ghế</small>
-                            </span>
+                            <th:block th:replace="~{fragments/showtime-selection :: timeChip(${s}, ${availableSeats != null ? availableSeats[s.id] : null})}"></th:block>
                         </th:block>
                     </div>
                 </div>

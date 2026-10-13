@@ -123,9 +123,14 @@ public class HomeController {
     }
 
     @GetMapping("/movies/{id}")
-    String detail(@PathVariable Long id, Model model, Authentication auth) {
+    String detail(@PathVariable Long id,
+                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                  Model model, Authentication auth) {
         Movie movie = movies.findById(id).orElseThrow();
-        List<Showtime> upcoming = showtimes.findPublicByMovieIdAndStartTimeAfterOrderByStartTimeAsc(id, LocalDateTime.now());
+        LocalDate selectedDate = date == null ? LocalDate.now() : date;
+        LocalDateTime fromTime = selectedDate.equals(LocalDate.now()) ? LocalDateTime.now() : selectedDate.atStartOfDay();
+        List<Showtime> upcoming = showtimes.findSchedule(
+                fromTime, selectedDate.plusDays(1).atStartOfDay(), null, id);
         Map<Cinema, List<Showtime>> byCinema = new LinkedHashMap<>();
         for (Showtime showtime : upcoming) {
             byCinema.computeIfAbsent(showtime.getAuditorium().getCinema(), k -> new ArrayList<>()).add(showtime);
@@ -133,6 +138,8 @@ public class HomeController {
 
         model.addAttribute("movie", movie);
         model.addAttribute("showtimesByCinema", byCinema);
+        model.addAttribute("selectedDate", selectedDate);
+        model.addAttribute("dates", dateOptions(LocalDate.now(), 7));
         model.addAttribute("reviews", reviews.findByMovieIdOrderByCreatedAtDesc(id));
         model.addAttribute("averageRating", reviews.averageRating(id));
         model.addAttribute("reviewCount", reviews.countByMovieId(id));
