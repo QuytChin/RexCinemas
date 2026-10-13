@@ -33,12 +33,20 @@
 
     <section class="movie-schedule-block" th:each="entry:${schedule}">
         <div class="movie-show-row">
-            <img th:src="${entry.key.posterUrl}" th:alt="${entry.key.title} poster">
+            <div class="movie-show-poster">
+                <img th:if="${entry.key.posterUrl != null and !#strings.isEmpty(entry.key.posterUrl)}" th:src="${entry.key.posterUrl}" th:alt="${entry.key.title} poster">
+                <span th:unless="${entry.key.posterUrl != null and !#strings.isEmpty(entry.key.posterUrl)}" aria-hidden="true">REX</span>
+            </div>
             <div class="movie-show-info w-100">
                 <div class="movie-show-heading">
                     <div>
                         <h3><a th:href="@{'/movies/'+${entry.key.id}}" th:text="${entry.key.title}"></a></h3>
-                        <p th:text="${entry.key.genre+' • '+entry.key.durationMinutes+' phút • '+entry.key.language+' • '+entry.key.ageRating}"></p>
+                        <p class="movie-show-metadata">
+                            <span th:if="${entry.key.genre != null and !#strings.isEmpty(entry.key.genre)}" th:text="${entry.key.genre}"></span>
+                            <span th:if="${entry.key.durationMinutes > 0}" th:text="${entry.key.durationMinutes+' phút'}"></span>
+                            <span th:if="${entry.key.language != null and !#strings.isEmpty(entry.key.language)}" th:text="${entry.key.language}"></span>
+                            <span th:if="${entry.key.ageRating != null}" th:text="${entry.key.ageRating}"></span>
+                        </p>
                     </div>
                     <a class="btn btn-sm btn-outline-light" th:href="@{'/movies/'+${entry.key.id}}">Chi tiết phim</a>
                 </div>
@@ -61,7 +69,11 @@
             </div>
         </div>
     </section>
-    <div class="empty-panel" th:if="${schedule.isEmpty()}">Không có suất chiếu phù hợp trong ngày đã chọn.</div>
+    <div class="schedule-empty-state" th:if="${schedule.isEmpty()}">
+        <span class="schedule-empty-icon" aria-hidden="true">◷</span>
+        <h2>Hiện chưa có lịch chiếu cho ngày này.</h2>
+        <p>Hãy thử chọn ngày khác hoặc điều chỉnh bộ lọc rạp/phim.</p>
+    </div>
 </main>
 <div th:replace="~{fragments/footer :: footer}"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

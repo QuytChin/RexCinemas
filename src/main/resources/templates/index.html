@@ -39,7 +39,7 @@
 <section class="rex-section container-xl" id="now-showing-section">
     <div class="section-heading"><div><p class="eyebrow">ON SCREEN</p><h2>PHIM ĐANG CHIẾU</h2></div><a th:href="@{/movies(status='now')}">Xem tất cả →</a></div>
     <div class="genre-strip"><a th:href="@{/movies(status='now')}">Tất cả</a><a th:href="@{/movies(q='Hành động')}">Hành động</a><a th:href="@{/movies(q='Tâm lý')}">Tâm lý</a><a th:href="@{/movies(q='Hài')}">Hài hước</a><a th:href="@{/movies(q='Khoa học')}">Sci-Fi</a><a th:href="@{/movies(q='Gia đình')}">Gia đình</a></div>
-    <div class="movie-grid"><th:block th:each="m:${nowShowing}" th:if="${m != null}"><article th:replace="~{fragments/movie-card :: card(${m}, 'XEM LỊCH CHIẾU', true, false)}"></article></th:block></div>
+    <div class="movie-grid"><th:block th:each="m:${nowShowing}" th:if="${m != null}"><article th:replace="~{fragments/movie-card :: card(${m}, 'XEM LỊCH CHIẾU', true, false)}"></article></th:block><div class="empty-panel" th:if="${nowShowing.isEmpty()}">Hiện chưa có phim đang chiếu.</div></div>
 </section>
 
 <section class="rex-section container-xl" id="coming-soon-section">
