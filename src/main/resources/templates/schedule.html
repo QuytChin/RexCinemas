@@ -11,8 +11,17 @@
 <main class="container-xl pt-page pb-5">
     <div class="schedule-hero">
         <p class="eyebrow">SHOWTIMES & BOOKING</p>
-        <h1>LỊCH CHIẾU REX CINEMAS</h1>
+        <h1>LỊCH CHIẾU</h1>
         <p>Chọn ngày, rạp hoặc phim. Suất còn ghế có thể đặt vé trực tiếp ngay tại đây.</p>
+    </div>
+
+    <div class="date-tabs" role="tablist" aria-label="Chọn ngày chiếu">
+        <a th:each="d:${dates}" th:href="@{/schedule(cinemaId=${selectedCinemaId},movieId=${selectedMovieId},date=${d})}"
+           th:classappend="${d.equals(selectedDate) ? ' active' : ''}"
+           th:aria-current="${d.equals(selectedDate) ? 'date' : null}">
+            <strong th:text="${#temporals.format(d,'dd/MM')}"></strong>
+            <small th:text="${#temporals.format(d,'EEE')}"></small>
+        </a>
     </div>
 
     <form th:action="@{/schedule}" method="get" class="schedule-filter">
@@ -21,12 +30,6 @@
         <div><label>Ngày</label><input type="date" class="form-control" name="date" th:value="${selectedDate}"></div>
         <button class="btn btn-rex">ÁP DỤNG</button>
     </form>
-
-    <div class="date-tabs">
-        <a th:each="d:${dates}" th:href="@{/schedule(cinemaId=${selectedCinemaId},movieId=${selectedMovieId},date=${d})}" th:classappend="${d.equals(selectedDate) ? ' active' : ''}">
-            <small th:text="${#temporals.format(d,'EEE')}"></small><strong th:text="${#temporals.format(d,'dd/MM')}"></strong>
-        </a>
-    </div>
 
     <section class="cinema-schedule-block" th:each="entry:${schedule}">
         <div class="cinema-schedule-head">
