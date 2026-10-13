@@ -26,7 +26,7 @@ public class Movie {
     private AgeRating ageRating = AgeRating.P;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     private MovieStatus status = MovieStatus.NOW_SHOWING;
 
     @Column(length = 120)
