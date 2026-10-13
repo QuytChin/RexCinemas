@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<article class="rex-movie-card" th:fragment="card(movie, actionLabel, showAge, showRelease)">
+    <a class="poster-link" th:href="@{'/movies/'+${movie.id}}">
+        <img th:src="${movie.posterUrl}" th:alt="${movie.title}">
+        <span class="age-tag" th:if="${showAge and movie.ageRating != null}" th:text="${movie.ageRating}"></span>
+        <span class="release-ribbon" th:if="${showRelease and movie.releaseDate != null}"
+              th:text="${#temporals.format(movie.releaseDate,'dd/MM')}"></span>
+        <span class="poster-hover" th:text="${actionLabel}"></span>
+        <span class="poster-info" aria-hidden="true">
+            <strong class="poster-info-title" th:text="${movie.title}"></strong>
+            <span class="poster-info-meta" th:if="${movie.genre != null and !#strings.isEmpty(movie.genre)}">
+                <span class="poster-info-icon">◆</span><span th:text="${movie.genre}"></span>
+            </span>
+            <span class="poster-info-meta" th:if="${movie.durationMinutes > 0}">
+                <span class="poster-info-icon">◷</span><span th:text="${movie.durationMinutes + ' phút'}"></span>
+            </span>
+            <span class="poster-info-meta" th:if="${movie.language != null and !#strings.isEmpty(movie.language)}">
+                <span class="poster-info-icon">文</span><span th:text="${movie.language}"></span>
+            </span>
+            <span class="poster-info-meta" th:if="${movie.ageRating != null}">
+                <span class="poster-info-icon">★</span><span th:text="${movie.ageRating}"></span>
+            </span>
+        </span>
+    </a>
+    <div class="movie-card-body">
+        <h3 th:text="${movie.title}"></h3>
+        <p th:if="${movie.genre != null and !#strings.isEmpty(movie.genre)}" th:text="${movie.genre}"></p>
+        <small class="movie-card-language" th:if="${movie.language != null and !#strings.isEmpty(movie.language)}"
+               th:text="${movie.language}"></small>
+        <div>
+            <span th:if="${showRelease and movie.releaseDate != null}"
+                  th:text="${#temporals.format(movie.releaseDate,'dd/MM/yyyy')}"></span>
+            <span th:unless="${showRelease}" th:text="${movie.durationMinutes + ' phút'}"></span>
+            <a th:href="@{'/movies/'+${movie.id}}" th:text="${actionLabel}"></a>
+        </div>
+    </div>
+</article>
+</body>
+</html>
