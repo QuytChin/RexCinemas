@@ -29,11 +29,19 @@
         <p th:if="${movie.genre != null and !#strings.isEmpty(movie.genre)}" th:text="${movie.genre}"></p>
         <small class="movie-card-language" th:if="${movie.language != null and !#strings.isEmpty(movie.language)}"
                th:text="${movie.language}"></small>
-        <div>
+        <div class="movie-card-meta">
             <span th:if="${showRelease and movie.releaseDate != null}"
                   th:text="${#temporals.format(movie.releaseDate,'dd/MM/yyyy')}"></span>
             <span th:unless="${showRelease}" th:text="${movie.durationMinutes + ' phút'}"></span>
-            <a th:href="@{'/movies/'+${movie.id}}" th:text="${actionLabel}"></a>
+        </div>
+        <div class="movie-card-actions">
+            <a class="movie-card-trailer" th:if="${movie.trailerUrl != null and !#strings.isEmpty(movie.trailerUrl)}"
+               th:href="${movie.trailerUrl}" target="_blank" rel="noopener noreferrer">
+                <span aria-hidden="true">▶</span> Xem Trailer
+            </a>
+            <span class="movie-card-trailer is-disabled" th:unless="${movie.trailerUrl != null and !#strings.isEmpty(movie.trailerUrl)}"
+                  aria-disabled="true"><span aria-hidden="true">▶</span> Xem Trailer</span>
+            <a class="movie-card-booking" th:href="@{'/movies/'+${movie.id}}">Đặt vé</a>
         </div>
     </div>
 </article>
