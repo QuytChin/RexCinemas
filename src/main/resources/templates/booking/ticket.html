@@ -1,83 +1,97 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Vé điện tử - Rex Cinemas</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container pt-page pb-5">
-    <div class="alert alert-success mx-auto ticket-alert" th:if="${param.success}">Đặt vé thành công. QR điện tử đã sẵn sàng để check-in tại rạp.</div>
-    <div class="alert alert-danger mx-auto ticket-alert" th:if="${param.paymentError}">Thanh toán không thành công hoặc chưa cấu hình cổng thanh toán. Booking đã được hủy và ghế đã trả lại.</div>
-    <div class="alert alert-warning mx-auto ticket-alert" th:if="${param.refundPending}">Cổng thanh toán đã ghi nhận tiền nhưng booking không còn đủ điều kiện xác nhận. Giao dịch đã chuyển sang chờ hoàn tiền; vui lòng liên hệ rạp với mã đặt vé bên dưới.</div>
+<main class="container-fluid pt-page pb-5 rex-ticket-page">
+    <div class="alert alert-success mx-auto rex-ticket-alert" th:if="${param.success}">Đặt vé thành công. QR điện tử đã sẵn sàng để check-in tại rạp.</div>
+    <div class="alert alert-danger mx-auto rex-ticket-alert" th:if="${param.paymentError}">Thanh toán không thành công hoặc chưa cấu hình cổng thanh toán. Booking đã được hủy và ghế đã trả lại.</div>
+    <div class="alert alert-warning mx-auto rex-ticket-alert" th:if="${param.refundPending}">Cổng thanh toán đã ghi nhận tiền nhưng booking không còn đủ điều kiện xác nhận. Giao dịch đã chuyển sang chờ hoàn tiền; vui lòng liên hệ rạp với mã đặt vé bên dưới.</div>
 
-    <div class="ticket-actions mx-auto mb-3 d-flex justify-content-between align-items-center gap-2 flex-wrap">
-        <div><span class="text-secondary">Mã đặt vé:</span> <strong th:text="${booking.bookingCode}"></strong></div>
+    <div class="rex-ticket-actions mx-auto mb-3 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+        <div><span>Mã đặt vé:</span> <strong th:text="${booking.bookingCode}"></strong></div>
         <div class="d-flex gap-2"><a class="btn btn-outline-light btn-sm" th:href="@{/bookings}">Vé của tôi</a><button class="btn btn-rex btn-sm" onclick="window.print()">In / lưu PDF</button></div>
     </div>
 
-    <div class="ticket mx-auto ticket-real">
-        <div class="ticket-left">
-            <p class="eyebrow">REX E-TICKET</p>
-            <h2 th:text="${booking.showtime.movie.title}"></h2>
-            <p th:text="${booking.showtime.auditorium.cinema.name}"></p>
-            <div class="d-flex gap-2 flex-wrap mb-3">
-                <span class="badge" th:classappend="${booking.status.name()=='CONFIRMED'?' text-bg-success':(booking.status.name()=='PENDING'?' text-bg-warning':' text-bg-secondary')}" th:text="${booking.status}"></span>
-                <span class="badge text-bg-info" th:if="${booking.checkedIn}">ĐÃ CHECK-IN</span>
+    <article class="rex-ticket-shell mx-auto">
+        <section class="rex-ticket-main">
+            <header class="rex-ticket-header">
+                <img th:src="@{/images/rex-chain-cinemas-logo.png}" alt="Rex Chain Cinemas" class="rex-ticket-logo">
+                <div class="rex-ticket-header-copy"><span>REX E-TICKET</span><small>VÉ XEM PHIM ĐIỆN TỬ</small></div>
+            </header>
+
+            <div class="rex-ticket-hero">
+                <div class="rex-ticket-poster" th:if="${booking.showtime.movie.posterUrl != null and !#strings.isEmpty(booking.showtime.movie.posterUrl)}">
+                    <img th:src="${booking.showtime.movie.posterUrl}" th:alt="${booking.showtime.movie.title}">
+                </div>
+                <div class="rex-ticket-title-block">
+                    <span class="rex-ticket-label">PHIM</span>
+                    <h1 th:text="${booking.showtime.movie.title}"></h1>
+                    <div class="rex-ticket-venue"><span class="rex-ticket-icon">⌖</span><div><small>RẠP CHIẾU</small><strong th:text="${booking.showtime.auditorium.cinema.name}"></strong></div></div>
+                    <div class="rex-ticket-venue"><span class="rex-ticket-icon">▣</span><div><small>PHÒNG</small><strong th:text="${booking.showtime.auditorium.name}"></strong></div></div>
+                </div>
+                <div class="rex-ticket-status">
+                    <span class="rex-ticket-label">TRẠNG THÁI</span>
+                    <span class="badge rex-ticket-status-badge" th:classappend="${booking.status.name()=='CONFIRMED'?' rex-ticket-status-confirmed':(booking.status.name()=='PENDING'?' rex-ticket-status-pending':' rex-ticket-status-other')}" th:text="${booking.status}"></span>
+                    <div class="rex-ticket-code-meta"><small>MÃ ĐẶT VÉ</small><strong th:text="${booking.bookingCode}"></strong></div>
+                    <div class="rex-ticket-code-meta" th:if="${booking.checkedIn}"><small>CHECK-IN</small><strong>ĐÃ SỬ DỤNG</strong></div>
+                </div>
             </div>
-            <div class="row g-3">
-                <div class="col-6"><small>SUẤT CHIẾU</small><strong th:text="${#temporals.format(booking.showtime.startTime,'HH:mm dd/MM/yyyy')}"></strong></div>
-                <div class="col-6"><small>PHÒNG</small><strong th:text="${booking.showtime.auditorium.name}"></strong></div>
-                <div class="col-6"><small>GHẾ</small><strong><span th:each="s,i:${booking.seats}" th:text="${s.seatLabel+(i.last?'':', ')}"></span></strong></div>
-                <div class="col-6"><small>THANH TOÁN</small><strong th:text="${booking.paymentMethod}"></strong></div>
+
+            <div class="rex-ticket-info-grid">
+                <div class="rex-ticket-info-cell"><span class="rex-ticket-label">SUẤT CHIẾU</span><strong th:text="${#temporals.format(booking.showtime.startTime,'HH:mm dd/MM/yyyy')}"></strong></div>
+                <div class="rex-ticket-info-cell"><span class="rex-ticket-label">GHẾ</span><strong><span th:each="s,i:${booking.seats}" th:text="${s.seatLabel+(i.last?'':', ')}"></span></strong></div>
+                <div class="rex-ticket-info-cell"><span class="rex-ticket-label">SỐ LƯỢNG VÉ</span><strong th:text="${booking.seats.size()+' vé'}"></strong></div>
+                <div class="rex-ticket-info-cell"><span class="rex-ticket-label">THANH TOÁN</span><strong th:text="${booking.paymentMethod}"></strong></div>
             </div>
-            <div class="ticket-breakdown mt-4">
-                <div><span>Tiền ghế</span><b th:text="${#numbers.formatDecimal(booking.seatAmount,0,'COMMA',0,'POINT')+'đ'}"></b></div>
-                <div th:if="${booking.comboAmount.signum()>0}"><span>Combo</span><b th:text="${#numbers.formatDecimal(booking.comboAmount,0,'COMMA',0,'POINT')+'đ'}"></b></div>
-                <div th:each="c:${booking.combos}" class="ticket-combo"><span th:text="${c.comboName+' × '+c.quantity}"></span><b th:text="${#numbers.formatDecimal(c.lineTotal,0,'COMMA',0,'POINT')+'đ'}"></b></div>
-                <div th:if="${booking.discountAmount.signum()>0}" class="text-success"><span th:text="${'Voucher '+booking.voucherCode}"></span><b th:text="${'-'+#numbers.formatDecimal(booking.discountAmount,0,'COMMA',0,'POINT')+'đ'}"></b></div>
-                <div class="total-line"><span>TỔNG TIỀN</span><b th:text="${#numbers.formatDecimal(booking.totalAmount,0,'COMMA',0,'POINT')+'đ'}"></b></div>
+
+            <div class="rex-ticket-payment-grid">
+                <div class="rex-ticket-payment-cell"><span class="rex-ticket-label">TIỀN GHẾ</span><strong th:text="${#numbers.formatDecimal(booking.seatAmount,0,'COMMA',0,'POINT')+'đ'}"></strong></div>
+                <div class="rex-ticket-payment-cell" th:if="${booking.comboAmount.signum()>0}"><span class="rex-ticket-label">COMBO</span><strong th:text="${#numbers.formatDecimal(booking.comboAmount,0,'COMMA',0,'POINT')+'đ'}"></strong></div>
+                <div class="rex-ticket-payment-cell rex-ticket-total"><span class="rex-ticket-label">TỔNG TIỀN</span><strong th:text="${#numbers.formatDecimal(booking.totalAmount,0,'COMMA',0,'POINT')+'đ'}"></strong></div>
             </div>
-            <div class="checkin-note" th:if="${booking.checkedIn}">
+            <div class="rex-ticket-breakdown" th:if="${!booking.combos.isEmpty() or booking.discountAmount.signum()>0}">
+                <div th:each="c:${booking.combos}"><span th:text="${c.comboName+' × '+c.quantity}"></span><b th:text="${#numbers.formatDecimal(c.lineTotal,0,'COMMA',0,'POINT')+'đ'}"></b></div>
+                <div th:if="${booking.discountAmount.signum()>0}" class="rex-ticket-discount"><span th:text="${'Voucher '+booking.voucherCode}"></span><b th:text="${'-'+#numbers.formatDecimal(booking.discountAmount,0,'COMMA',0,'POINT')+'đ'}"></b></div>
+            </div>
+            <div class="rex-ticket-note" th:if="${booking.checkedIn}">
                 Check-in lúc <strong th:text="${#temporals.format(booking.checkedInAt,'HH:mm dd/MM/yyyy')}"></strong>
                 <span th:if="${booking.checkedInBy!=null}" th:text="${' • bởi '+booking.checkedInBy}"></span>
             </div>
-        </div>
-        <div class="ticket-code ticket-qr-panel">
-            <div th:if="${booking.status.name()=='CONFIRMED'}" class="qr-frame">
-                <img th:src="@{'/bookings/'+${booking.id}+'/qr'}" alt="QR check-in" class="ticket-qr-img">
+            <div class="rex-ticket-note rex-ticket-note-neutral" th:unless="${booking.checkedIn}">Vui lòng có mặt trước giờ chiếu 10–15 phút. QR chỉ có hiệu lực cho booking này.</div>
+        </section>
+
+        <aside class="rex-ticket-stub">
+            <img th:src="@{/images/rex-chain-cinemas-logo.png}" alt="Rex Chain Cinemas" class="rex-ticket-stub-logo">
+            <p class="rex-ticket-stub-tagline">ĐIỆN ẢNH<br>KẾT NỐI NHỮNG<br>CON NGƯỜI</p>
+            <div th:if="${booking.status.name()=='CONFIRMED'}" class="rex-ticket-qr-frame">
+                <img th:src="@{'/bookings/'+${booking.id}+'/qr'}" alt="QR check-in" class="rex-ticket-qr-img">
             </div>
-            <div th:unless="${booking.status.name()=='CONFIRMED'}" class="qr-disabled">QR<br>CHƯA KHẢ DỤNG</div>
-            <strong th:text="${booking.bookingCode}"></strong>
+            <div th:unless="${booking.status.name()=='CONFIRMED'}" class="rex-ticket-qr-disabled">QR<br>CHƯA KHẢ DỤNG</div>
+            <span class="rex-ticket-label">MÃ CHECK-IN</span>
+            <strong class="rex-ticket-stub-code" th:text="${booking.bookingCode}"></strong>
             <small th:if="${booking.status.name()=='CONFIRMED' and !booking.checkedIn}">Đưa QR này cho nhân viên quét tại cổng (cả đoàn)</small>
             <small th:if="${booking.checkedIn}">Vé đã được sử dụng để check-in</small>
             <small th:if="${booking.status.name()!='CONFIRMED'}">QR chỉ hoạt động khi booking được xác nhận</small>
-        </div>
-    </div>
+        </aside>
+    </article>
 
-    <!-- PHÂN ĐOẠN 4: VÉ TỪNG GHẾ (CHO ĐOÀN ĐI NHIỀU NGƯỜI / CHECK-IN ĐỘC LẬP) -->
-    <div class="individual-tickets-section mx-auto mt-5" th:if="${booking.status.name()=='CONFIRMED' and booking.seats.size() > 1}">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <p class="eyebrow mb-1">INDIVIDUAL TICKETS</p>
-                <h3 class="mb-0">Vé điện tử từng ghế (Chia sẻ cho bạn bè)</h3>
-                <small class="text-secondary">Mỗi ghế sở hữu mã vé và mã QR riêng biệt để khách vào cổng độc lập.</small>
-            </div>
+    <section class="rex-ticket-individual-section mx-auto mt-5" th:if="${booking.status.name()=='CONFIRMED' and booking.seats.size() > 1}">
+        <div class="d-flex justify-content-between align-items-center mb-3 gap-3 flex-wrap">
+            <div><p class="eyebrow mb-1">INDIVIDUAL TICKETS</p><h3 class="mb-1">Vé điện tử từng ghế</h3><small class="text-secondary">Mỗi ghế sở hữu mã vé và mã QR riêng biệt để khách vào cổng độc lập.</small></div>
             <span class="badge text-bg-dark border" th:text="${booking.seats.size() + ' vé độc lập'}"></span>
         </div>
         <div class="row g-3">
             <div class="col-md-6 col-lg-4" th:each="s : ${booking.seats}">
-                <div class="card bg-dark text-white border-secondary h-100 p-3 ticket-seat-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="badge text-bg-danger fs-6" th:text="'Ghế ' + ${s.seatLabel}"></span>
-                        <span class="badge text-bg-info" th:if="${s.checkedIn}">ĐÃ CHECK-IN</span>
-                        <span class="badge text-bg-secondary" th:unless="${s.checkedIn}">CHƯA CHECK-IN</span>
-                    </div>
-                    <div class="text-center my-3 bg-white p-2 rounded qr-seat-box">
-                        <img th:src="@{'/bookings/' + ${booking.id} + '/seats/' + ${s.id} + '/qr'}" alt="QR Ghế" class="img-fluid seat-ticket-qr">
-                    </div>
+                <div class="rex-ticket-seat-card h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-2"><span class="badge text-bg-danger fs-6" th:text="'Ghế ' + ${s.seatLabel}"></span><span class="badge text-bg-info" th:if="${s.checkedIn}">ĐÃ CHECK-IN</span><span class="badge text-bg-secondary" th:unless="${s.checkedIn}">CHƯA CHECK-IN</span></div>
+                    <div class="text-center my-3 bg-white p-2 rounded"><img th:src="@{'/bookings/' + ${booking.id} + '/seats/' + ${s.id} + '/qr'}" alt="QR Ghế" class="img-fluid seat-ticket-qr"></div>
                     <div class="small text-secondary mb-1">Mã vé: <strong class="text-light" th:text="${s.ticketCode}"></strong></div>
                     <div class="small text-secondary mb-1">Giá vé: <strong class="text-light" th:text="${#numbers.formatDecimal(s.price,0,'COMMA',0,'POINT') + 'đ'}"></strong></div>
                     <div class="small text-info mt-auto pt-2 border-top border-secondary" th:if="${s.checkedInAt != null}" th:text="'Check-in: ' + ${#temporals.format(s.checkedInAt,'HH:mm dd/MM')}"></div>
@@ -85,7 +99,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
