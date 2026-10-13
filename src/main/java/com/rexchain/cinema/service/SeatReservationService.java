@@ -48,7 +48,9 @@ public class SeatReservationService {
         LocalDateTime now = LocalDateTime.now();
         Showtime showtime = showtimes.findById(showtimeId)
                 .orElseThrow(() -> new IllegalArgumentException("Suất chiếu không tồn tại"));
-        if (!showtime.isActive() || !showtime.getStartTime().isAfter(now))
+        if (!showtime.isActive() || !showtime.getStartTime().isAfter(now)
+                || showtime.getAuditorium().getCinema() == null
+                || !showtime.getAuditorium().getCinema().isActive())
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
 
         List<Long> requestedIds = ids.stream().filter(Objects::nonNull).distinct().sorted().toList();

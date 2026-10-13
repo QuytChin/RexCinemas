@@ -10,10 +10,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
-    @EntityGraph(attributePaths = {"movie", "auditorium", "auditorium.cinema"})
-    List<Showtime> findByMovieIdAndActiveTrueAndStartTimeAfterOrderByStartTimeAsc(Long movieId, LocalDateTime after);
-    @EntityGraph(attributePaths = {"movie", "auditorium", "auditorium.cinema"})
-    List<Showtime> findByActiveTrueAndStartTimeAfterOrderByStartTimeAsc(LocalDateTime after);
+    @Query("select s from Showtime s join fetch s.movie m join fetch s.auditorium a join fetch a.cinema c " +
+           "where s.active=true and m.active=true and c.active=true " +
+           "and s.movie.id = :movieId and s.startTime > :after " +
+           "order by s.startTime asc")
+    List<Showtime> findPublicByMovieIdAndStartTimeAfterOrderByStartTimeAsc(@Param("movieId") Long movieId,
+                                                                            @Param("after") LocalDateTime after);
+
+    @Query("select s from Showtime s join fetch s.movie m join fetch s.auditorium a join fetch a.cinema c " +
+           "where s.active=true and m.active=true and c.active=true " +
+           "and s.startTime > :after " +
+           "order by s.startTime asc")
+    List<Showtime> findPublicByStartTimeAfterOrderByStartTimeAsc(@Param("after") LocalDateTime after);
     long countByActiveTrueAndStartTimeBetween(LocalDateTime from, LocalDateTime to);
     List<Showtime> findByAuditoriumIdAndActiveTrueAndStartTimeBetweenOrderByStartTimeAsc(
             Long auditoriumId, LocalDateTime from, LocalDateTime to);

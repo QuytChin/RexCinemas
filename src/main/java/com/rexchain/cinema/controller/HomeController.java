@@ -57,8 +57,8 @@ public class HomeController {
         model.addAttribute("events", events.findByActiveTrueOrderBySortOrderAscCreatedAtDesc().stream().limit(4).toList());
         model.addAttribute("articles", articles.findByActiveTrueOrderBySortOrderAscPublishDateDesc().stream().limit(6).toList());
         model.addAttribute("mediaItems", mediaItems.findByActiveTrueOrderBySortOrderAscCreatedAtDesc().stream().limit(8).toList());
-        List<Showtime> quickShowtimes = showtimes.findByActiveTrueAndStartTimeAfterOrderByStartTimeAsc(LocalDateTime.now())
-                .stream().filter(s -> s.getMovie().isActive() && s.getAuditorium().getCinema().isActive()).limit(8).toList();
+        List<Showtime> quickShowtimes = showtimes.findPublicByStartTimeAfterOrderByStartTimeAsc(LocalDateTime.now())
+                .stream().limit(8).toList();
         model.addAttribute("quickShowtimes", quickShowtimes);
         populateAvailability(model, quickShowtimes);
         model.addAttribute("dates", dateOptions(today, 7));
@@ -123,7 +123,7 @@ public class HomeController {
     @GetMapping("/movies/{id}")
     String detail(@PathVariable Long id, Model model, Authentication auth) {
         Movie movie = movies.findById(id).orElseThrow();
-        List<Showtime> upcoming = showtimes.findByMovieIdAndActiveTrueAndStartTimeAfterOrderByStartTimeAsc(id, LocalDateTime.now());
+        List<Showtime> upcoming = showtimes.findPublicByMovieIdAndStartTimeAfterOrderByStartTimeAsc(id, LocalDateTime.now());
         Map<Cinema, List<Showtime>> byCinema = new LinkedHashMap<>();
         for (Showtime showtime : upcoming) {
             byCinema.computeIfAbsent(showtime.getAuditorium().getCinema(), k -> new ArrayList<>()).add(showtime);

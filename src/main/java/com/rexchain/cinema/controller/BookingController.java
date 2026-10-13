@@ -49,7 +49,9 @@ public class BookingController {
     @GetMapping("/booking/{showtimeId}")
     String booking(@PathVariable Long showtimeId, Model model) {
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
-        if (!showtime.isActive() || !showtime.getStartTime().isAfter(java.time.LocalDateTime.now()))
+        if (!showtime.isActive() || !showtime.getStartTime().isAfter(java.time.LocalDateTime.now())
+                || showtime.getAuditorium().getCinema() == null
+                || !showtime.getAuditorium().getCinema().isActive())
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
         loadBooking(model, showtimeId);
         return "booking/seat-map";

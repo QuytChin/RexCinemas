@@ -90,7 +90,9 @@ public class BookingService {
             throw new IllegalArgumentException("Khách hàng cần chọn phương thức thanh toán trực tuyến");
         if (method == PaymentMethod.BANK_QR) sepay.requireAvailable();
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
-        if (!showtime.isActive() || !showtime.getStartTime().isAfter(now))
+        if (!showtime.isActive() || !showtime.getStartTime().isAfter(now)
+                || showtime.getAuditorium().getCinema() == null
+                || !showtime.getAuditorium().getCinema().isActive())
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
 
         List<ShowtimeSeat> list = seats.findByIdInForUpdate(ids);

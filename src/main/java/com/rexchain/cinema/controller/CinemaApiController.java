@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -62,7 +64,7 @@ public class CinemaApiController {
     @GetMapping("/movies/{id}/showtimes")
     @Transactional(readOnly = true)
     public List<Map<String, Object>> movieShowtimes(@PathVariable Long id) {
-        List<Showtime> result = showtimes.findByMovieIdAndActiveTrueAndStartTimeAfterOrderByStartTimeAsc(
+        List<Showtime> result = showtimes.findPublicByMovieIdAndStartTimeAfterOrderByStartTimeAsc(
                 id, LocalDateTime.now());
         Map<Long, long[]> availability = availabilityFor(result);
         return result.stream().map(showtime -> showtimeJson(showtime, availability.get(showtime.getId()))).toList();
@@ -71,6 +73,13 @@ public class CinemaApiController {
     @GetMapping("/showtimes/{id}/seats")
     @Transactional(readOnly = true)
     public List<Map<String, Object>> seats(@PathVariable Long id) {
+        Showtime showtime = showtimes.findById(id).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Suất chiếu không tồn tại"));
+        if (!showtime.isActive() || !showtime.getStartTime().isAfter(LocalDateTime.now())
+                || showtime.getAuditorium().getCinema() == null
+                || !showtime.getAuditorium().getCinema().isActive()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Suất chiếu không còn mở đặt vé");
+        }
         return showtimeSeats.findByShowtimeIdOrderBySeatSeatRowAscSeatSeatNumberAsc(id).stream().map(ss -> {
             Map<String, Object> x = new LinkedHashMap<>();
             x.put("id", ss.getId());
