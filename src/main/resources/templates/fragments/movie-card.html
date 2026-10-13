@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <body>
-<article class="rex-movie-card" th:fragment="card(movie, actionLabel, showAge, showRelease)">
+<article class="rex-movie-card" th:fragment="card(movie, actionLabel, showAge, showRelease)" th:if="${movie != null}">
     <a class="poster-link" th:href="@{'/movies/'+${movie.id}}">
         <img th:src="${movie.posterUrl}" th:alt="${movie.title}">
         <span class="age-tag" th:if="${showAge and movie.ageRating != null}" th:text="${movie.ageRating}"></span>
