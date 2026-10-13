@@ -31,33 +31,32 @@
         <button class="btn btn-rex">ÁP DỤNG</button>
     </form>
 
-    <section class="cinema-schedule-block" th:each="entry:${schedule}">
-        <div class="cinema-schedule-head">
-            <div><span>REX LOCATION</span><h2 th:text="${entry.key.name}"></h2><p th:text="${entry.key.address}"></p></div>
-            <span class="city-badge" th:text="${entry.key.city}"></span>
-        </div>
-        <div class="movie-show-row" th:each="movieEntry:${entry.value}">
-            <img th:src="${movieEntry.key.posterUrl}" alt="poster">
+    <section class="movie-schedule-block" th:each="entry:${schedule}">
+        <div class="movie-show-row">
+            <img th:src="${entry.key.posterUrl}" th:alt="${entry.key.title} poster">
             <div class="movie-show-info w-100">
-                <div class="d-flex justify-content-between gap-3 flex-wrap align-items-start">
-                    <div><h3><a th:href="@{'/movies/'+${movieEntry.key.id}}" th:text="${movieEntry.key.title}"></a></h3><p th:text="${movieEntry.key.genre+' • '+movieEntry.key.durationMinutes+' phút • '+movieEntry.key.ageRating}"></p></div>
-                    <a class="btn btn-sm btn-outline-light" th:href="@{'/movies/'+${movieEntry.key.id}}">Chi tiết phim</a>
-                </div>
-                <div class="showtime-booking-grid">
-                    <div class="showtime-book-card" th:each="s:${movieEntry.value}" th:classappend="${availableSeats[s.id] == 0 ? ' sold-out' : ''}">
-                        <div class="showtime-book-main">
-                            <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
-                            <span th:text="${s.auditorium.name}"></span>
-                        </div>
-                        <div class="showtime-book-meta">
-                            <span th:text="${#numbers.formatDecimal(s.basePrice,0,'COMMA',0,'POINT')+'đ'}"></span>
-                            <small th:if="${availableSeats[s.id] > 0}" th:text="${'Còn '+availableSeats[s.id]+'/'+totalSeats[s.id]+' ghế'}"></small>
-                            <small class="text-danger" th:if="${availableSeats[s.id] == 0}">Hết ghế</small>
-                        </div>
-                        <a sec:authorize="isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="btn btn-rex btn-sm btn-booking" th:href="@{'/booking/'+${s.id}}">ĐẶT VÉ</a>
-                        <a sec:authorize="!isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="btn btn-rex btn-sm" th:href="@{/auth/login(returnUrl=${'/booking/'+s.id})}">ĐĂNG NHẬP & ĐẶT</a>
-                        <button th:if="${availableSeats[s.id] == 0}" class="btn btn-outline-secondary btn-sm" disabled>HẾT GHẾ</button>
+                <div class="movie-show-heading">
+                    <div>
+                        <h3><a th:href="@{'/movies/'+${entry.key.id}}" th:text="${entry.key.title}"></a></h3>
+                        <p th:text="${entry.key.genre+' • '+entry.key.durationMinutes+' phút • '+entry.key.language+' • '+entry.key.ageRating}"></p>
                     </div>
+                    <a class="btn btn-sm btn-outline-light" th:href="@{'/movies/'+${entry.key.id}}">Chi tiết phim</a>
+                </div>
+                <div class="showtime-chip-list">
+                    <th:block th:each="s:${entry.value}">
+                        <a sec:authorize="isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="showtime-chip" th:href="@{'/booking/'+${s.id}}" th:title="${s.auditorium.cinema.name+' · '+s.auditorium.name}">
+                            <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
+                            <small th:text="${s.auditorium.name}"></small>
+                        </a>
+                        <a sec:authorize="!isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="showtime-chip" th:href="@{/auth/login(returnUrl=${'/booking/'+s.id})}" th:title="${s.auditorium.cinema.name+' · '+s.auditorium.name}">
+                            <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
+                            <small th:text="${s.auditorium.name}"></small>
+                        </a>
+                        <span class="showtime-chip sold-out" th:if="${availableSeats[s.id] == 0}" th:title="${s.auditorium.cinema.name+' · '+s.auditorium.name}">
+                            <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
+                            <small>Hết ghế</small>
+                        </span>
+                    </th:block>
                 </div>
             </div>
         </div>
