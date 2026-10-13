@@ -30,9 +30,12 @@ public interface BookingSeatRepository extends JpaRepository<BookingSeat, Long> 
 
     /** Atomic check-in for all seats in a booking. */
     @Modifying
-    @Query("UPDATE BookingSeat bs SET bs.checkedIn = true, bs.checkedInAt = :now, bs.checkedInBy = :operator " +
-           "WHERE bs.booking.id = :bookingId AND (bs.checkedIn = false OR bs.checkedInAt IS NULL) " +
-           "AND bs.booking.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED")
+    @Query(value = "UPDATE booking_seats bs " +
+           "JOIN bookings b ON b.id = bs.booking_id " +
+           "SET bs.checked_in = 1, bs.checked_in_at = :now, bs.checked_in_by = :operator " +
+           "WHERE bs.booking_id = :bookingId " +
+           "AND (bs.checked_in = 0 OR bs.checked_in_at IS NULL) " +
+           "AND b.status = 'CONFIRMED'", nativeQuery = true)
     int atomicCheckInAllSeats(@Param("bookingId") Long bookingId,
                               @Param("now") LocalDateTime now,
                               @Param("operator") String operator);
