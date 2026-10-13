@@ -20,7 +20,15 @@
            th:classappend="${d.equals(selectedDate) ? ' active' : ''}"
            th:aria-current="${d.equals(selectedDate) ? 'date' : null}">
             <strong th:text="${#temporals.format(d,'dd/MM')}"></strong>
-            <small th:text="${#temporals.format(d,'EEE')}"></small>
+            <small th:switch="${d.dayOfWeek.name()}">
+                <span th:case="'MONDAY'">Thứ Hai</span>
+                <span th:case="'TUESDAY'">Thứ Ba</span>
+                <span th:case="'WEDNESDAY'">Thứ Tư</span>
+                <span th:case="'THURSDAY'">Thứ Năm</span>
+                <span th:case="'FRIDAY'">Thứ Sáu</span>
+                <span th:case="'SATURDAY'">Thứ Bảy</span>
+                <span th:case="'SUNDAY'">Chủ Nhật</span>
+            </small>
         </a>
     </div>
 
@@ -31,16 +39,24 @@
         <button class="btn btn-rex">ÁP DỤNG</button>
     </form>
 
-    <section class="movie-schedule-block" th:each="entry:${schedule}">
+    <section class="movie-schedule-block" th:each="entry : ${schedule}"
+             th:if="${entry != null and entry.key != null}">
         <div class="movie-show-row">
             <div class="movie-show-poster">
-                <img th:if="${entry.key.posterUrl != null and !#strings.isEmpty(entry.key.posterUrl)}" th:src="${entry.key.posterUrl}" th:alt="${entry.key.title} poster">
+                <img th:if="${entry.key.posterUrl != null and !#strings.isEmpty(entry.key.posterUrl)}"
+                     th:src="${entry.key.posterUrl}"
+                     th:alt="${(entry.key.title != null ? entry.key.title : 'Phim RexCinemas') + ' poster'}">
                 <span th:unless="${entry.key.posterUrl != null and !#strings.isEmpty(entry.key.posterUrl)}" aria-hidden="true">REX</span>
             </div>
             <div class="movie-show-info w-100">
                 <div class="movie-show-heading">
                     <div>
-                        <h3><a th:href="@{'/movies/'+${entry.key.id}}" th:text="${entry.key.title}"></a></h3>
+                        <h3>
+                            <a th:if="${entry.key.id != null}" th:href="@{'/movies/'+${entry.key.id}}"
+                               th:text="${entry.key.title != null ? entry.key.title : 'Phim chưa cập nhật'}"></a>
+                            <span th:unless="${entry.key.id != null}"
+                                  th:text="${entry.key.title != null ? entry.key.title : 'Phim chưa cập nhật'}"></span>
+                        </h3>
                         <p class="movie-show-metadata">
                             <span th:if="${entry.key.genre != null and !#strings.isEmpty(entry.key.genre)}" th:text="${entry.key.genre}"></span>
                             <span th:if="${entry.key.durationMinutes > 0}" th:text="${entry.key.durationMinutes+' phút'}"></span>
@@ -48,28 +64,45 @@
                             <span th:if="${entry.key.ageRating != null}" th:text="${entry.key.ageRating}"></span>
                         </p>
                     </div>
-                    <a class="btn btn-sm btn-outline-light" th:href="@{'/movies/'+${entry.key.id}}">Chi tiết phim</a>
+                    <a class="btn btn-sm btn-outline-light" th:if="${entry.key.id != null}"
+                       th:href="@{'/movies/'+${entry.key.id}}">Chi tiết phim</a>
                 </div>
-                <div class="showtime-chip-list">
-                    <th:block th:each="s:${entry.value}">
-                        <a sec:authorize="isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="showtime-chip" th:href="@{'/booking/'+${s.id}}" th:title="${s.auditorium.cinema.name+' · '+s.auditorium.name}">
-                            <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
-                            <small th:text="${s.auditorium.name}"></small>
-                        </a>
-                        <a sec:authorize="!isAuthenticated()" th:if="${availableSeats[s.id] > 0}" class="showtime-chip" th:href="@{/auth/login(returnUrl=${'/booking/'+s.id})}" th:title="${s.auditorium.cinema.name+' · '+s.auditorium.name}">
-                            <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
-                            <small th:text="${s.auditorium.name}"></small>
-                        </a>
-                        <span class="showtime-chip sold-out" th:if="${availableSeats[s.id] == 0}" th:title="${s.auditorium.cinema.name+' · '+s.auditorium.name}">
-                            <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
-                            <small>Hết ghế</small>
-                        </span>
-                    </th:block>
+                <div class="cinema-showtime-group" th:each="cinemaEntry : ${entry.value}"
+                     th:if="${cinemaEntry != null and cinemaEntry.key != null}">
+                    <div class="cinema-showtime-label">
+                        <strong th:text="${cinemaEntry.key.name != null ? cinemaEntry.key.name : 'Rạp RexCinemas'}"></strong>
+                        <span th:if="${cinemaEntry.key.address != null and !#strings.isEmpty(cinemaEntry.key.address)}"
+                              th:text="${cinemaEntry.key.address}"></span>
+                    </div>
+                    <div class="showtime-chip-list">
+                        <th:block th:each="s : ${cinemaEntry.value}" th:if="${s != null and s.id != null and s.startTime != null and s.auditorium != null}">
+                            <a sec:authorize="isAuthenticated()"
+                               th:if="${availableSeats != null and availableSeats[s.id] != null and availableSeats[s.id] > 0}"
+                               class="showtime-chip" th:href="@{'/booking/'+${s.id}}"
+                               th:title="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}">
+                                <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
+                                <small th:text="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}"></small>
+                            </a>
+                            <a sec:authorize="!isAuthenticated()"
+                               th:if="${availableSeats != null and availableSeats[s.id] != null and availableSeats[s.id] > 0}"
+                               class="showtime-chip" th:href="@{/auth/login(returnUrl=${'/booking/'+s.id})}"
+                               th:title="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}">
+                                <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
+                                <small th:text="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}"></small>
+                            </a>
+                            <span class="showtime-chip sold-out"
+                                  th:if="${availableSeats == null or availableSeats[s.id] == null or availableSeats[s.id] <= 0}"
+                                  th:title="${s.auditorium.name != null ? s.auditorium.name : 'Phòng chiếu'}">
+                                <strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong>
+                                <small>Hết ghế</small>
+                            </span>
+                        </th:block>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
-    <div class="schedule-empty-state" th:if="${schedule.isEmpty()}">
+    <div class="schedule-empty-state" th:if="${schedule == null or schedule.isEmpty()}">
         <span class="schedule-empty-icon" aria-hidden="true">◷</span>
         <h2>Hiện chưa có lịch chiếu cho ngày này.</h2>
         <p>Hãy thử chọn ngày khác hoặc điều chỉnh bộ lọc rạp/phim.</p>

@@ -101,15 +101,15 @@ public class HomeController {
         LocalDateTime fromTime = selectedDate.equals(LocalDate.now()) ? LocalDateTime.now() : selectedDate.atStartOfDay();
         List<Showtime> list = showtimes.findSchedule(fromTime, selectedDate.plusDays(1).atStartOfDay(), cinemaId, movieId);
 
-        Map<Movie, List<Showtime>> schedule = new LinkedHashMap<>();
+        Map<Movie, Map<Cinema, List<Showtime>>> schedule = new LinkedHashMap<>();
         for (Showtime showtime : list) {
-            schedule.computeIfAbsent(showtime.getMovie(), k -> new ArrayList<>())
+            schedule.computeIfAbsent(showtime.getMovie(), k -> new LinkedHashMap<>())
+                    .computeIfAbsent(showtime.getAuditorium().getCinema(), k -> new ArrayList<>())
                     .add(showtime);
         }
-        schedule.values().forEach(showtimesForMovie -> showtimesForMovie.sort(
-                Comparator.comparing(Showtime::getStartTime)
-                        .thenComparing(s -> s.getAuditorium().getCinema().getName())
-                        .thenComparing(s -> s.getAuditorium().getName())));
+        schedule.values().forEach(showtimesByCinema -> showtimesByCinema.values().forEach(showtimesForCinema ->
+                showtimesForCinema.sort(Comparator.comparing(Showtime::getStartTime)
+                        .thenComparing(s -> s.getAuditorium().getName()))));
 
         model.addAttribute("schedule", schedule);
         model.addAttribute("cinemas", cinemas.findByActiveTrueOrderByCityAscNameAsc());
