@@ -1,5 +1,7 @@
 /*
-  Phase 3 reconciliation ledger. Review and run manually in SSMS.
+  Phase 3 reconciliation ledger managed by Flyway.
+  It is idempotent so an existing manually-created schema can be adopted
+  safely when Flyway baselines the legacy database at version 10.
   No API key, webhook secret or raw authorization header is stored.
 */
 IF OBJECT_ID('dbo.payment_transactions', 'U') IS NULL

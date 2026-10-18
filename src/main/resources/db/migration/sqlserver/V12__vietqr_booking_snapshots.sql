@@ -1,6 +1,7 @@
 /*
-  Phase 2 VietQR migration. Review and run manually; never add this file to
-  spring.sql.init.schema-locations without DBA approval.
+  Phase 2 VietQR migration managed by Flyway.
+  It is idempotent so an existing manually-created schema can be adopted
+  safely when Flyway baselines the legacy database at version 10.
   Each booking gets an immutable bank/account snapshot. No secrets are stored.
 */
 IF OBJECT_ID('dbo.bank_transfer_snapshots', 'U') IS NULL

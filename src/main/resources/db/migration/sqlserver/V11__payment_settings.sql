@@ -1,7 +1,7 @@
 /*
-   Phase 1 payment settings migration.
-   Review and run manually by a DBA. It is intentionally not listed in
-   spring.sql.init.schema-locations and is never auto-applied by the app.
+  Phase 1 payment settings migration managed by Flyway.
+  It is idempotent so an existing manually-created schema can be adopted
+  safely when Flyway baselines the legacy database at version 10.
    No provider secret is stored here.
 */
 IF OBJECT_ID('dbo.payment_settings', 'U') IS NULL
