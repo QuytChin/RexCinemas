@@ -147,17 +147,17 @@ public class DataSeeder {
     private void seedMovies(MovieRepository movies) {
         if (movies.count() != 0) return;
         addMovieIfMissing(movies, "Hành Trình Ánh Sáng", "Một phi hành đoàn trẻ bước vào chuyến đi vượt ngoài giới hạn của Trái Đất.",
-                125, "C13", "Khoa học viễn tưởng, Hành động", "Tiếng Việt", LocalDate.now().minusDays(14), "/images/poster-1.svg", "https://www.youtube.com/");
+                125, "C13", "Khoa học viễn tưởng, Hành động", "Tiếng Việt", LocalDate.now().minusDays(14), "/images/movies/hanh-trinh-anh-sang.png", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Mùa Hè Không Tên", "Câu chuyện thanh xuân, tình bạn và những lựa chọn trước ngưỡng cửa trưởng thành.",
-                112, "P", "Tâm lý, Tình cảm", "Tiếng Việt", LocalDate.now().minusDays(8), "/images/poster-2.svg", "https://www.youtube.com/");
+                112, "P", "Tâm lý, Tình cảm", "Tiếng Việt", LocalDate.now().minusDays(8), "/images/movies/mua-he-khong-ten.png", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Kẻ Gác Đêm", "Một vụ án bí ẩn kéo người bảo vệ rạp phim vào cuộc truy tìm xuyên đêm.",
-                118, "C16", "Hành động, Bí ẩn", "Tiếng Việt", LocalDate.now().minusDays(4), "/images/poster-3.svg", "https://www.youtube.com/");
+                118, "C16", "Hành động, Bí ẩn", "Tiếng Việt", LocalDate.now().minusDays(4), "/images/movies/ke-gac-dem.png", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Nhà Có Hai Người", "Bộ phim gia đình nhẹ nhàng về sự kết nối giữa hai thế hệ.",
-                105, "P", "Gia đình, Hài", "Tiếng Việt", LocalDate.now().minusDays(2), "/images/poster-4.svg", "https://www.youtube.com/");
+                105, "P", "Gia đình, Hài", "Tiếng Việt", LocalDate.now().minusDays(2), "/images/movies/nha-co-hai-nguoi.png", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Thành Phố Sau Mưa", "Một câu chuyện tình yêu và ký ức diễn ra giữa thành phố sau cơn mưa dài.",
-                110, "C13", "Tình cảm, Tâm lý", "Tiếng Việt", LocalDate.now().plusDays(10), "/images/poster-5.svg", "https://www.youtube.com/");
+                110, "C13", "Tình cảm, Tâm lý", "Tiếng Việt", LocalDate.now().plusDays(10), "/images/movies/thanh-pho-sau-mua.png", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Mật Mã Đại Dương", "Đội nghiên cứu biển sâu phát hiện một tín hiệu bí ẩn có thể thay đổi lịch sử.",
-                132, "C13", "Phiêu lưu, Khoa học viễn tưởng", "Tiếng Việt", LocalDate.now().plusDays(24), "/images/poster-6.svg", "https://www.youtube.com/");
+                132, "C13", "Phiêu lưu, Khoa học viễn tưởng", "Tiếng Việt", LocalDate.now().plusDays(24), "/images/movies/mat-ma-dai-duong.png", "https://www.youtube.com/");
     }
 
     private void addMovieIfMissing(MovieRepository movies, String title, String description, int duration,
@@ -249,16 +249,17 @@ public class DataSeeder {
     private void seedCombos(ComboProductRepository combos) {
         if (combos.count() != 0) return;
         String[][] data = {
-                {"Combo Solo", "1 bắp rang vừa + 1 nước ngọt", "69000"},
-                {"Combo Couple", "1 bắp rang lớn + 2 nước ngọt", "119000"},
-                {"Combo Family", "2 bắp rang lớn + 4 nước ngọt", "219000"},
-                {"Bắp Caramel", "1 bắp caramel size lớn", "59000"}
+                {"Combo Solo", "1 bắp rang vừa + 1 nước ngọt", "69000", "/images/combos/combo-solo.png"},
+                {"Combo Couple", "1 bắp rang lớn + 2 nước ngọt", "119000", "/images/combos/combo-couple.png"},
+                {"Combo Family", "2 bắp rang lớn + 4 nước ngọt", "219000", "/images/combos/combo-family.png"},
+                {"Bắp Caramel", "1 bắp caramel size lớn", "59000", "/images/combos/bap-caramel.png"}
         };
         for (String[] row : data) {
             ComboProduct combo = new ComboProduct();
             combo.setName(row[0]);
             combo.setDescription(row[1]);
             combo.setPrice(new BigDecimal(row[2]));
+            combo.setImageUrl(row[3]);
             combos.save(combo);
         }
     }
@@ -284,7 +285,7 @@ public class DataSeeder {
             e1.setLabel("ƯU ĐÃI THÀNH VIÊN");
             e1.setTitle("Thứ Tư Thành Viên – Giá vé nhẹ hơn, trải nghiệm vẫn trọn vẹn");
             e1.setDescription("Đăng nhập thành viên Rex Chain để nhận ưu đãi chọn lọc và tích điểm trên mỗi booking thành công.");
-            e1.setImageUrl("/images/event-member.svg");
+            e1.setImageUrl("/images/events/member-wednesday.png");
             e1.setSortOrder(1);
             events.save(e1);
 
@@ -292,7 +293,7 @@ public class DataSeeder {
             e2.setLabel("WEEKEND COMBO");
             e2.setTitle("Cuối tuần xem phim – Combo đôi giá tốt");
             e2.setDescription("Chọn Combo Couple trong bước đặt vé và thưởng thức trọn vẹn buổi chiếu cuối tuần.");
-            e2.setImageUrl("/images/event-combo.svg");
+            e2.setImageUrl("/images/events/weekend-combo.png");
             e2.setSortOrder(2);
             events.save(e2);
         }
@@ -303,7 +304,7 @@ public class DataSeeder {
             a1.setTitle("5 mẹo chọn vị trí ghế xem phim phù hợp với từng trải nghiệm");
             a1.setSummary("Khoảng cách với màn hình, góc nhìn và hệ thống âm thanh đều ảnh hưởng đến cảm giác khi xem phim.");
             a1.setContent("Vị trí giữa phòng thường mang lại góc nhìn cân bằng. Nếu thích cảm giác màn hình bao trọn tầm mắt, bạn có thể chọn các hàng giữa phía trước; nếu ưu tiên sự thoải mái và quan sát tổng thể, hãy chọn các hàng giữa phía sau. Với phim hành động hoặc âm thanh mạnh, ghế gần trung tâm phòng thường là lựa chọn dễ chịu. Rex Chain hiển thị trạng thái ghế theo thời gian thực để bạn dễ chọn vị trí phù hợp trước khi xác nhận.");
-            a1.setImageUrl("/images/article-seat.svg");
+            a1.setImageUrl("/images/articles/chon-ghe-xem-phim.png");
             a1.setPublishDate(LocalDate.now());
             a1.setSortOrder(1);
             articles.save(a1);
@@ -313,7 +314,7 @@ public class DataSeeder {
             a2.setTitle("Tích điểm Rex Member hoạt động như thế nào?");
             a2.setSummary("Booking thành công giúp bạn tích điểm và nâng hạng thành viên theo tổng điểm đã nhận.");
             a2.setContent("Mỗi 10.000 đồng trên booking thành công tương đương 1 điểm Rex. Điểm được cộng sau khi đơn được xác nhận thanh toán. Hệ thống có bốn hạng MEMBER, SILVER, GOLD và DIAMOND. Hạng thành viên được tính theo tổng điểm tích lũy trọn đời, giúp bạn dễ theo dõi tiến độ ngay trên trang hồ sơ.");
-            a2.setImageUrl("/images/article-member.svg");
+            a2.setImageUrl("/images/articles/rex-member.png");
             a2.setPublishDate(LocalDate.now().minusDays(2));
             a2.setSortOrder(2);
             articles.save(a2);
@@ -323,7 +324,7 @@ public class DataSeeder {
             a3.setTitle("Từ lịch chiếu đến ghế ngồi: một booking được xử lý ra sao?");
             a3.setSummary("WebSocket giữ ghế realtime giúp hạn chế việc hai người cùng đặt một vị trí.");
             a3.setContent("Khi khách chọn ghế, hệ thống giữ ghế tạm thời và phát trạng thái mới qua WebSocket đến các trình duyệt đang xem cùng suất chiếu. Nếu booking thành công, ghế chuyển sang đã bán. Nếu hết thời gian giữ hoặc thanh toán online hết hạn, ghế được trả về trạng thái khả dụng.");
-            a3.setImageUrl("/images/article-realtime.svg");
+            a3.setImageUrl("/images/articles/booking-realtime.png");
             a3.setPublishDate(LocalDate.now().minusDays(4));
             a3.setSortOrder(3);
             articles.save(a3);
@@ -333,7 +334,7 @@ public class DataSeeder {
             MediaItem m1 = new MediaItem();
             m1.setTitle("Trailer tuyển chọn tuần này");
             m1.setType(MediaType.TRAILER);
-            m1.setThumbnailUrl("/images/media-trailer.svg");
+            m1.setThumbnailUrl("/images/media/trailer-tuyen-chon.png");
             m1.setVideoUrl("https://www.youtube.com/");
             m1.setSortOrder(1);
             mediaItems.save(m1);
@@ -341,7 +342,7 @@ public class DataSeeder {
             MediaItem m2 = new MediaItem();
             m2.setTitle("Clip trải nghiệm Rex Chain");
             m2.setType(MediaType.CLIP);
-            m2.setThumbnailUrl("/images/media-clip.svg");
+            m2.setThumbnailUrl("/images/media/trai-nghiem-rex.png");
             m2.setVideoUrl("https://www.youtube.com/");
             m2.setSortOrder(2);
             mediaItems.save(m2);
