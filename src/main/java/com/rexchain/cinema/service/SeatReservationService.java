@@ -198,6 +198,7 @@ public class SeatReservationService {
         Map<String, List<ShowtimeSeat>> seatsByRow = allSeats.stream()
                 .collect(Collectors.groupingBy(s -> s.getSeat().getSeatRow()));
 
+        Set<String> orphanRows = new TreeSet<>();
         for (String row : affectedRows) {
             List<ShowtimeSeat> rowSeats = seatsByRow.getOrDefault(row, Collections.emptyList());
             if (rowSeats.isEmpty()) continue;
@@ -212,19 +213,24 @@ public class SeatReservationService {
                     consecutiveEmpty++;
                 } else {
                     if (consecutiveEmpty == 1) {
-                        throw new IllegalArgumentException(
-                                "Không được để lại đúng 1 ghế trống đơn độc ở hàng " + row + ". Vui lòng chọn ghế liền kề."
-                        );
+                        orphanRows.add(row);
+                        break;
                     }
                     consecutiveEmpty = 0;
                 }
             }
 
             if (consecutiveEmpty == 1) {
-                throw new IllegalArgumentException(
-                        "Không được để lại đúng 1 ghế trống đơn độc ở hàng " + row + ". Vui lòng chọn ghế liền kề."
-                );
+                orphanRows.add(row);
             }
+        }
+
+        if (!orphanRows.isEmpty()) {
+            String rowList = String.join(", ", orphanRows);
+            String rowPrefix = orphanRows.size() > 1 ? "các hàng " : "hàng ";
+            throw new IllegalArgumentException(
+                    "Không được để lại ghế trống đơn lẻ ở " + rowPrefix + rowList + ". Vui lòng chọn ghế liền kề."
+            );
         }
     }
 }

@@ -21,12 +21,15 @@ import java.util.Map;
 public class AuthController {
     private final AuthService auth;
     private final CinemaRepository cinemas;
+    private final com.rexchain.cinema.service.OtpService otpService;
     private final boolean secureCookie;
 
     public AuthController(AuthService auth, CinemaRepository cinemas,
+                          com.rexchain.cinema.service.OtpService otpService,
                           @Value("${app.cookie.secure:false}") boolean secureCookie) {
         this.auth = auth;
         this.cinemas = cinemas;
+        this.otpService = otpService;
         this.secureCookie = secureCookie;
     }
 
@@ -41,9 +44,65 @@ public class AuthController {
     @GetMapping({"/register", "/auth/register"})
     String register(Model model) {
         model.addAttribute("registerForm", new RegisterRequest(
-                "", null, "", "", "", "", null, "", "", false));
+                "", "", "", "Nam", null, "", "", false));
         addCinemas(model);
         return "auth/register";
+    }
+
+    @PostMapping({"/auth/register/send-otp", "/api/auth/register/send-otp"})
+    @ResponseBody
+    public ResponseEntity<?> sendOtp(@Valid @RequestBody RegisterRequest form, BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity.badRequest().body(Map.of("error", bindingResult.getAllErrors().get(0).getDefaultMessage()));
+        }
+        try {
+            auth.validateRegistrationData(form);
+            otpService.generateAndSendOtp(form);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Mã xác thực OTP đã được gửi tới email " + form.email() + ". Vui lòng kiểm tra hộp thư."
+            ));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        }
+    }
+
+    @PostMapping({"/auth/register/verify-otp", "/api/auth/register/verify-otp"})
+    @ResponseBody
+    public ResponseEntity<?> verifyOtp(@Valid @RequestBody com.rexchain.cinema.dto.VerifyOtpRequest req,
+                                       BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity.badRequest().body(Map.of("error", bindingResult.getAllErrors().get(0).getDefaultMessage()));
+        }
+        try {
+            RegisterRequest verified = otpService.verifyOtp(req.email(), req.otp());
+            auth.createUserAfterOtp(verified);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Đăng ký tài khoản thành công!",
+                    "redirectUrl", "/login?registered"
+            ));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        }
+    }
+
+    @PostMapping({"/auth/register/resend-otp", "/api/auth/register/resend-otp"})
+    @ResponseBody
+    public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email không được để trống"));
+        }
+        try {
+            otpService.resendOtp(email);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Đã gửi lại mã OTP tới email " + email
+            ));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        }
     }
 
     @PostMapping("/auth/register")

@@ -41,54 +41,97 @@ public class AuthService {
 
     @Transactional
     public void register(RegisterRequest request) {
+        validateRegistrationData(request);
+        createUserAfterOtp(request);
+    }
+
+    public void validateRegistrationData(RegisterRequest request) {
         String normalizedEmail = request.email() == null ? "" : request.email().trim().toLowerCase();
-        String normalizedUsername = request.username() == null ? "" : request.username().trim().toLowerCase();
         String phone = request.phone() == null ? "" : request.phone().trim();
-        String nationalId = request.nationalId() == null ? "" : request.nationalId().trim();
 
         if (request.fullName() == null || request.fullName().trim().length() < 2)
             throw new IllegalArgumentException("Họ tên phải có ít nhất 2 ký tự");
         if (!EMAIL.matcher(normalizedEmail).matches())
             throw new IllegalArgumentException("Email không hợp lệ");
+        if (request.gender() == null || request.gender().trim().isBlank())
+            throw new IllegalArgumentException("Vui lòng chọn giới tính");
         if (request.birthDate() == null || !request.birthDate().isBefore(LocalDate.now()))
             throw new IllegalArgumentException("Ngày sinh phải là một ngày trong quá khứ");
         if (!PHONE.matcher(phone).matches())
             throw new IllegalArgumentException("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0");
-        if (!USERNAME.matcher(normalizedUsername).matches())
-            throw new IllegalArgumentException("Tên đăng nhập dài 4-30 ký tự, chỉ gồm chữ, số, dấu chấm hoặc gạch dưới");
-        if (!NATIONAL_ID.matcher(nationalId).matches())
-            throw new IllegalArgumentException("CCCD/CMND phải gồm 9 hoặc 12 chữ số");
         if (request.password() == null || request.password().length() < 6)
             throw new IllegalArgumentException("Mật khẩu phải có ít nhất 6 ký tự");
         if (!request.password().equals(request.confirmPassword()))
             throw new IllegalArgumentException("Mật khẩu xác nhận không khớp");
         if (users.existsByEmailIgnoreCase(normalizedEmail))
             throw new IllegalArgumentException("Email đã được sử dụng");
-        if (users.existsByUsernameIgnoreCase(normalizedUsername))
-            throw new IllegalArgumentException("Tên đăng nhập đã được sử dụng");
         if (users.existsByPhone(phone))
             throw new IllegalArgumentException("Số điện thoại đã được sử dụng");
-        if (users.existsByNationalId(nationalId))
-            throw new IllegalArgumentException("CCCD/CMND đã được sử dụng");
 
-        Cinema favoriteCinema = cinemas.findById(request.favoriteCinemaId())
-                .filter(Cinema::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Rạp yêu thích không hợp lệ"));
+        // Optional fields validation
+        if (request.username() != null && !request.username().trim().isBlank()) {
+            String normalizedUsername = request.username().trim().toLowerCase();
+            if (!USERNAME.matcher(normalizedUsername).matches())
+                throw new IllegalArgumentException("Tên đăng nhập dài 4-30 ký tự, chỉ gồm chữ, số, dấu chấm hoặc gạch dưới");
+            if (users.existsByUsernameIgnoreCase(normalizedUsername))
+                throw new IllegalArgumentException("Tên đăng nhập đã được sử dụng");
+        }
+        if (request.nationalId() != null && !request.nationalId().trim().isBlank()) {
+            String nationalId = request.nationalId().trim();
+            if (!NATIONAL_ID.matcher(nationalId).matches())
+                throw new IllegalArgumentException("CCCD/CMND phải gồm 9 hoặc 12 chữ số");
+            if (users.existsByNationalId(nationalId))
+                throw new IllegalArgumentException("CCCD/CMND đã được sử dụng");
+        }
+    }
+
+    @Transactional
+    public User createUserAfterOtp(RegisterRequest request) {
+        validateRegistrationData(request);
+
+        String normalizedEmail = request.email().trim().toLowerCase();
+        String phone = request.phone().trim();
+
+        // Tự động sinh username nếu không có
+        String username = request.username();
+        if (username == null || username.trim().isBlank()) {
+            String candidate = normalizedEmail.split("@")[0].replaceAll("[^A-Za-z0-9._]", "");
+            if (candidate.length() < 4) candidate = "user_" + candidate;
+            if (candidate.length() > 25) candidate = candidate.substring(0, 25);
+            if (users.existsByUsernameIgnoreCase(candidate)) {
+                candidate = candidate + "_" + (System.currentTimeMillis() % 10000);
+            }
+            username = candidate;
+        } else {
+            username = username.trim().toLowerCase();
+        }
+
+        Cinema favoriteCinema = null;
+        if (request.favoriteCinemaId() != null) {
+            favoriteCinema = cinemas.findById(request.favoriteCinemaId())
+                    .filter(Cinema::isActive)
+                    .orElse(null);
+        }
 
         User user = new User();
         user.setFullName(request.fullName().trim());
         user.setEmail(normalizedEmail);
         user.setPhone(phone);
-        user.setUsername(normalizedUsername);
+        user.setGender(request.gender() == null ? "" : request.gender().trim());
+        user.setUsername(username);
         user.setBirthDate(request.birthDate());
-        user.setNationalId(nationalId);
+        if (request.nationalId() != null && !request.nationalId().trim().isBlank()) {
+            user.setNationalId(request.nationalId().trim());
+        }
         user.setFavoriteCinema(favoriteCinema);
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setRole(Role.CUSTOMER);
+        user.setEnabled(true);
+
         try {
-            users.saveAndFlush(user);
+            return users.saveAndFlush(user);
         } catch (DataIntegrityViolationException ex) {
-            throw new IllegalArgumentException("Email, tên đăng nhập, số điện thoại hoặc CCCD/CMND đã được sử dụng", ex);
+            throw new IllegalArgumentException("Email, số điện thoại hoặc tên đăng nhập đã được sử dụng", ex);
         }
     }
 

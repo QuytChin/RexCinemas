@@ -16,11 +16,32 @@
  const progressSeat=document.getElementById('progressSeat');
  const progressCombo=document.getElementById('progressCombo');
  const progressPayment=document.getElementById('progressPayment');
+ const seatErrorMessage=document.getElementById('seatErrorMessage');
+ const seatErrorText=document.getElementById('seatErrorText');
+ const sidebarErrorNotice=document.getElementById('sidebarErrorNotice');
+ const closeSeatErrorBtn=document.getElementById('closeSeatErrorBtn');
  let held=false;
  let countdownTimer=null;
  const money=n=>new Intl.NumberFormat('vi-VN').format(Math.round(n||0))+'đ';
  const selectedSeatTotal=()=>[...selected.values()].reduce((a,x)=>a+x.price,0);
  const comboTotal=()=>comboQtys.reduce((a,x)=>a+(Number(x.dataset.price)||0)*(Number(x.value)||0),0);
+
+ function showSeatError(msg){
+  if(seatErrorText&&seatErrorMessage){
+   seatErrorText.textContent=msg;
+   seatErrorMessage.classList.remove('d-none');
+   seatErrorMessage.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  if(sidebarErrorNotice){
+   sidebarErrorNotice.textContent=msg;
+   sidebarErrorNotice.classList.remove('d-none');
+  }
+ }
+ function clearSeatError(){
+  if(seatErrorMessage)seatErrorMessage.classList.add('d-none');
+  if(sidebarErrorNotice)sidebarErrorNotice.classList.add('d-none');
+ }
+ closeSeatErrorBtn?.addEventListener('click',clearSeatError);
 
  function render(){
   labels.textContent=selected.size?[...selected.values()].map(x=>x.label).join(', '):'Chưa chọn';
@@ -39,6 +60,7 @@
  }
  seats.forEach(btn=>btn.addEventListener('click',()=>{
   if(held)return;
+  clearSeatError();
   const id=Number(btn.dataset.id);
   if(selected.has(id)){selected.delete(id);btn.classList.remove('selected')}
   else{selected.set(id,{label:btn.textContent.trim(),price:Number(btn.dataset.price)});btn.classList.add('selected')}
@@ -49,6 +71,7 @@
  document.querySelectorAll('.qty-minus').forEach(btn=>btn.addEventListener('click',()=>{const input=btn.parentElement.querySelector('.combo-qty');input.value=Math.max(0,(Number(input.value)||0)-1);input.dispatchEvent(new Event('input'))}));
 
  holdBtn.addEventListener('click',async()=>{
+  clearSeatError();
   holdBtn.disabled=true; const ids=[...selected.keys()];
   try{
    const r=await fetch(`/api/showtimes/${window.SHOWTIME_ID}/hold`,{method:'POST',headers:{'Content-Type':'application/json',...csrfHeaders()},body:JSON.stringify({seatIds:ids})});
@@ -56,7 +79,7 @@
    held=true; holdBtn.classList.add('d-none'); holdNotice.classList.remove('d-none');
    seats.forEach(b=>{b.disabled=true;if(selected.has(Number(b.dataset.id)))b.classList.add('selected')});
    startCountdown(300); render(); showStage('combo');
-  }catch(e){alert(e.message);holdBtn.disabled=false}
+  }catch(e){showSeatError(e.message);holdBtn.disabled=false}
  });
  document.getElementById('goPayment')?.addEventListener('click',()=>showStage('payment'));
  document.getElementById('backToCombos')?.addEventListener('click',()=>showStage('combo'));

@@ -44,6 +44,9 @@ class AuthControllerSecurityTest {
     @MockBean
     private CustomUserDetailsService userDetailsService;
 
+    @MockBean
+    private com.rexchain.cinema.service.OtpService otpService;
+
     @Test
     void loginAliasRendersRexCinemasPageInsteadOfSpringDefaultPage() throws Exception {
         mockMvc.perform(get("/login"))

@@ -30,6 +30,8 @@ public class User {
     private String password;
     @Column(length = 30)
     private String phone;
+    @Column(length = 20)
+    private String gender;
     @Column(length = 600)
     private String avatarUrl;
     @Column(length = 300)
@@ -66,6 +68,8 @@ public class User {
     public void setPassword(String password){ this.password = password; }
     public String getPhone(){ return phone; }
     public void setPhone(String phone){ this.phone = phone; }
+    public String getGender(){ return gender; }
+    public void setGender(String gender){ this.gender = gender; }
     public String getAvatarUrl(){ return avatarUrl; }
     public void setAvatarUrl(String avatarUrl){ this.avatarUrl = avatarUrl; }
     public String getAddress(){ return address; }
