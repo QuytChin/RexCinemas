@@ -1,6 +1,7 @@
 package com.rexchain.cinema.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import java.time.LocalDateTime;
 
 @Entity
@@ -12,7 +13,9 @@ public class Event {
     private String title;
     @Column(length = 80)
     private String label;
-    @Column(columnDefinition = "TEXT")
+    @Lob
+    @Nationalized
+    @Column
     private String description;
     @Column(length = 600)
     private String imageUrl;

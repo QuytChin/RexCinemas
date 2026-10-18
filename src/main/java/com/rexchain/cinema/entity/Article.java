@@ -1,6 +1,7 @@
 package com.rexchain.cinema.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -15,7 +16,9 @@ public class Article {
     private String category;
     @Column(length = 500)
     private String summary;
-    @Column(columnDefinition = "TEXT")
+    @Lob
+    @Nationalized
+    @Column
     private String content;
     @Column(length = 600)
     private String imageUrl;

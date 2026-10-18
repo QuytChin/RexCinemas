@@ -63,7 +63,12 @@ public class DataSeeder {
     private void seedUsers(UserRepository users, PasswordEncoder encoder, String adminEmail,
                            String adminPassword, boolean seedDemoUsers,
                            String demoCustomerPassword, String demoManagerPassword) {
-        if (users.count() != 0) return;
+        if (users.count() != 0) {
+            if (adminPassword != null && !adminPassword.isBlank()) upsertUser(users, encoder, adminEmail, "Rex Administrator", adminPassword, Role.ADMIN);
+            if (seedDemoUsers && demoCustomerPassword != null && !demoCustomerPassword.isBlank()) upsertUser(users, encoder, "user@rexchain.vn", "Demo User", demoCustomerPassword, Role.CUSTOMER);
+            if (seedDemoUsers && demoManagerPassword != null && !demoManagerPassword.isBlank()) upsertUser(users, encoder, "manager@rexchain.vn", "Cinema Manager Demo", demoManagerPassword, Role.CINEMA_MANAGER);
+            return;
+        }
         if (adminPassword != null && !adminPassword.isBlank()) {
             User admin = new User();
             admin.setFullName("Rex Administrator");
@@ -93,6 +98,15 @@ public class DataSeeder {
             manager.setRole(Role.CINEMA_MANAGER);
             users.save(manager);
         }
+    }
+
+    private void upsertUser(UserRepository users, PasswordEncoder encoder, String email, String name, String password, Role role) {
+        User user = users.findByEmailIgnoreCase(email).orElseGet(User::new);
+        user.setEmail(email.trim().toLowerCase());
+        user.setFullName(name);
+        user.setPassword(encoder.encode(password));
+        user.setRole(role);
+        users.save(user);
     }
 
     private void ensureDemoMembership(UserRepository users) {
@@ -131,6 +145,7 @@ public class DataSeeder {
     }
 
     private void seedMovies(MovieRepository movies) {
+        if (movies.count() != 0) return;
         addMovieIfMissing(movies, "Hành Trình Ánh Sáng", "Một phi hành đoàn trẻ bước vào chuyến đi vượt ngoài giới hạn của Trái Đất.",
                 125, "C13", "Khoa học viễn tưởng, Hành động", "Tiếng Việt", LocalDate.now().minusDays(14), "/images/poster-1.svg", "https://www.youtube.com/");
         addMovieIfMissing(movies, "Mùa Hè Không Tên", "Câu chuyện thanh xuân, tình bạn và những lựa chọn trước ngưỡng cửa trưởng thành.",
@@ -164,7 +179,16 @@ public class DataSeeder {
     }
 
     private void seedCinemas(CinemaRepository cinemas, CinemaSetupService setup) {
-        if (cinemas.count() != 0) return;
+        if (cinemas.count() != 0) {
+            // Repair legacy SQL Server varchar data that replaced Unicode characters with '?'.
+            cinemas.findAll().forEach(cinema -> {
+                if ("TP. H? Chí Minh".equals(cinema.getCity())) {
+                    cinema.setCity("TP. Hồ Chí Minh");
+                    cinemas.save(cinema);
+                }
+            });
+            return;
+        }
         Cinema c1 = new Cinema();
         c1.setName("Rex Chain Quận 1");
         c1.setCity("TP. Hồ Chí Minh");

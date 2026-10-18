@@ -1,6 +1,7 @@
 package com.rexchain.cinema.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -15,7 +16,9 @@ public class Movie {
     @Column(nullable = false, length = 180)
     private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Lob
+    @Nationalized
+    @Column(nullable = false)
     private String description;
 
     @Column(nullable = false)
