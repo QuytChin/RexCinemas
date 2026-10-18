@@ -36,10 +36,11 @@
             <span th:unless="${showRelease}" th:text="${movie.durationMinutes + ' phút'}"></span>
         </div>
         <div class="movie-card-actions">
-            <a class="movie-card-trailer" th:if="${movie.trailerUrl != null and !#strings.isEmpty(movie.trailerUrl)}"
-               th:href="${movie.trailerUrl}" target="_blank" rel="noopener noreferrer">
+            <button class="movie-card-trailer js-trailer-trigger" type="button"
+                    th:if="${movie.trailerUrl != null and !#strings.isEmpty(movie.trailerUrl)}"
+                    th:attr="data-trailer-url=${movie.trailerUrl},data-trailer-title=${movie.title}">
                 <span aria-hidden="true">▶</span> Xem Trailer
-            </a>
+            </button>
             <span class="movie-card-trailer is-disabled" th:unless="${movie.trailerUrl != null and !#strings.isEmpty(movie.trailerUrl)}"
                   aria-disabled="true"><span aria-hidden="true">▶</span> Xem Trailer</span>
             <a class="movie-card-booking" th:href="@{'/movies/'+${movie.id}}">Đặt vé</a>

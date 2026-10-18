@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="trailerModal">
+    <div id="trailerModal" class="trailer-modal" hidden aria-hidden="true">
+        <div class="trailer-modal-overlay" data-trailer-close="true"></div>
+        <section class="trailer-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="trailerModalTitle" tabindex="-1">
+            <div class="trailer-modal-header">
+                <div>
+                    <p class="eyebrow">REX CINEMAS</p>
+                    <h2 id="trailerModalTitle">Xem Trailer</h2>
+                </div>
+                <button class="trailer-modal-close" type="button" aria-label="Đóng trailer" data-trailer-close="true">×</button>
+            </div>
+            <div class="trailer-modal-video-wrap">
+                <iframe id="trailerModalFrame" title="Trailer phim" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen hidden></iframe>
+                <div id="trailerModalMessage" class="trailer-modal-message" role="status">
+                    <span aria-hidden="true">▶</span>
+                    <p>Trailer hiện chưa khả dụng.</p>
+                </div>
+            </div>
+            <a id="trailerModalFallback" class="trailer-modal-fallback" href="#" target="_blank" rel="noopener noreferrer" hidden>Mở video trên YouTube</a>
+        </section>
+    </div>
+</th:block>
+</body>
+</html>

@@ -1,5 +1,5 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org"><body>
-<footer th:fragment="footer" class="rex-footer">
+<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org"><body><th:block th:fragment="footer">
+<footer class="rex-footer">
     <div class="container-xl py-5">
         <div class="row g-4">
             <div class="col-lg-4"><a class="rex-brand footer-brand" th:href="@{/}" aria-label="Rex Chain Cinemas"><img class="site-logo footer-logo" th:src="@{/images/rex-chain-cinemas-logo.png}" alt="Rex Chain Cinemas" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="site-logo-fallback" hidden>REX</span></a><p class="text-secondary mt-3 mb-0">Hệ thống quản lý và đặt vé xem phim trực tuyến theo mô hình chuỗi rạp.</p></div>
@@ -10,4 +10,6 @@
         <div class="footer-bottom mt-5 pt-3"><span>© 2026 Rex Chain Cinemas</span><span>Student project • Demo environment</span></div>
     </div>
 </footer>
-</body></html>
+<div th:replace="~{fragments/trailer-modal :: trailerModal}"></div>
+<script th:src="@{/js/trailer-modal.js}" defer></script>
+</th:block></body></html>

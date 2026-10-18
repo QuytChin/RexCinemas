@@ -19,7 +19,7 @@
             <div class="rating-summary"><strong th:text="${#numbers.formatDecimal(averageRating,1,1)}+' / 5'"></strong><span class="stars">★★★★★</span><span th:text="${reviewCount}+' đánh giá'"></span></div>
             <div class="movie-meta-chips"><span th:text="${movie.ageRating}"></span><span th:text="${movie.durationMinutes}+' phút'"></span><span th:text="${movie.genre}"></span><span th:text="${movie.language}"></span></div>
             <p class="movie-detail-desc" th:text="${movie.description}"></p>
-            <div class="d-flex gap-2 flex-wrap"><a class="btn btn-rex btn-lg" href="#showtimes">CHỌN SUẤT CHIẾU</a><a class="btn btn-outline-light btn-lg" th:if="${movie.trailerUrl!=null and !#strings.isEmpty(movie.trailerUrl)}" th:href="${movie.trailerUrl}" target="_blank">▶ XEM TRAILER</a></div>
+            <div class="d-flex gap-2 flex-wrap"><a class="btn btn-rex btn-lg" href="#showtimes">CHỌN SUẤT CHIẾU</a><button class="btn btn-outline-light btn-lg js-trailer-trigger" type="button" th:if="${movie.trailerUrl!=null and !#strings.isEmpty(movie.trailerUrl)}" th:attr="data-trailer-url=${movie.trailerUrl},data-trailer-title=${movie.title}">▶ XEM TRAILER</button></div>
         </div>
     </div>
 </section>

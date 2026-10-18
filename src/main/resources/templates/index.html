@@ -21,7 +21,7 @@
                         <h1 th:text="${m.title}">Movie</h1>
                         <p class="hero-meta" th:text="${m.genre+' • '+m.durationMinutes+' phút • '+m.language}"></p>
                         <p class="hero-desc" th:text="${m.description}"></p>
-                        <div class="d-flex flex-wrap gap-2"><a class="btn btn-rex btn-lg" th:href="@{'/movies/'+${m.id}}">ĐẶT VÉ</a><a class="btn btn-outline-light btn-lg" th:if="${m.trailerUrl!=null}" th:href="${m.trailerUrl}" target="_blank">▶ TRAILER</a></div>
+                        <div class="d-flex flex-wrap gap-2"><a class="btn btn-rex btn-lg" th:href="@{'/movies/'+${m.id}}">ĐẶT VÉ</a><button class="btn btn-outline-light btn-lg js-trailer-trigger" type="button" th:if="${m.trailerUrl!=null and !#strings.isEmpty(m.trailerUrl)}" th:attr="data-trailer-url=${m.trailerUrl},data-trailer-title=${m.title}">▶ TRAILER</button></div>
                     </div>
                     <div class="hero-poster-wrap d-none d-lg-block"><img th:src="${m.posterUrl}" th:alt="${m.title}"></div>
                 </div>
@@ -61,7 +61,7 @@
 
 <section class="rex-section container-xl" id="media-section">
     <div class="section-heading"><div><p class="eyebrow">WATCH</p><h2>TRAILER & CLIP</h2></div></div>
-    <div class="media-strip"><a class="media-card" th:each="m:${mediaItems}" th:href="${m.videoUrl}" target="_blank"><img th:src="${m.thumbnailUrl}" th:alt="${m.title}"><div class="play-circle">▶</div><div><span th:text="${m.type}"></span><strong th:text="${m.title}"></strong></div></a></div>
+    <div class="media-strip"><button class="media-card js-trailer-trigger" type="button" th:each="m:${mediaItems}" th:attr="data-trailer-url=${m.videoUrl},data-trailer-title=${m.title}"><img th:src="${m.thumbnailUrl}" th:alt="${m.title}"><div class="play-circle">▶</div><div><span th:text="${m.type}"></span><strong th:text="${m.title}"></strong></div></button></div>
 </section>
 </main>
 
