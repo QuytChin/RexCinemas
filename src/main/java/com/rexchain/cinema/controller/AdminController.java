@@ -1,6 +1,8 @@
 package com.rexchain.cinema.controller;
 
 import com.rexchain.cinema.entity.*;
+import com.rexchain.cinema.config.SePayProperties;
+import com.rexchain.cinema.dto.PaymentSettingsUpdateRequest;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.*;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -35,13 +37,19 @@ public class AdminController {
     private final DashboardService dashboardService;
     private final BookingService bookingService;
     private final ShowtimeService showtimeService; // <-- Thêm dòng này
+    private final SePayPaymentService sepayPaymentService;
+    private final SePayProperties sepayProperties;
+    private final PaymentSettingsService paymentSettingsService;
+    private final PaymentTransactionRepository paymentTransactions;
 
     public AdminController(MovieRepository movies, CinemaRepository cinemas, AuditoriumRepository auditoriums,
             ShowtimeRepository showtimes, BookingRepository bookings, UserRepository users,
             CinemaSetupService setup, CloudinaryService cloudinary, ComboProductRepository combos,
             VoucherRepository vouchers, ReviewRepository reviews,
             DashboardService dashboardService, BookingService bookingService,
-            ShowtimeService showtimeService) { // <-- 1. Thêm tham số này vào cuối
+            ShowtimeService showtimeService, SePayPaymentService sepayPaymentService,
+            SePayProperties sepayProperties, PaymentSettingsService paymentSettingsService,
+            PaymentTransactionRepository paymentTransactions) {
         this.movies = movies;
         this.cinemas = cinemas;
         this.auditoriums = auditoriums;
@@ -56,6 +64,10 @@ public class AdminController {
         this.dashboardService = dashboardService;
         this.bookingService = bookingService;
         this.showtimeService = showtimeService; // <-- 2. Gán giá trị ở đây
+        this.sepayPaymentService = sepayPaymentService;
+        this.sepayProperties = sepayProperties;
+        this.paymentSettingsService = paymentSettingsService;
+        this.paymentTransactions = paymentTransactions;
     }
 
     @GetMapping
@@ -67,6 +79,69 @@ public class AdminController {
             Model model) {
         dashboardService.populate(model, from, to, cinemaId, movieId, paymentMethod);
         return "admin/dashboard";
+    }
+
+    @GetMapping("/payments")
+    String paymentSettings(Model model) {
+        var savedSettings = paymentSettingsService.current();
+        boolean bankQrAvailable = sepayPaymentService.isAvailable();
+        boolean webhookConfigured = sepayProperties.getApiKey() != null && !sepayProperties.getApiKey().isBlank();
+        model.addAttribute("paymentMethods", PaymentMethod.values());
+        model.addAttribute("transactions", bookings.findAllDetailed());
+        model.addAttribute("bankQrAvailable", bankQrAvailable);
+        model.addAttribute("sepayEnabled", sepayProperties.isEnabled());
+        model.addAttribute("webhookConfigured", webhookConfigured);
+        model.addAttribute("bankCode", blankOrFallback(sepayProperties.getBankCode(), "Chưa cấu hình"));
+        model.addAttribute("paymentPrefix", blankOrFallback(sepayProperties.getPaymentPrefix(), "REX"));
+        model.addAttribute("maskedBankAccount", maskAccount(sepayProperties.getBankAccount()));
+        model.addAttribute("qrPreviewUrl", bankQrAvailable
+                ? sepayPaymentService.qrImageUrl("REXPREVIEW", BigDecimal.valueOf(100_000)) : null);
+        model.addAttribute("paymentSettings", savedSettings);
+        model.addAttribute("settingsSchemaAvailable", savedSettings.isSchemaAvailable());
+        return "admin/payment-settings";
+    }
+
+    @PostMapping("/payments/save")
+    String paymentSettingsSave(@ModelAttribute PaymentSettingsUpdateRequest request,
+                               Authentication authentication, RedirectAttributes redirect) {
+        try {
+            paymentSettingsService.save(request, authentication.getName());
+            redirect.addFlashAttribute("success", "Đã lưu cấu hình thanh toán không bí mật");
+        } catch (Exception ex) {
+            redirect.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/payments";
+    }
+
+    @GetMapping("/transactions")
+    String transactions(@RequestParam(required = false) String status,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                        @RequestParam(required = false) String q, Model model) {
+        model.addAttribute("transactions", paymentTransactions.search(status, from, to, q));
+        model.addAttribute("filterStatus", status);
+        model.addAttribute("filterFrom", from);
+        model.addAttribute("filterTo", to);
+        model.addAttribute("filterQuery", q);
+        model.addAttribute("transactionStatuses", List.of("RECEIVED", "VERIFIED", "SETTLED", "NEEDS_REVIEW", "REFUND_PENDING", "DUPLICATE"));
+        model.addAttribute("transactionsSchemaAvailable", paymentTransactions.isSchemaAvailable());
+        return "admin/transactions";
+    }
+
+    @GetMapping("/transactions/{id}")
+    String transactionDetail(@PathVariable Long id, Model model) {
+        model.addAttribute("transaction", paymentTransactions.findById(id).orElseThrow());
+        return "admin/transaction-detail";
+    }
+
+    private String blankOrFallback(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
+    private String maskAccount(String account) {
+        if (account == null || account.isBlank()) return "Chưa cấu hình";
+        String value = account.trim();
+        return value.length() <= 4 ? "••••" : "•••• " + value.substring(value.length() - 4);
     }
 
     @GetMapping("/movies")

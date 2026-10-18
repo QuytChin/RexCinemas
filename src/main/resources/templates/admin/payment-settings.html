@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Thanh toán | Quản trị RexCinemas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container-fluid admin-page-wrap pt-page pb-5 payment-settings-page">
+    <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
+    <header class="ui-page-header">
+        <div>
+            <nav class="ui-breadcrumb" aria-label="Điều hướng trang"><span>Quản trị</span><span aria-hidden="true">/</span><strong>Thanh toán</strong></nav>
+            <h1>Cài đặt thanh toán</h1>
+            <p>Theo dõi trạng thái các phương thức đã tích hợp. Thông tin bí mật chỉ được đọc từ biến môi trường, không hiển thị hoặc lưu lại tại đây.</p>
+        </div>
+        <div class="d-flex gap-2"><a class="btn btn-outline-light ui-btn ui-btn--secondary" th:href="@{/admin/transactions}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#receipt"></use></svg><span>Giao dịch</span></a><a class="btn btn-outline-light ui-btn ui-btn--secondary" th:href="@{/admin/bookings}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#ticket"></use></svg><span>Xem booking</span></a></div>
+    </header>
+
+    <div class="alert alert-info payment-settings-notice" role="status">
+        <svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#shield-check"></use></svg>
+        <span>Thông tin ngân hàng và quy tắc không bí mật được lưu qua migration Phase 1. API key, webhook secret và trạng thái runtime của SePay vẫn lấy từ biến môi trường; trang này không nhận hoặc ghi secret.</span>
+    </div>
+    <div class="alert alert-success" th:if="${success}" th:text="${success}"></div>
+    <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+
+    <section class="ui-card payment-settings-panel payment-settings-form-panel">
+        <div class="payment-panel-heading"><div><p class="eyebrow">NON-SECRET SETTINGS</p><h2>Tài khoản ngân hàng nhận tiền</h2><p>Chỉ lưu thông tin vận hành không phải secret. Các thay đổi được ghi audit theo tài khoản Admin.</p></div><span class="ui-badge" th:classappend="${settingsSchemaAvailable ? ' ui-badge--success' : ' ui-badge--muted'}" th:text="${settingsSchemaAvailable ? 'Đã có migration' : 'Chờ migration review'}"></span></div>
+        <form class="payment-settings-form" method="post" th:action="@{/admin/payments/save}" th:object="${paymentSettings}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <div class="payment-form-grid">
+                <label>Tên ngân hàng<input class="form-control" name="bankName" maxlength="120" required th:value="${paymentSettings.bankName}" placeholder="Ví dụ: MB Bank"></label>
+                <label>Mã ngân hàng / BIN<input class="form-control" name="bankCode" maxlength="20" required pattern="[A-Za-z0-9]{3,20}" th:value="${paymentSettings.bankCode}" placeholder="Ví dụ: MBBank hoặc 970422"></label>
+                <label>Số tài khoản<input class="form-control" name="bankAccount" maxlength="30" required pattern="[0-9]{6,30}" th:value="${paymentSettings.bankAccount}" placeholder="Chỉ chữ số"></label>
+                <label>Tên chủ tài khoản<input class="form-control" name="accountHolder" maxlength="160" th:value="${paymentSettings.accountHolder}" placeholder="Tên trên tài khoản"></label>
+                <label>Thời hạn chờ thanh toán (phút)<input class="form-control" name="paymentTimeoutMinutes" type="number" min="1" max="1440" required th:value="${paymentSettings.paymentTimeoutMinutes}"></label>
+                <label>Tiền tố mã chuyển khoản<input class="form-control" name="paymentPrefix" maxlength="20" pattern="[A-Za-z0-9]{2,20}" required th:value="${paymentSettings.paymentPrefix}"></label>
+                <label class="payment-form-wide">Mẫu nội dung chuyển khoản<input class="form-control" name="paymentDescriptionTemplate" maxlength="120" required th:value="${paymentSettings.paymentDescriptionTemplate}" placeholder="{BOOKING_CODE}"></label>
+            </div>
+            <div class="payment-form-actions"><label class="form-check payment-enabled-check"><input class="form-check-input" name="enabled" type="checkbox" value="true" th:checked="${paymentSettings.enabled}"><span>Bật cấu hình BANK_QR ở cấp Admin</span></label><label class="form-check payment-enabled-check"><input class="form-check-input" name="defaultAccount" type="checkbox" value="true" th:checked="${paymentSettings.defaultAccount}"><span>Đặt làm tài khoản mặc định</span></label><button class="btn btn-rex ui-btn ui-btn--primary" type="submit" th:disabled="${!settingsSchemaAvailable}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#save"></use></svg><span>Lưu cấu hình</span></button></div>
+        </form>
+    </section>
+
+    <section class="payment-method-grid" aria-label="Phương thức thanh toán">
+        <article class="ui-card payment-method-card">
+            <div class="payment-method-card__head"><span class="payment-method-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#landmark"></use></svg></span><div><h2>QR ngân hàng / VietQR</h2><span class="ui-badge" th:classappend="${bankQrAvailable ? ' ui-badge--success' : ' ui-badge--muted'}" th:text="${bankQrAvailable ? 'Sẵn sàng' : 'Chưa cấu hình'}"></span></div></div>
+            <p>QR được tạo ở backend theo số tiền và mã tham chiếu duy nhất của từng booking.</p>
+            <dl class="payment-config-list"><div><dt>Ngân hàng / BIN</dt><dd th:text="${bankCode}"></dd></div><div><dt>Tài khoản nhận</dt><dd th:text="${maskedBankAccount}"></dd></div><div><dt>Tiền tố giao dịch</dt><dd th:text="${paymentPrefix}"></dd></div></dl>
+        </article>
+        <article class="ui-card payment-method-card">
+            <div class="payment-method-card__head"><span class="payment-method-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#shield-check"></use></svg></span><div><h2>SePay webhook</h2><span class="ui-badge" th:classappend="${sepayEnabled and webhookConfigured ? ' ui-badge--success' : ' ui-badge--muted'}" th:text="${sepayEnabled and webhookConfigured ? 'Đã bảo vệ' : 'Chưa sẵn sàng'}"></span></div></div>
+            <p>Webhook chỉ chấp nhận API key hợp lệ, đối soát giao dịch vào, tài khoản nhận, mã thanh toán và số tiền trước khi xác nhận vé.</p>
+            <dl class="payment-config-list"><div><dt>Trạng thái tích hợp</dt><dd th:text="${sepayEnabled ? 'Đã bật qua môi trường' : 'Đang tắt qua môi trường'}"></dd></div><div><dt>Xác thực webhook</dt><dd th:text="${webhookConfigured ? 'API key đã cấu hình (đã che)' : 'Chưa cấu hình API key'}"></dd></div><div><dt>Endpoint</dt><dd class="payment-code">/api/payments/sepay/webhook</dd></div><div><dt>Webhook gần nhất</dt><dd>Chưa có dữ liệu lưu</dd></div></dl>
+        </article>
+        <article class="ui-card payment-method-card payment-method-card--sandbox">
+            <div class="payment-method-card__head"><span class="payment-method-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#credit-card"></use></svg></span><div><h2>MoMo và VNPAY</h2><span class="ui-badge ui-badge--neutral">Sandbox</span></div></div>
+            <p>Các gateway sandbox dùng callback có xác thực chữ ký và đối soát số tiền tại backend. Không có thao tác đánh dấu đã thanh toán thủ công ở trang này.</p>
+            <div class="payment-method-card__footer"><span>Hỗ trợ trong luồng đặt vé hiện tại</span></div>
+        </article>
+    </section>
+
+    <section class="payment-method-grid payment-method-grid--counter" aria-label="Phương thức tại quầy">
+        <article class="ui-card payment-method-card payment-method-card--counter">
+            <div class="payment-method-card__head"><span class="payment-method-card__icon"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#ticket"></use></svg></span><div><h2>Thanh toán tại quầy</h2><span class="ui-badge ui-badge--success">Sẵn sàng</span></div></div>
+            <p>Phương thức nội bộ hiện có trong backend, không phụ thuộc SePay hay cấu hình ngân hàng.</p>
+        </article>
+    </section>
+
+    <section class="payment-settings-layout">
+        <article class="ui-card payment-settings-panel">
+            <div class="payment-panel-heading"><div><p class="eyebrow">BANK QR</p><h2>Preview VietQR an toàn</h2><p>Chỉ dùng dữ liệu mẫu 100.000đ và mã <code>REXPREVIEW</code>; không tạo giao dịch hoặc booking.</p></div></div>
+            <div class="payment-qr-preview" th:if="${qrPreviewUrl != null}"><img th:src="${qrPreviewUrl}" alt="Mã VietQR minh họa"><div><strong>Preview sẵn sàng</strong><span>Thông tin tài khoản đã được che ở giao diện quản trị.</span></div></div>
+            <div class="ui-empty-state payment-qr-empty" th:if="${qrPreviewUrl == null}"><svg class="ui-icon ui-empty-state__icon" aria-hidden="true"><use href="/images/icons.svg#landmark"></use></svg><h3>Chưa thể tạo preview</h3><p>Thiết lập <code>SEPAY_ENABLED</code>, <code>SEPAY_BANK_CODE</code> và <code>SEPAY_BANK_ACCOUNT</code> trong môi trường để mở QR ngân hàng.</p></div>
+        </article>
+        <article class="ui-card payment-settings-panel">
+            <div class="payment-panel-heading"><div><p class="eyebrow">CONFIGURATION</p><h2>Biến môi trường bắt buộc</h2><p>Không dán secret vào biểu mẫu hoặc commit vào Git.</p></div></div>
+            <ul class="payment-env-list"><li><code>SEPAY_ENABLED</code><span>Bật luồng BANK_QR sau khi cấu hình đủ.</span></li><li><code>SEPAY_BANK_CODE</code><span>Mã ngân hàng dùng để tạo VietQR.</span></li><li><code>SEPAY_BANK_ACCOUNT</code><span>Tài khoản nhận tiền.</span></li><li><code>SEPAY_API_KEY</code><span>API key xác thực webhook, không bao giờ hiển thị.</span></li><li><code>SEPAY_PAYMENT_PREFIX</code><span>Tiền tố mã đối soát booking.</span></li></ul>
+        </article>
+    </section>
+
+    <section class="ui-card payment-transactions">
+        <div class="payment-panel-heading"><div><p class="eyebrow">RECONCILIATION</p><h2>Giao dịch booking gần đây</h2><p>Danh sách chỉ đọc để kiểm tra tình trạng thanh toán; hoàn tiền và hủy vé vẫn theo luồng có kiểm soát ở Booking.</p></div></div>
+        <div class="table-responsive"><table class="table table-dark align-middle"><thead><tr><th>Mã booking</th><th>Phương thức</th><th>Số tiền</th><th>Tham chiếu</th><th>SePay transaction</th><th>Trạng thái</th><th>Thời gian</th></tr></thead><tbody>
+            <tr th:each="b : ${transactions}"><td th:text="${b.bookingCode}"></td><td th:text="${b.paymentMethod}"></td><td th:text="${#numbers.formatDecimal(b.totalAmount,0,'COMMA',0,'POINT') + 'đ'}"></td><td th:text="${b.paymentReference ?: '—'}"></td><td th:text="${b.sepayTransactionId ?: '—'}"></td><td><span class="ui-badge" th:classappend="${b.status.name() == 'CONFIRMED' ? ' ui-badge--success' : ' ui-badge--muted'}" th:text="${b.status}"></span></td><td th:text="${#temporals.format(b.createdAt,'dd/MM/yyyy HH:mm')}"></td></tr>
+            <tr th:if="${#lists.isEmpty(transactions)}"><td colspan="7" class="text-center text-secondary py-4">Chưa có giao dịch booking.</td></tr>
+        </tbody></table></div>
+    </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

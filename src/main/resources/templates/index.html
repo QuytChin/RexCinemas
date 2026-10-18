@@ -28,8 +28,8 @@
             </div>
             <div class="carousel-item active" th:if="${heroMovies.isEmpty()}"><div class="hero-backdrop hero-empty"></div><div class="container-xl hero-home-content"><div class="hero-copy"><p class="eyebrow">REX CINEMAS</p><h1>Điện ảnh bắt đầu từ khoảnh khắc này.</h1><a class="btn btn-rex btn-lg" th:href="@{/schedule}">XEM LỊCH CHIẾU</a></div></div></div>
         </div>
-        <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
-        <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
+        <button class="carousel-control-prev rex-carousel-control" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev" aria-label="Phim trước"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#chevron-left"></use></svg></button>
+        <button class="carousel-control-next rex-carousel-control" type="button" data-bs-target="#heroCarousel" data-bs-slide="next" aria-label="Phim tiếp theo"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#chevron-right"></use></svg></button>
     </div>
 </section>
 

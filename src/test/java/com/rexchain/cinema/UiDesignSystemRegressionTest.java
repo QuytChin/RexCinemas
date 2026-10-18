@@ -87,4 +87,22 @@ class UiDesignSystemRegressionTest {
         assertThat(css).contains("UI component system v2", ".ui-btn", ".ui-card", ".ui-page-header", ".ui-icon");
         assertThat(icons).contains("id=\"plus\"", "id=\"pencil\"", "id=\"trash-2\"", "id=\"eye\"");
     }
+
+    @Test
+    void paymentSettingsUseSafeStatusOnlyDesignAndSharedSvgControls() throws IOException {
+        String page = Files.readString(TEMPLATES.resolve("admin/payment-settings.html"), StandardCharsets.UTF_8);
+        String sidebar = Files.readString(TEMPLATES.resolve("fragments/admin-nav.html"), StandardCharsets.UTF_8);
+        String css = Files.readString(APP_CSS, StandardCharsets.UTF_8);
+        String icons = Files.readString(ICON_SPRITE, StandardCharsets.UTF_8);
+
+        assertThat(page).contains("Cài đặt thanh toán", "SEPAY_API_KEY", "REXPREVIEW", "payment-method-grid");
+        assertThat(page).contains("/admin/payments/save", "paymentTimeoutMinutes", "paymentDescriptionTemplate");
+        assertThat(page).doesNotContain("name=\"apiKey\"", "name=\"webhookSecret\"");
+        assertThat(sidebar).contains("data-admin-route=\"/admin/payments\"", "icons.svg#credit-card");
+        assertThat(css).contains(".payment-method-grid", ".rex-carousel-control");
+        assertThat(icons).contains("id=\"chevron-left\"", "id=\"chevron-right\"", "id=\"credit-card\"");
+        assertThat(Files.readString(Path.of("src/main/resources/db/sqlserver-v11-payment-settings.sql"), StandardCharsets.UTF_8))
+                .contains("payment_settings", "payment_settings_audit", "CREATE TABLE")
+                .doesNotContain("SEPAY_API_KEY");
+    }
 }

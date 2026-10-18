@@ -18,8 +18,10 @@
             <div class="bank-qr-status"><span class="bank-qr-status-dot"></span><strong id="paymentStatusText">Đang chờ thanh toán</strong></div>
             <dl class="bank-qr-details">
                 <div><dt>Mã đặt vé</dt><dd th:text="${booking.bookingCode}"></dd></div>
-                <div><dt>Số tiền</dt><dd class="bank-qr-amount" th:text="${#numbers.formatDecimal(booking.totalAmount,0,'COMMA',0,'POINT') + 'đ'}"></dd></div>
+                <div><dt>Ngân hàng</dt><dd th:text="${bankName ?: 'Ngân hàng nhận tiền'}"></dd></div>
+                <div><dt>Số tiền</dt><dd class="bank-qr-amount" th:text="${#numbers.formatDecimal(bankSnapshot.amount,0,'COMMA',0,'POINT') + 'đ'}"></dd></div>
                 <div><dt>Số tài khoản</dt><dd class="bank-qr-account" th:text="${bankAccount}"></dd><button type="button" class="bank-qr-copy-btn" th:attr="data-copy-value=${bankAccount}">Sao chép</button></div>
+                <div><dt>Chủ tài khoản</dt><dd th:text="${accountHolder ?: '—'}"></dd></div>
                 <div><dt>Nội dung chuyển khoản</dt><dd class="bank-qr-reference" th:text="${booking.paymentReference}"></dd><button type="button" class="bank-qr-copy-btn" th:attr="data-copy-value=${booking.paymentReference}">Sao chép</button></div>
                 <div><dt>Thời gian giữ ghế</dt><dd id="bankQrCountdown">05:00</dd></div>
             </dl>

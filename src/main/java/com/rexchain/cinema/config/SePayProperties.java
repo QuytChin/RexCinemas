@@ -11,6 +11,8 @@ public class SePayProperties {
     private String bankAccount = "";
     private String bankCode = "";
     private String webhookSecret = "";
+    private String webhookAuthMode = "API_KEY";
+    private int webhookTimestampToleranceSeconds = 300;
     private String paymentPrefix = "REX";
 
     public boolean isEnabled() { return enabled; }
@@ -23,6 +25,10 @@ public class SePayProperties {
     public void setBankCode(String bankCode) { this.bankCode = bankCode; }
     public String getWebhookSecret() { return webhookSecret; }
     public void setWebhookSecret(String webhookSecret) { this.webhookSecret = webhookSecret; }
+    public String getWebhookAuthMode() { return webhookAuthMode; }
+    public void setWebhookAuthMode(String webhookAuthMode) { this.webhookAuthMode = webhookAuthMode; }
+    public int getWebhookTimestampToleranceSeconds() { return webhookTimestampToleranceSeconds; }
+    public void setWebhookTimestampToleranceSeconds(int value) { webhookTimestampToleranceSeconds = value; }
     public String getPaymentPrefix() { return paymentPrefix; }
     public void setPaymentPrefix(String paymentPrefix) { this.paymentPrefix = paymentPrefix; }
 }

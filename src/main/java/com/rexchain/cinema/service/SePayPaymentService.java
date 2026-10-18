@@ -31,7 +31,11 @@ public class SePayPaymentService {
     }
 
     public String newPaymentReference(Predicate<String> exists) {
-        String prefix = properties.getPaymentPrefix();
+        return newPaymentReference(properties.getPaymentPrefix(), exists);
+    }
+
+    public String newPaymentReference(String configuredPrefix, Predicate<String> exists) {
+        String prefix = configuredPrefix;
         prefix = blank(prefix) ? "REX" : prefix.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
         prefix = prefix.substring(0, Math.min(prefix.length(), 10));
         for (int attempt = 0; attempt < 12; attempt++) {
@@ -45,9 +49,15 @@ public class SePayPaymentService {
 
     public String qrImageUrl(String paymentReference, BigDecimal amount) {
         requireAvailable();
+        return qrImageUrl(properties.getBankCode(), properties.getBankAccount(), paymentReference, amount);
+    }
+
+    public String qrImageUrl(String bankCode, String bankAccount, String paymentReference, BigDecimal amount) {
+        if (blank(bankCode) || blank(bankAccount) || amount == null || amount.signum() < 0)
+            throw new IllegalStateException("Thông tin VietQR chưa hợp lệ");
         return UriComponentsBuilder.fromUriString(QR_IMAGE_ENDPOINT)
-                .queryParam("bank", properties.getBankCode())
-                .queryParam("acc", properties.getBankAccount())
+                .queryParam("bank", bankCode)
+                .queryParam("acc", bankAccount)
                 .queryParam("amount", amount.stripTrailingZeros().toPlainString())
                 .queryParam("des", paymentReference)
                 .queryParam("template", "compact")

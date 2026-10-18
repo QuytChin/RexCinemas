@@ -9,6 +9,8 @@ import com.rexchain.cinema.repository.UserRepository;
 import com.rexchain.cinema.service.BookingService;
 import com.rexchain.cinema.service.MomoPaymentService;
 import com.rexchain.cinema.service.SePayPaymentService;
+import com.rexchain.cinema.service.BankTransferPaymentService;
+import com.rexchain.cinema.dto.BankTransferSnapshot;
 import com.rexchain.cinema.service.VnpayPaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +35,7 @@ public class PaymentController {
     private final MomoPaymentService momo;
     private final VnpayPaymentService vnpay;
     private final SePayPaymentService sepay;
+    private final BankTransferPaymentService bankTransferPaymentService;
 
     public PaymentController(
             BookingRepository bookings,
@@ -40,13 +43,14 @@ public class PaymentController {
             BookingService bookingService,
             MomoPaymentService momo,
             VnpayPaymentService vnpay,
-            SePayPaymentService sepay) {
+            SePayPaymentService sepay, BankTransferPaymentService bankTransferPaymentService) {
         this.bookings = bookings;
         this.users = users;
         this.bookingService = bookingService;
         this.momo = momo;
         this.vnpay = vnpay;
         this.sepay = sepay;
+        this.bankTransferPaymentService = bankTransferPaymentService;
     }
 
     @GetMapping("/payment/{bookingId}/start")
@@ -91,10 +95,16 @@ public class PaymentController {
         if (booking.getStatus() != BookingStatus.PENDING)
             return "redirect:/bookings/" + booking.getId();
         try {
-            sepay.requireAvailable();
+            BankTransferSnapshot snapshot = bankTransferPaymentService.findSnapshot(booking.getBookingCode())
+                    .orElseThrow(() -> new IllegalStateException("Booking chưa có snapshot VietQR hợp lệ"));
+            if (snapshot.getExpiresAt() == null || !snapshot.getExpiresAt().isAfter(java.time.LocalDateTime.now()))
+                return "redirect:/bookings/" + booking.getId() + "?paymentExpired";
             model.addAttribute("booking", booking);
-            model.addAttribute("bankAccount", sepay.bankAccount());
-            model.addAttribute("qrImageUrl", sepay.qrImageUrl(booking.getPaymentReference(), booking.getTotalAmount()));
+            model.addAttribute("bankSnapshot", snapshot);
+            model.addAttribute("bankAccount", snapshot.getBankAccount());
+            model.addAttribute("bankName", snapshot.getBankName());
+            model.addAttribute("accountHolder", snapshot.getAccountHolder());
+            model.addAttribute("qrImageUrl", bankTransferPaymentService.qrImageUrl(snapshot));
             return "booking/bank-qr-waiting";
         } catch (Exception ex) {
             return "redirect:/bookings/" + booking.getId() + "?paymentError";

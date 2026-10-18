@@ -4,6 +4,7 @@ import com.rexchain.cinema.dto.HoldRequest;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.BookingService;
+import com.rexchain.cinema.service.BankTransferPaymentService;
 import com.rexchain.cinema.service.QrCodeService;
 import com.rexchain.cinema.service.VnpayPaymentService;
 import com.rexchain.cinema.config.SePayProperties;
@@ -29,12 +30,14 @@ public class BookingController {
     private final ComboProductRepository combos;
     private final QrCodeService qrCodes;
     private final SePayProperties sepayProperties;
+    private final BankTransferPaymentService bankTransferPaymentService;
     private final VnpayPaymentService vnpay;
 
     public BookingController(ShowtimeRepository showtimes, ShowtimeSeatRepository showSeats,
                              UserRepository users, BookingRepository bookings, BookingService service,
                              ComboProductRepository combos, QrCodeService qrCodes,
-                             SePayProperties sepayProperties, VnpayPaymentService vnpay) {
+                             SePayProperties sepayProperties, VnpayPaymentService vnpay,
+                             BankTransferPaymentService bankTransferPaymentService) {
         this.showtimes = showtimes;
         this.showSeats = showSeats;
         this.users = users;
@@ -44,6 +47,7 @@ public class BookingController {
         this.qrCodes = qrCodes;
         this.sepayProperties = sepayProperties;
         this.vnpay = vnpay;
+        this.bankTransferPaymentService = bankTransferPaymentService;
     }
 
     @GetMapping("/booking/{showtimeId}")
@@ -167,9 +171,7 @@ public class BookingController {
         model.addAttribute("showtime", showtimes.findById(showtimeId).orElseThrow());
         model.addAttribute("showSeats", showSeats.findByShowtimeIdOrderBySeatSeatRowAscSeatSeatNumberAsc(showtimeId));
         model.addAttribute("combos", combos.findByActiveTrueOrderByIdAsc());
-        model.addAttribute("sepayEnabled", sepayProperties.isEnabled()
-                && sepayProperties.getBankAccount() != null && !sepayProperties.getBankAccount().isBlank()
-                && sepayProperties.getBankCode() != null && !sepayProperties.getBankCode().isBlank());
+        model.addAttribute("sepayEnabled", bankTransferPaymentService.isReady());
         model.addAttribute("vnpayEnabled", vnpay.configured());
     }
 

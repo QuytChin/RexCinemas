@@ -3,6 +3,7 @@ package com.rexchain.cinema.service;
 import com.rexchain.cinema.dto.CheckInResult;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +37,9 @@ public class BookingService {
     private final PaymentService paymentService;
     private final CheckInService checkInService;
     private final SePayPaymentService sepay;
+    private final BankTransferPaymentService bankTransferPaymentService;
 
+    @Autowired
     public BookingService(ShowtimeSeatRepository seats,
                           BookingRepository bookings,
                           UserRepository users,
@@ -47,7 +50,8 @@ public class BookingService {
                           SeatReservationService seatReservationService,
                           PaymentService paymentService,
                           CheckInService checkInService,
-                          SePayPaymentService sepay) {
+                          SePayPaymentService sepay,
+                          BankTransferPaymentService bankTransferPaymentService) {
         this.seats = seats;
         this.bookings = bookings;
         this.users = users;
@@ -59,6 +63,16 @@ public class BookingService {
         this.paymentService = paymentService;
         this.checkInService = checkInService;
         this.sepay = sepay;
+        this.bankTransferPaymentService = bankTransferPaymentService;
+    }
+
+    /** Compatibility constructor for focused unit tests that do not exercise BANK_QR. */
+    public BookingService(ShowtimeSeatRepository seats, BookingRepository bookings, UserRepository users,
+                          ShowtimeRepository showtimes, SeatBroadcastService broadcast, ComboProductRepository combos,
+                          VoucherRepository vouchers, SeatReservationService seatReservationService,
+                          PaymentService paymentService, CheckInService checkInService, SePayPaymentService sepay) {
+        this(seats, bookings, users, showtimes, broadcast, combos, vouchers, seatReservationService,
+                paymentService, checkInService, sepay, null);
     }
 
     /* ──────────────────────────── HOLD & RELEASE (DELEGATED) ──────────────────────────── */
@@ -88,7 +102,10 @@ public class BookingService {
         User user = users.findById(userId).orElseThrow();
         if (user.getRole() == Role.CUSTOMER && method == PaymentMethod.PAY_AT_COUNTER)
             throw new IllegalArgumentException("Khách hàng cần chọn phương thức thanh toán trực tuyến");
-        if (method == PaymentMethod.BANK_QR) sepay.requireAvailable();
+        if (method == PaymentMethod.BANK_QR) {
+            if (bankTransferPaymentService == null) sepay.requireAvailable();
+            else bankTransferPaymentService.requireReady();
+        }
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(now)
                 || showtime.getAuditorium().getCinema() == null
@@ -130,7 +147,9 @@ public class BookingService {
         booking.setShowtime(showtime);
         booking.setPaymentMethod(method);
         if (method == PaymentMethod.BANK_QR)
-            booking.setPaymentReference(sepay.newPaymentReference(bookings::existsByPaymentReference));
+            booking.setPaymentReference(bankTransferPaymentService == null
+                    ? sepay.newPaymentReference(bookings::existsByPaymentReference)
+                    : bankTransferPaymentService.newPaymentReference(bookings::existsByPaymentReference));
         booking.setStatus(online ? BookingStatus.PENDING : BookingStatus.CONFIRMED);
         booking.setSeatAmount(seatAmount);
         booking.setComboAmount(comboAmount);
@@ -139,9 +158,27 @@ public class BookingService {
         booking.setTotalAmount(total);
         if (!online)
             booking.setPaidAt(now);
-        if (online)
-            booking.setExpiresAt(now.plusMinutes(15));
+        if (online) {
+            int timeoutMinutes = method == PaymentMethod.BANK_QR && bankTransferPaymentService != null
+                    ? bankTransferPaymentService.paymentTimeoutMinutes()
+                    : 15;
+            LocalDateTime expiresAt = now.plusMinutes(timeoutMinutes);
+            if (method == PaymentMethod.BANK_QR) {
+                // The seat hold starts when the customer clicks "Giữ ghế & tiếp tục".
+                // Do not restart the payment clock when the booking is confirmed.
+                expiresAt = list.stream()
+                        .map(ShowtimeSeat::getHoldUntil)
+                        .filter(Objects::nonNull)
+                        .min(Comparator.naturalOrder())
+                        .orElseThrow(() -> new IllegalStateException("Phiên giữ ghế không hợp lệ"));
+                if (!expiresAt.isAfter(now))
+                    throw new IllegalStateException("Phiên giữ ghế đã hết hạn");
+            }
+            booking.setExpiresAt(expiresAt);
+        }
         booking = bookings.save(booking);
+        if (method == PaymentMethod.BANK_QR && bankTransferPaymentService != null)
+            bankTransferPaymentService.snapshot(booking);
 
         for (ShowtimeSeat seat : list) {
             if (online) {
