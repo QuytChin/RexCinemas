@@ -31,8 +31,10 @@ public class AuthController {
     }
 
     @GetMapping("/auth/login")
-    String login(@RequestParam(required = false) String returnUrl, Model model) {
+    String login(@RequestParam(required = false) String returnUrl,
+                 @RequestParam(required = false) String info, Model model) {
         model.addAttribute("returnUrl", safeReturnUrl(returnUrl));
+        model.addAttribute("info", info);
         return "auth/login";
     }
 
@@ -74,15 +76,17 @@ public class AuthController {
     }
 
     @PostMapping("/auth/login")
-    String loginPost(@RequestParam String email, @RequestParam String password,
+    String loginPost(@RequestParam String identifier, @RequestParam String password,
+                     @RequestParam(required = false, defaultValue = "false") boolean remember,
                      @RequestParam(required = false) String returnUrl,
                      HttpServletResponse response, Model model) {
         try {
-            addCookie(response, auth.login(email, password));
+            addCookie(response, auth.login(identifier, password, remember), remember);
             return "redirect:" + safeReturnUrl(returnUrl);
         } catch (Exception ex) {
-            model.addAttribute("error", "Email hoặc mật khẩu không đúng");
+            model.addAttribute("error", "Thông tin đăng nhập hoặc mật khẩu không đúng");
             model.addAttribute("returnUrl", safeReturnUrl(returnUrl));
+            model.addAttribute("identifier", identifier == null ? "" : identifier.trim());
             return "auth/login";
         }
     }
@@ -99,8 +103,8 @@ public class AuthController {
     @ResponseBody
     ResponseEntity<?> apiLogin(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         try {
-            String token = auth.login(request.email(), request.password());
-            addCookie(response, token);
+            String token = auth.login(request.identifier(), request.password());
+            addCookie(response, token, false);
             return ResponseEntity.ok(Map.of("token", token));
         } catch (Exception ex) {
             return ResponseEntity.status(401).body(Map.of("error", "Sai thông tin đăng nhập"));
@@ -119,10 +123,17 @@ public class AuthController {
         model.addAttribute("cinemas", cinemas.findByActiveTrueOrderByCityAscNameAsc());
     }
 
-    private void addCookie(HttpServletResponse response, String token) {
+    @GetMapping("/auth/forgot-password")
+    String forgotPassword(Model model) {
+        model.addAttribute("returnUrl", "/");
+        model.addAttribute("info", "Khôi phục mật khẩu chưa được cấu hình qua email. Vui lòng liên hệ quản trị viên RexCinemas để được hỗ trợ.");
+        return "auth/login";
+    }
+
+    private void addCookie(HttpServletResponse response, String token, boolean remember) {
         ResponseCookie cookie = ResponseCookie.from("access_token", token)
                 .httpOnly(true).secure(secureCookie).sameSite("Lax").path("/")
-                .maxAge(Duration.ofDays(1)).build();
+                .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(1)).build();
         response.addHeader("Set-Cookie", cookie.toString());
     }
 }

@@ -26,7 +26,7 @@
                 <a class="btn btn-sm btn-outline-light" sec:authorize="!isAuthenticated()" th:href="@{/auth/login}">Đăng nhập</a>
                 <a class="btn btn-sm btn-rex" sec:authorize="!isAuthenticated()" th:href="@{/auth/register}">Đăng ký</a>
                 <a class="admin-entry" sec:authorize="hasAnyRole('ADMIN','CINEMA_MANAGER')" th:href="@{/admin}">QUẢN TRỊ</a>
-                <form sec:authorize="isAuthenticated()" th:action="@{/auth/logout}" method="post"><button class="btn btn-sm btn-dark-soft">Đăng xuất</button></form>
+                <form sec:authorize="isAuthenticated()" th:action="@{/auth/logout}" method="post"><input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button class="btn btn-sm btn-dark-soft">Đăng xuất</button></form>
             </div>
         </div>
     </div>

@@ -227,3 +227,88 @@ body.trailer-modal-open{position:fixed;inset:0;width:100%;overflow:hidden}
 @keyframes trailer-scale-in{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 @media(max-width:767px){.trailer-modal{padding:12px}.trailer-modal-dialog{max-height:calc(100vh - 24px);padding:14px;border-radius:14px}.trailer-modal-header{margin-bottom:12px}.trailer-modal-close{width:36px;height:36px;font-size:1.7rem}.trailer-modal-fallback{width:100%}}
 @media(prefers-reduced-motion:reduce){.trailer-modal-overlay,.trailer-modal-dialog{animation:none}}
+
+/* Login and member registration */
+.auth-page{min-height:100vh;background:#0b1424;color:#fff;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.auth-layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(420px,.95fr);min-height:100vh;padding-top:76px}
+.auth-visual{position:relative;display:flex;align-items:flex-end;min-height:620px;padding:clamp(36px,6vw,88px);overflow:hidden;background:linear-gradient(90deg,rgba(4,11,22,.94),rgba(4,11,22,.45)),url('/images/articles/chon-ghe-xem-phim.png') center/cover no-repeat}
+.auth-visual:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 36%,rgba(4,10,19,.9));pointer-events:none}
+.auth-visual-content{position:relative;z-index:1;max-width:540px}.auth-visual-content .eyebrow,.auth-panel .eyebrow{margin:0 0 10px;color:#ffe500;font-size:.72rem;font-weight:800;letter-spacing:.16em}
+.auth-visual h1{margin:0 0 20px;color:#fff;font-family:Anton,Impact,sans-serif;font-size:clamp(2.75rem,5vw,5.35rem);font-weight:400;letter-spacing:.015em;line-height:.98;text-transform:uppercase}.auth-visual p:last-child{max-width:430px;margin:0;color:#d2dae7;font-size:1rem;line-height:1.7}
+.auth-panel-wrap{display:grid;place-items:center;padding:clamp(34px,6vw,76px) clamp(20px,5vw,68px);background:#0b1424}.auth-panel{width:min(100%,530px);padding:clamp(28px,4vw,46px);border:1px solid rgba(255,229,0,.2);border-radius:15px;background:#111e33}.auth-panel-register{width:min(100%,680px)}
+.auth-panel h2{margin:0;color:#fff;font-family:Anton,Impact,sans-serif;font-size:clamp(2.15rem,4vw,3.2rem);font-weight:400;letter-spacing:.02em;text-transform:uppercase}.auth-lead{margin:10px 0 26px;color:#b9c6d8;line-height:1.6}.auth-panel .alert{margin-bottom:16px;border-radius:9px;font-size:.86rem}.auth-form{display:grid;gap:18px}.auth-form fieldset{min-width:0;margin:0;padding:0;border:0}.auth-form legend{width:100%;margin:4px 0 14px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.13);color:#ffe500;font-size:.78rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.auth-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.auth-field{min-width:0}.auth-field-wide{grid-column:1/-1}.auth-field label{display:block;margin-bottom:7px;color:#eef3fb;font-size:.84rem;font-weight:700}.auth-field label span{color:#ffe500}.auth-field .form-control,.auth-field .form-select{min-height:48px;border:1px solid rgba(185,198,216,.35);border-radius:8px;background:#0b1424;color:#fff;padding:10px 12px}.auth-field .form-control::placeholder{color:#7f8ca0}.auth-field .form-control:focus,.auth-field .form-select:focus{border-color:#ffe500;box-shadow:0 0 0 .2rem rgba(255,229,0,.14);background:#0b1424;color:#fff}.auth-field input[type="date"]{color-scheme:dark}.auth-label-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.auth-label-row a{color:#ffe500;font-size:.78rem;font-weight:700;text-decoration:none}.auth-label-row a:hover{text-decoration:underline}.password-control{position:relative}.password-control .form-control{padding-right:60px}.password-toggle{position:absolute;top:50%;right:7px;min-width:47px;transform:translateY(-50%);border:0;border-radius:6px;background:transparent;color:#ffe500;font-size:.76rem;font-weight:800}.password-toggle:focus-visible{outline:2px solid #ffe500;outline-offset:2px}.auth-remember,.auth-consent{display:flex;align-items:flex-start;gap:10px;margin:0;color:#c2cddd;font-size:.84rem;line-height:1.5;cursor:pointer}.auth-remember .form-check-input,.auth-consent .form-check-input{flex:0 0 auto;margin-top:3px;border-color:#8491a4;background-color:#0b1424}.auth-remember .form-check-input:checked,.auth-consent .form-check-input:checked{background-color:#ffe500;border-color:#ffe500}.auth-submit{min-height:51px;border:0;border-radius:8px;background:#ffe500;color:#0b1424;font-family:Anton,Impact,sans-serif;font-size:1.2rem;font-weight:400;letter-spacing:.06em}.auth-submit:hover,.auth-submit:focus-visible{background:#fff36a;color:#0b1424}.auth-submit:disabled{opacity:.7;cursor:wait}.auth-switch{margin:22px 0 0;color:#b9c6d8;text-align:center;font-size:.9rem}.auth-switch a{color:#ffe500;font-weight:800;text-decoration:none}.auth-switch a:hover{text-decoration:underline}.field-error{display:block;margin-top:6px;color:#ffabb4;font-size:.75rem;line-height:1.35}.auth-field .is-invalid{border-color:#f67b89}
+@media(max-width:991px){.auth-layout{grid-template-columns:1fr}.auth-visual{min-height:310px;padding:40px}.auth-visual h1{font-size:clamp(2.5rem,7vw,4rem)}.auth-panel-wrap{padding:42px 24px 58px}.auth-panel,.auth-panel-register{width:min(680px,100%)}}
+@media(max-width:575px){.auth-layout{padding-top:68px}.auth-visual{min-height:245px;padding:30px 22px}.auth-visual h1{margin-bottom:12px;font-size:2.55rem}.auth-visual p:last-child{font-size:.88rem;line-height:1.55}.auth-panel-wrap{padding:20px 12px 36px}.auth-panel{padding:25px 19px;border-radius:11px}.auth-panel h2{font-size:2.35rem}.auth-grid{grid-template-columns:1fr}.auth-field-wide{grid-column:auto}.auth-label-row{align-items:flex-start;flex-direction:column;gap:4px}.auth-form{gap:15px}}
+
+/* Auth pages: centered card over the Rex cinema backdrop shown in the design reference. */
+body.auth-page{min-height:100vh;background-color:#071326;background-image:linear-gradient(rgba(4,13,29,.72),rgba(4,13,29,.78)),url('/images/articles/chon-ghe-xem-phim.png');background-position:center;background-size:cover;background-attachment:fixed;color:#fff;overflow-x:hidden}
+body.auth-page .rex-nav{z-index:1040;background:rgba(5,17,36,.92);border-bottom-color:rgba(183,191,209,.22)}
+body.auth-page .auth-layout{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:96px 20px 44px;background:transparent}
+body.auth-page .auth-panel-wrap{display:grid;place-items:center;width:100%;min-height:0;padding:0;background:transparent}
+body.auth-page .auth-panel{width:min(100%,520px);padding:28px 44px 30px;border:1px solid rgba(151,177,211,.42);border-radius:17px;background:rgba(12,27,49,.94);box-shadow:0 22px 60px rgba(0,0,0,.34)}
+body.auth-page .auth-panel-register{width:min(100%,380px);padding:19px 28px 20px}
+body.auth-page .auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:-2px 0 25px;border-bottom:1px solid rgba(151,177,211,.26)}
+body.auth-page .auth-tab{position:relative;padding:0 8px 13px;color:#aeb9ca;font-size:.76rem;font-weight:800;letter-spacing:.08em;text-align:center;text-decoration:none;transition:color .16s ease}
+body.auth-page .auth-tab:hover,body.auth-page .auth-tab:focus-visible{color:#fff}
+body.auth-page .auth-tab.is-active{color:#ffe500}
+body.auth-page .auth-tab.is-active:after{content:"";position:absolute;right:0;bottom:-1px;left:0;height:3px;background:#ffe500;border-radius:3px}
+body.auth-page .auth-panel-heading h1{margin:0 0 8px;color:#fff;font-family:'Anton',Impact,sans-serif;font-size:clamp(2rem,4vw,2.35rem);font-weight:400;letter-spacing:.02em;line-height:1.1}
+body.auth-page .auth-panel-heading p{margin:0 0 24px;color:#9eacc1;font-size:.82rem;line-height:1.65}
+body.auth-page .auth-panel .alert{padding:9px 11px;border-radius:7px;font-size:.76rem}
+body.auth-page .auth-form{gap:16px}
+body.auth-page .auth-field label{margin-bottom:6px;color:#f2f5fa;font-size:.78rem;font-weight:700}
+body.auth-page .auth-field label span{color:#ffe500}
+body.auth-page .auth-field .form-control,body.auth-page .auth-field .form-select{min-height:37px;border:1px solid rgba(151,177,211,.4);border-radius:6px;background:#13223a;color:#fff;padding:8px 11px;font-size:.78rem}
+body.auth-page .auth-field .form-control::placeholder{color:#9aa9bc}
+body.auth-page .auth-field .form-control:focus,body.auth-page .auth-field .form-select:focus{border-color:#ffe500;box-shadow:0 0 0 .15rem rgba(255,229,0,.13);background:#152641;color:#fff}
+body.auth-page .auth-field input[type=date]{color-scheme:dark}
+body.auth-page .auth-label-row{align-items:center}
+body.auth-page .auth-label-row a{font-size:.74rem}
+body.auth-page .password-control .form-control{padding-right:45px}
+body.auth-page .password-toggle{right:5px;min-width:30px;padding:4px;color:#e8eef8;font-size:.9rem;line-height:1}
+body.auth-page .password-toggle:hover,body.auth-page .password-toggle:focus-visible{color:#ffe500}
+body.auth-page .auth-remember,body.auth-page .auth-consent{gap:8px;color:#d4dce9;font-size:.76rem;line-height:1.45}
+body.auth-page .auth-remember .form-check-input,body.auth-page .auth-consent .form-check-input{width:17px;height:17px;margin-top:0}
+body.auth-page .auth-consent a{color:#fff;text-decoration:underline}
+body.auth-page .auth-submit{min-height:46px;border-radius:6px;background:#ffe500;color:#071326;font-family:'Anton',Impact,sans-serif;font-size:1.08rem;font-weight:400;letter-spacing:.04em}
+body.auth-page .auth-submit:hover,body.auth-page .auth-submit:focus-visible{background:#fff36a;color:#071326}
+body.auth-page .auth-switch{margin:16px 0 0;color:#9eacc1;font-size:.76rem}
+body.auth-page .auth-switch a{color:#fff;text-decoration:underline}
+body.auth-page .field-error{margin-top:4px;font-size:.7rem}
+body.auth-register-page .auth-layout{align-items:flex-start;padding-top:96px}
+body.auth-register-page .auth-panel-heading p{margin-bottom:18px}
+body.auth-register-page .auth-form{gap:10px}
+body.auth-register-page .auth-field label{margin-bottom:4px;font-size:.72rem}
+body.auth-register-page .auth-field .form-control,body.auth-register-page .auth-field .form-select{min-height:35px;font-size:.72rem}
+body.auth-register-page .auth-consent{margin-top:2px;font-size:.67rem}
+body.auth-register-page .auth-submit{min-height:40px;font-size:1rem}
+body.auth-register-page .auth-switch{margin-top:12px}
+@media(max-width:767px){body.auth-page{background-attachment:scroll}body.auth-page .auth-layout{align-items:flex-start;padding:88px 12px 28px}body.auth-page .auth-panel,body.auth-page .auth-panel-register{width:min(100%,470px);padding:25px 20px 27px}body.auth-page .auth-panel-register{width:min(100%,400px);padding:20px 18px 22px}body.auth-page .auth-tabs{margin-bottom:21px}body.auth-page .auth-panel-heading h1{font-size:2rem}body.auth-page .auth-panel-heading p{font-size:.78rem}}
+body.auth-page .auth-panel,.auth-page .auth-panel *{box-sizing:border-box}
+body.auth-page .auth-form,.auth-page .auth-field,.auth-page .password-control{width:100%;min-width:0}
+body.auth-page .auth-field .form-control,body.auth-page .auth-field .form-select,body.auth-page .password-control .form-control{display:block;width:100%;min-width:0;box-sizing:border-box}
+body.auth-page .auth-submit{display:block;width:100%;box-sizing:border-box}
+body.auth-page .auth-panel-register{width:min(100%,580px);padding:32px}
+body.auth-page .auth-panel-register .auth-form{gap:16px}
+@media(max-width:767px){body.auth-page .auth-panel-register{width:min(100%,580px);padding:25px 20px 27px}}
+/* Auth sizing pass: readable controls shared by login and register. */
+body.auth-page .auth-panel{padding:36px 40px 38px}
+body.auth-page .auth-panel-register{padding:36px 40px 38px}
+body.auth-page .auth-tabs{margin-bottom:30px}
+body.auth-page .auth-tab{padding-bottom:15px;font-size:15px;letter-spacing:.06em}
+body.auth-page .auth-panel-heading h1{margin-bottom:10px;font-size:32px}
+body.auth-page .auth-panel-heading p{margin-bottom:30px;font-size:15px;line-height:1.65}
+body.auth-page .auth-form{gap:19px}
+body.auth-page .auth-field label{margin-bottom:8px;font-size:14px;font-weight:600}
+body.auth-page .auth-field .form-control,body.auth-page .auth-field .form-select,body.auth-page .password-control .form-control{min-height:49px;padding:11px 15px;border-radius:7px;font-size:15px;line-height:1.35}
+body.auth-page .auth-field .form-control::placeholder{font-size:15px}
+body.auth-page .password-control .form-control{padding-right:54px}
+body.auth-page .password-toggle{right:8px;min-width:32px;padding:5px;font-size:19px;line-height:1}
+body.auth-page .auth-remember,body.auth-page .auth-consent{gap:9px;font-size:14px;line-height:1.5}
+body.auth-page .auth-remember .form-check-input,body.auth-page .auth-consent .form-check-input{width:18px;height:18px;margin-top:1px}
+body.auth-page .auth-label-row a{font-size:14px}
+body.auth-page .auth-submit{min-height:50px;font-size:17px}
+body.auth-page .auth-panel .alert{font-size:13px;line-height:1.45}
+body.auth-page .auth-switch{margin-top:22px;font-size:14px}
+body.auth-page .field-error{font-size:13px}
+@media(max-width:767px){body.auth-page .auth-panel,body.auth-page .auth-panel-register{padding:30px 20px 32px}body.auth-page .auth-tabs{margin-bottom:25px}body.auth-page .auth-panel-heading h1{font-size:30px}body.auth-page .auth-panel-heading p{font-size:15px;margin-bottom:26px}body.auth-page .auth-form{gap:18px}}
