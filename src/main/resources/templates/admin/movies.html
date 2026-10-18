@@ -2,6 +2,7 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Quản lý phim - Rex Cinemas</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/app.css}">
@@ -10,9 +11,9 @@
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container-fluid admin-page-wrap pt-page pb-5">
     <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
-    <div class="d-flex justify-content-between align-items-center">
-        <h1>Quản lý phim</h1>
-        <a class="btn btn-danger" th:href="@{/admin/movies/new}">+ Thêm phim mới</a>
+    <div class="ui-page-header">
+        <div><div class="ui-breadcrumb"><span>Quản trị</span><span aria-hidden="true">/</span><strong>Phim</strong></div><h1>Quản lý phim</h1><p>Quản lý thông tin, lịch phát hành và trạng thái hiển thị của phim.</p></div>
+        <a class="btn btn-rex ui-btn ui-btn--primary" th:href="@{/admin/movies/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm phim</span></a>
     </div>
     <div class="table-responsive mt-4">
         <table class="table table-dark table-hover align-middle">

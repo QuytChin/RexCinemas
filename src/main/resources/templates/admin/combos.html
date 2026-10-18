@@ -32,7 +32,7 @@
                 <input name="imageUrl" class="form-control mb-3" th:value="${editCombo.imageUrl}">
                 <label>Hoặc upload Cloudinary</label>
                 <input name="imageFile" type="file" accept="image/*" class="form-control mb-3">
-                <button class="btn btn-danger w-100" th:text="${editCombo.id!=null?'Lưu thay đổi':'Thêm combo'}"></button>
+                <button class="btn btn-rex w-100" th:text="${editCombo.id!=null?'Lưu thay đổi':'Thêm combo'}"></button>
                 <a th:if="${editCombo.id!=null}" th:href="@{/admin/combos}" class="btn btn-link text-light w-100 mt-2">Hủy sửa</a>
             </form>
         </div>

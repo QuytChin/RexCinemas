@@ -3,42 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Rạp</title>
+    <title>Chuỗi rạp | RexCinemas</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container pt-page pb-5 admin-cinema-page">
+<main class="container-fluid admin-page-wrap pt-page pb-5 admin-cinema-page">
     <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
-    <div class="admin-title admin-cinema-page-header">
+    <header class="ui-page-header admin-cinema-page-header">
         <div>
-            <p class="eyebrow mb-1">CINEMA NETWORK</p>
-            <h1>Chuỗi rạp</h1>
+            <nav class="ui-breadcrumb" aria-label="Điều hướng trang"><span>Quản trị</span><span aria-hidden="true">/</span><strong>Chuỗi rạp</strong></nav>
+            <div class="ui-page-header__title-row"><h1>Chuỗi rạp</h1><span class="ui-badge ui-badge--neutral" th:text="${#lists.size(cinemas) + ' rạp'}"></span></div>
+            <p>Quản lý thông tin, trạng thái hiển thị và điểm vận hành của hệ thống rạp RexCinemas.</p>
         </div>
-        <a class="btn btn-rex admin-cinema-add" th:href="@{/admin/cinemas/new}">+ Thêm rạp</a>
-    </div>
-
-    <div class="row g-3 mt-2 admin-cinema-grid">
-        <div class="col-md-6" th:each="c:${cinemas}">
-            <article class="admin-card admin-cinema-card">
-                <div class="admin-cinema-card-content">
-                    <h4 class="admin-cinema-card-title" th:text="${c.name}"></h4>
-                    <p class="admin-cinema-card-address" th:text="${c.address}"></p>
-                    <div class="admin-cinema-badges">
-                        <span class="badge admin-cinema-badge admin-cinema-location" th:text="${c.city}"></span>
-                        <span class="badge admin-cinema-badge" th:classappend="${c.active ? ' text-bg-success' : ' text-bg-dark'}" th:text="${c.active ? 'Hoạt động' : 'Đã ẩn'}"></span>
-                    </div>
+        <a class="btn btn-rex ui-btn ui-btn--primary admin-cinema-add" th:href="@{/admin/cinemas/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm rạp</span></a>
+    </header>
+    <section class="row g-4 admin-cinema-grid" aria-label="Danh sách rạp">
+        <div class="col-md-6 col-xxl-4" th:each="c:${cinemas}">
+            <article class="ui-card admin-cinema-card">
+                <div class="admin-cinema-card__heading">
+                    <span class="admin-cinema-card__icon" aria-hidden="true"><svg class="ui-icon"><use href="/images/icons.svg#building-2"></use></svg></span>
+                    <div><h2 class="admin-cinema-card-title" th:text="${c.name}"></h2><span class="ui-badge" th:classappend="${c.active ? ' ui-badge--success' : ' ui-badge--muted'}" th:text="${c.active ? 'Hoạt động' : 'Đã ẩn'}"></span></div>
                 </div>
-                <div class="admin-cinema-actions">
-                    <a class="btn btn-sm btn-outline-light admin-cinema-edit" th:href="@{'/admin/cinemas/'+${c.id}+'/edit'}">Sửa</a>
-                    <form class="d-inline" th:action="@{'/admin/cinemas/'+${c.id}+'/toggle'}" method="post">
-                        <button class="btn btn-sm admin-cinema-toggle" th:classappend="${c.active ? ' btn-outline-danger' : ' btn-outline-success'}" th:text="${c.active ? 'Ẩn' : 'Bật lại'}"></button>
+                <div class="admin-cinema-card__details">
+                    <p class="admin-cinema-card-address"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#map-pin"></use></svg><span th:text="${c.address}"></span></p>
+                    <p class="admin-cinema-card-city"><span>Thành phố</span><strong th:text="${c.city}"></strong></p>
+                </div>
+                <footer class="admin-cinema-actions">
+                    <a class="btn btn-outline-light ui-btn ui-btn--secondary" th:href="@{'/admin/cinemas/'+${c.id}+'/edit'}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#pencil"></use></svg><span>Sửa</span></a>
+                    <form th:action="@{'/admin/cinemas/'+${c.id}+'/toggle'}" method="post">
+                        <button class="btn ui-btn" th:classappend="${c.active ? ' btn-outline-danger ui-btn--danger' : ' btn-outline-success ui-btn--success'}" type="submit"><svg class="ui-icon" aria-hidden="true"><use th:attr="href=${c.active ? '/images/icons.svg#eye-off' : '/images/icons.svg#eye'}"></use></svg><span th:text="${c.active ? 'Ẩn' : 'Hiện'}"></span></button>
                     </form>
-                </div>
+                </footer>
             </article>
         </div>
-    </div>
+        <div class="col-12" th:if="${#lists.isEmpty(cinemas)}"><div class="ui-empty-state"><svg class="ui-icon ui-empty-state__icon" aria-hidden="true"><use href="/images/icons.svg#building-2"></use></svg><h2>Chưa có rạp nào</h2><p>Thêm rạp đầu tiên để bắt đầu cấu hình phòng chiếu và lịch chiếu.</p><a class="btn btn-rex ui-btn ui-btn--primary" th:href="@{/admin/cinemas/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm rạp</span></a></div></div>
+    </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

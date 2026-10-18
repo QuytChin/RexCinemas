@@ -21,7 +21,7 @@
                         <h1 th:text="${m.title}">Movie</h1>
                         <p class="hero-meta" th:text="${m.genre+' • '+m.durationMinutes+' phút • '+m.language}"></p>
                         <p class="hero-desc" th:text="${m.description}"></p>
-                        <div class="d-flex flex-wrap gap-2"><a class="btn btn-rex btn-lg" th:href="@{'/movies/'+${m.id}}">ĐẶT VÉ</a><button class="btn btn-outline-light btn-lg js-trailer-trigger" type="button" th:if="${m.trailerUrl!=null and !#strings.isEmpty(m.trailerUrl)}" th:attr="data-trailer-url=${m.trailerUrl},data-trailer-title=${m.title}">▶ TRAILER</button></div>
+                        <div class="d-flex flex-wrap gap-2"><a class="btn btn-rex btn-lg" th:href="@{'/movies/'+${m.id}}">ĐẶT VÉ</a><button class="btn btn-outline-light btn-lg ui-btn ui-btn--secondary js-trailer-trigger" type="button" th:if="${m.trailerUrl!=null and !#strings.isEmpty(m.trailerUrl)}" th:attr="data-trailer-url=${m.trailerUrl},data-trailer-title=${m.title}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#clapperboard"></use></svg><span>Trailer</span></button></div>
                     </div>
                     <div class="hero-poster-wrap d-none d-lg-block"><img th:src="${m.posterUrl}" th:alt="${m.title}"></div>
                 </div>

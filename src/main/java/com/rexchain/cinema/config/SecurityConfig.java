@@ -10,7 +10,9 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -23,6 +25,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 @Configuration
+@EnableWebSecurity
 public class SecurityConfig {
     @Bean
     PasswordEncoder passwordEncoder() {
@@ -43,7 +46,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwt) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwt,
+                                    AuthenticationProvider authenticationProvider) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/"));
         CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
@@ -57,7 +61,8 @@ public class SecurityConfig {
                     return authorization != null && authorization.startsWith("Bearer ");
                 }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/error", "/auth/**", "/css/**", "/js/**", "/images/**", "/ws/**",
+                        .requestMatchers("/", "/error", "/login", "/register", "/auth/**",
+                                "/css/**", "/js/**", "/images/**", "/ws/**",
                                 "/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/movies/**", "/schedule", "/articles/**",
                                 "/api/movies/**", "/api/showtimes/*/seats", "/api/snacks").permitAll()
@@ -72,10 +77,13 @@ public class SecurityConfig {
                     String target = request.getRequestURI();
                     if (request.getQueryString() != null && !request.getQueryString().isBlank())
                         target += "?" + request.getQueryString();
-                    response.sendRedirect("/auth/login?returnUrl=" +
+                    response.sendRedirect("/login?returnUrl=" +
                             URLEncoder.encode(target, StandardCharsets.UTF_8));
                 }))
+                .authenticationProvider(authenticationProvider)
+                // Login is handled by AuthController so it can issue the existing JWT cookie.
                 .formLogin(form -> form.disable())
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(logout -> logout.disable())
                 .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);

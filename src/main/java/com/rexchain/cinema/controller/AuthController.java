@@ -30,7 +30,7 @@ public class AuthController {
         this.secureCookie = secureCookie;
     }
 
-    @GetMapping("/auth/login")
+    @GetMapping({"/login", "/auth/login"})
     String login(@RequestParam(required = false) String returnUrl,
                  @RequestParam(required = false) String info, Model model) {
         model.addAttribute("returnUrl", safeReturnUrl(returnUrl));
@@ -38,7 +38,7 @@ public class AuthController {
         return "auth/login";
     }
 
-    @GetMapping("/auth/register")
+    @GetMapping({"/register", "/auth/register"})
     String register(Model model) {
         model.addAttribute("registerForm", new RegisterRequest(
                 "", null, "", "", "", "", null, "", "", false));
@@ -56,7 +56,7 @@ public class AuthController {
         }
         try {
             auth.register(form);
-            return "redirect:/auth/login?registered";
+            return "redirect:/login?registered";
         } catch (Exception ex) {
             model.addAttribute("error", ex.getMessage());
             addCinemas(model);

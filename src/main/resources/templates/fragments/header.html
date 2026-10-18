@@ -16,7 +16,7 @@
                 <li class="nav-item"><a class="nav-link" th:href="@{/#coming-soon-section}">SẮP CHIẾU</a></li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/#events-section}">SỰ KIỆN</a></li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/#articles-section}">BÀI VIẾT</a></li>
-                <li class="nav-item"><a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#movieSearchModal">TÌM PHIM</a></li>
+                <li class="nav-item"><a class="nav-link rex-search-link" href="#" data-bs-toggle="modal" data-bs-target="#movieSearchModal"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#search"></use></svg><span>TÌM PHIM</span></a></li>
             </ul>
             <div class="d-flex gap-2 align-items-center rex-auth-nav">
                 <a class="rex-booking-cta" th:href="@{/schedule}">ĐẶT VÉ NGAY</a>
@@ -39,7 +39,7 @@
             <div class="modal-body pt-0">
                 <form th:action="@{/movies}" method="get" class="search-big-form">
                     <input class="form-control form-control-lg" name="q" placeholder="Nhập tên phim hoặc thể loại...">
-                    <button class="btn btn-rex btn-lg">Tìm kiếm</button>
+                    <button class="btn btn-rex btn-lg ui-btn ui-btn--primary"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#search"></use></svg><span>Tìm kiếm</span></button>
                 </form>
             </div>
         </div>
