@@ -45,8 +45,15 @@ public class DashboardService {
         LocalDateTime fromTime = from.atStartOfDay();
         LocalDateTime toExclusive = to.plusDays(1).atStartOfDay();
 
-        List<Booking> filtered = bookings.findDetailedForDashboard(
+        List<Long> bookingIds = bookings.findDashboardBookingIds(
                 fromTime, toExclusive, cinemaId, movieId, paymentMethod);
+        Map<Long, Integer> bookingOrder = new HashMap<>();
+        for (int i = 0; i < bookingIds.size(); i++) {
+            bookingOrder.putIfAbsent(bookingIds.get(i), i);
+        }
+        List<Booking> filtered = bookings.findByIdIn(bookingIds).stream()
+                .sorted(Comparator.comparingInt(b -> bookingOrder.getOrDefault(b.getId(), Integer.MAX_VALUE)))
+                .toList();
 
         long confirmed = filtered.stream().filter(b -> b.getStatus() == BookingStatus.CONFIRMED).count();
         long pending = filtered.stream().filter(b -> b.getStatus() == BookingStatus.PENDING).count();

@@ -14,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -43,23 +44,26 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             "order by b.createdAt desc")
     List<Booking> findAllDetailed();
 
-    @Query("select distinct b from Booking b " +
-            "join fetch b.user " +
-            "join fetch b.showtime st " +
-            "join fetch st.movie m " +
-            "join fetch st.auditorium a " +
-            "join fetch a.cinema c " +
-            "left join fetch b.seats " +
+    @Query("select b.id from Booking b " +
+            "join b.showtime st " +
+            "join st.movie m " +
+            "join st.auditorium a " +
+            "join a.cinema c " +
             "where b.createdAt >= :from and b.createdAt < :to " +
             "and (:cinemaId is null or c.id = :cinemaId) " +
             "and (:movieId is null or m.id = :movieId) " +
             "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
             "order by b.createdAt desc")
-    List<Booking> findDetailedForDashboard(@Param("from") LocalDateTime from,
-                                           @Param("to") LocalDateTime to,
-                                           @Param("cinemaId") Long cinemaId,
-                                           @Param("movieId") Long movieId,
-                                           @Param("paymentMethod") PaymentMethod paymentMethod);
+    List<Long> findDashboardBookingIds(@Param("from") LocalDateTime from,
+                                       @Param("to") LocalDateTime to,
+                                       @Param("cinemaId") Long cinemaId,
+                                       @Param("movieId") Long movieId,
+                                       @Param("paymentMethod") PaymentMethod paymentMethod);
+
+    @EntityGraph(attributePaths = {
+            "user", "showtime", "showtime.movie", "showtime.auditorium", "showtime.auditorium.cinema"
+    })
+    List<Booking> findByIdIn(Collection<Long> ids);
 
 
     /** Fix 1: Find PENDING bookings that have passed their expiry time. */
