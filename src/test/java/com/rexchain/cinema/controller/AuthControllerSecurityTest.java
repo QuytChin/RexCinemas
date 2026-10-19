@@ -110,4 +110,43 @@ class AuthControllerSecurityTest {
                 .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
                 .andExpect(header().string("Set-Cookie", containsString("SameSite=Lax")));
     }
+
+    @Test
+    void apiRegistrationWithoutOtpIsRejected() throws Exception {
+        doThrow(new IllegalStateException("OTP verification is required before account creation."))
+                .when(authService).register(org.mockito.ArgumentMatchers.any());
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType("application/json")
+                        .content("""
+                                {"fullName":"Test Member","email":"otp-bypass@example.invalid",
+                                 "phone":"0800000001","gender":"Nam","birthDate":"1990-01-01",
+                                 "password":"TestPassword123","confirmPassword":"TestPassword123",
+                                 "termsAccepted":true}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("OTP")));
+
+        org.mockito.Mockito.verify(authService, org.mockito.Mockito.times(1))
+                .register(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void htmlRegistrationWithoutOtpIsRejected() throws Exception {
+        mockMvc.perform(post("/auth/register")
+                        .with(csrf())
+                        .param("fullName", "Test Member")
+                        .param("email", "otp-bypass@example.invalid")
+                        .param("phone", "0800000001")
+                        .param("gender", "Nam")
+                        .param("birthDate", "1990-01-01")
+                        .param("password", "TestPassword123")
+                        .param("confirmPassword", "TestPassword123")
+                        .param("termsAccepted", "true"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("auth/register"))
+                .andExpect(model().attributeExists("error"));
+
+        org.mockito.Mockito.verify(authService, org.mockito.Mockito.never())
+                .register(org.mockito.ArgumentMatchers.any());
+    }
 }

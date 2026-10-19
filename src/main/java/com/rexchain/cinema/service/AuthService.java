@@ -39,12 +39,6 @@ public class AuthService {
         this.jwt = jwt;
     }
 
-    @Transactional
-    public void register(RegisterRequest request) {
-        validateRegistrationData(request);
-        createUserAfterOtp(request);
-    }
-
     public void validateRegistrationData(RegisterRequest request) {
         String normalizedEmail = request.email() == null ? "" : request.email().trim().toLowerCase();
         String phone = request.phone() == null ? "" : request.phone().trim();
@@ -83,6 +77,11 @@ public class AuthService {
             if (users.existsByNationalId(nationalId))
                 throw new IllegalArgumentException("CCCD/CMND đã được sử dụng");
         }
+    }
+
+    /** Direct registration is disabled; accounts are created only after OTP verification. */
+    public void register(RegisterRequest request) {
+        throw new IllegalStateException("OTP verification is required before account creation.");
     }
 
     @Transactional

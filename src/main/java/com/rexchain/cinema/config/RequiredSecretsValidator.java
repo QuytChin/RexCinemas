@@ -10,6 +10,7 @@ import java.util.List;
 @Component
 public class RequiredSecretsValidator implements InitializingBean {
     private static final List<String> REQUIRED_PROPERTIES = List.of(
+            "app.jwt.secret",
             "spring.datasource.username",
             "spring.datasource.password",
             "spring.mail.username",

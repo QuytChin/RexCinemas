@@ -61,6 +61,7 @@
 
             <!-- In-page alert thông báo lỗi / thành công -->
             <div id="inPageAlert" class="alert alert-danger d-none" role="alert"></div>
+            <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
 
             <!-- BƯỚC 1: Form điền thông tin -->
             <div id="step-register">

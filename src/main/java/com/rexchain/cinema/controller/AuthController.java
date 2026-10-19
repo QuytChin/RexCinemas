@@ -106,21 +106,10 @@ public class AuthController {
     }
 
     @PostMapping("/auth/register")
-    String registerPost(@Valid @ModelAttribute("registerForm") RegisterRequest form,
-                        BindingResult bindingResult, Model model) {
-        if (bindingResult.hasErrors()) {
-            model.addAttribute("error", bindingResult.getAllErrors().get(0).getDefaultMessage());
-            addCinemas(model);
-            return "auth/register";
-        }
-        try {
-            auth.register(form);
-            return "redirect:/login?registered";
-        } catch (Exception ex) {
-            model.addAttribute("error", ex.getMessage());
-            addCinemas(model);
-            return "auth/register";
-        }
+    String registerPost(Model model) {
+        model.addAttribute("error", "OTP verification is required before account creation.");
+        addCinemas(model);
+        return "auth/register";
     }
 
     @PostMapping("/api/auth/register")

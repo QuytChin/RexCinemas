@@ -1,5 +1,6 @@
 package com.rexchain.cinema.service;
 
+import com.rexchain.cinema.dto.RegisterRequest;
 import com.rexchain.cinema.entity.Role;
 import com.rexchain.cinema.entity.User;
 import com.rexchain.cinema.repository.CinemaRepository;
@@ -25,6 +26,16 @@ class AuthServiceTest {
     private final AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
     private final JwtService jwt = mock(JwtService.class);
     private final AuthService service = new AuthService(users, mock(CinemaRepository.class), mock(PasswordEncoder.class), authenticationManager, jwt);
+
+    @org.junit.jupiter.api.Test
+    void directRegistrationIsRejectedWithoutDatabaseWrites() {
+        RegisterRequest request = new RegisterRequest("Test Member", "direct@example.invalid", "0800000001",
+                "Nam", java.time.LocalDate.of(1990, 1, 1), "TestPassword123", "TestPassword123", true);
+
+        assertThrows(IllegalStateException.class, () -> service.register(request));
+        verify(users, never()).save(any());
+        verify(users, never()).saveAndFlush(any());
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"member@rexchain.vn", "rexmember", "0901234567"})

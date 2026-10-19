@@ -14,11 +14,14 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class OtpService {
     private static final Logger log = LoggerFactory.getLogger(OtpService.class);
     private static final int OTP_EXPIRY_MINUTES = 5;
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final int SEND_COOLDOWN_SECONDS = 60;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final JavaMailSender mailSender;
@@ -26,6 +29,8 @@ public class OtpService {
 
     // Lưu trữ OTP tạm thời trong bộ nhớ: email -> OtpData
     private final Map<String, OtpData> otpStorage = new ConcurrentHashMap<>();
+    private final Map<String, Integer> failedAttemptsByEmail = new ConcurrentHashMap<>();
+    private final Map<String, LocalDateTime> nextOtpSendAt = new ConcurrentHashMap<>();
 
     public record OtpData(String otp, RegisterRequest request, LocalDateTime expiresAt) {}
 
@@ -40,6 +45,7 @@ public class OtpService {
      */
     public void generateAndSendOtp(RegisterRequest request) {
         String email = request.email().trim().toLowerCase();
+        enforceSendCooldown(email);
         String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
 
@@ -59,6 +65,7 @@ public class OtpService {
             throw new IllegalArgumentException("Không tìm thấy thông tin đăng ký cho email này. Vui lòng đăng ký lại.");
         }
 
+        enforceSendCooldown(normalizedEmail);
         String newOtp = String.format("%06d", RANDOM.nextInt(1_000_000));
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
 
@@ -69,7 +76,11 @@ public class OtpService {
     /**
      * Xác thực mã OTP. Nếu hợp lệ, trả về RegisterRequest và xóa OTP khỏi bộ nhớ.
      */
-    public RegisterRequest verifyOtp(String email, String inputOtp) {
+    public synchronized RegisterRequest verifyOtp(String email, String inputOtp) {
+        return verifyOtpAt(email, inputOtp, LocalDateTime.now());
+    }
+
+    synchronized RegisterRequest verifyOtpAt(String email, String inputOtp, LocalDateTime now) {
         String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
         OtpData data = otpStorage.get(normalizedEmail);
 
@@ -77,12 +88,13 @@ public class OtpService {
             throw new IllegalArgumentException("Mã OTP không tồn tại hoặc đã bị hủy. Vui lòng bấm gửi lại mã.");
         }
 
-        if (LocalDateTime.now().isAfter(data.expiresAt())) {
+        if (!now.isBefore(data.expiresAt())) {
             otpStorage.remove(normalizedEmail);
+            failedAttemptsByEmail.remove(normalizedEmail);
             throw new IllegalArgumentException("Mã OTP đã hết hạn. Vui lòng bấm 'Gửi lại mã OTP'.");
         }
 
-        if (!data.otp().equals(inputOtp == null ? "" : inputOtp.trim())) {
+        if (!isOtpCorrect(normalizedEmail, data, inputOtp)) {
             throw new IllegalArgumentException("Mã OTP không chính xác. Vui lòng kiểm tra lại hộp thư.");
         }
 
@@ -94,6 +106,33 @@ public class OtpService {
     /**
      * Gửi email OTP bằng template HTML chuẩn phong cách Rex Cinemas.
      */
+    private boolean isOtpCorrect(String email, OtpData data, String inputOtp) {
+        if (data.otp().equals(inputOtp == null ? "" : inputOtp.trim())) {
+            failedAttemptsByEmail.remove(email);
+            return true;
+        }
+        if (failedAttemptsByEmail.merge(email, 1, Integer::sum) >= MAX_FAILED_ATTEMPTS) {
+            otpStorage.remove(email);
+            failedAttemptsByEmail.remove(email);
+        }
+        return false;
+    }
+
+    private void enforceSendCooldown(String email) {
+        LocalDateTime now = LocalDateTime.now();
+        AtomicReference<Boolean> blocked = new AtomicReference<>(false);
+        nextOtpSendAt.compute(email, (key, allowedAt) -> {
+            if (allowedAt != null && now.isBefore(allowedAt)) {
+                blocked.set(true);
+                return allowedAt;
+            }
+            return now.plusSeconds(SEND_COOLDOWN_SECONDS);
+        });
+        if (blocked.get()) {
+            throw new IllegalArgumentException("Please wait before requesting another OTP.");
+        }
+    }
+
     private void sendEmail(String toEmail, String fullName, String otp) {
         try {
             MimeMessage message = mailSender.createMimeMessage();

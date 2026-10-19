@@ -2,6 +2,8 @@ package com.rexchain.cinema.security;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -18,7 +20,8 @@ class JwtServiceTest {
 
     @Test
     void acceptsValidKeyAndIssuesVerifiableToken() {
-        JwtService service = new JwtService("test-only-key-material-with-at-least-32-bytes", 60_000, 120_000);
+        String isolatedKey = UUID.randomUUID().toString() + UUID.randomUUID();
+        JwtService service = new JwtService(isolatedKey, 60_000, 120_000);
 
         String token = service.generate("member@example.invalid", "CUSTOMER");
 
