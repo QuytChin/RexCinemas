@@ -125,7 +125,7 @@ public class DashboardService {
         model.addAttribute("recentBookings", filtered.stream().sorted(Comparator.comparing(Booking::getCreatedAt).reversed()).limit(8).toList());
         model.addAttribute("cinemas", cinemas.findByActiveTrueOrderByCityAscNameAsc());
         model.addAttribute("movies", movies.findByActiveTrueOrderByReleaseDateDesc());
-        model.addAttribute("paymentMethods", PaymentMethod.values());
+        model.addAttribute("paymentMethods", List.of(PaymentMethod.BANK_QR));
         model.addAttribute("filterFrom", from);
         model.addAttribute("filterTo", to);
         model.addAttribute("filterCinemaId", cinemaId);

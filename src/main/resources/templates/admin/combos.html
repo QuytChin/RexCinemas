@@ -41,8 +41,8 @@
                 <div class="col-md-6" th:each="c:${combos}">
                     <div class="combo-admin-card">
                         <div class="combo-thumb">
-                            <img th:if="${c.imageUrl!=null and !#strings.isEmpty(c.imageUrl)}" th:src="${c.imageUrl}" th:alt="${c.name}">
-                            <span th:unless="${c.imageUrl!=null and !#strings.isEmpty(c.imageUrl)}">🍿</span>
+                            <img th:src="${@cinemaArtwork.imageUrl(c.imageUrl, 'combo')}" data-image-fallback="combo" th:alt="${c.name}">
+
                         </div>
                         <div class="flex-grow-1">
                             <div class="d-flex justify-content-between">

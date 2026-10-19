@@ -13,7 +13,7 @@
     <div id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="5500">
         <div class="carousel-inner">
             <div class="carousel-item" th:each="m,stat:${heroMovies}" th:classappend="${stat.first ? ' active' : ''}">
-                <div class="hero-backdrop" th:style="|background-image:linear-gradient(90deg,rgba(3,4,8,.96) 8%,rgba(3,4,8,.68) 52%,rgba(3,4,8,.15)),url('${m.posterUrl}');|"></div>
+                <div class="hero-backdrop" th:style="|background-image:linear-gradient(90deg,rgba(3,4,8,.82) 8%,rgba(3,4,8,.28) 52%,rgba(3,4,8,.04)),url('${@cinemaArtwork.heroBackdrop(m.posterUrl)}'),url('/images/fallbacks/movie.jpg');|"></div>
                 <div class="container-xl hero-home-content">
                     <div class="hero-copy">
                         <span class="hero-age" th:text="${m.ageRating}">T13</span>
@@ -23,7 +23,7 @@
                         <p class="hero-desc" th:text="${m.description}"></p>
                         <div class="d-flex flex-wrap gap-2"><a class="btn btn-rex btn-lg" th:href="@{'/movies/'+${m.id}}">ĐẶT VÉ</a><button class="btn btn-outline-light btn-lg ui-btn ui-btn--secondary js-trailer-trigger" type="button" th:if="${m.trailerUrl!=null and !#strings.isEmpty(m.trailerUrl)}" th:attr="data-trailer-url=${m.trailerUrl},data-trailer-title=${m.title}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#clapperboard"></use></svg><span>Trailer</span></button></div>
                     </div>
-                    <div class="hero-poster-wrap d-none d-lg-block"><img th:src="${m.posterUrl}" th:alt="${m.title}"></div>
+                    <div class="hero-poster-wrap d-none d-lg-block"><img th:src="${@cinemaArtwork.imageUrl(m.posterUrl, 'movie')}" data-image-fallback="movie" th:alt="${m.title}"></div>
                 </div>
             </div>
             <div class="carousel-item active" th:if="${heroMovies.isEmpty()}"><div class="hero-backdrop hero-empty"></div><div class="container-xl hero-home-content"><div class="hero-copy"><p class="eyebrow">REX CINEMAS</p><h1>Điện ảnh bắt đầu từ khoảnh khắc này.</h1><a class="btn btn-rex btn-lg" th:href="@{/schedule}">XEM LỊCH CHIẾU</a></div></div></div>
@@ -33,7 +33,7 @@
     </div>
 </section>
 
-<section class="quick-schedule"><div class="container-xl"><form class="quick-schedule-box" th:action="@{/schedule}" method="get"><div><span>XEM LỊCH CHIẾU TẠI</span><select name="cinemaId" class="form-select"><option value="">Tất cả rạp Rex</option><option th:each="c:${cinemas}" th:value="${c.id}" th:text="${c.name+' — '+c.city}"></option></select></div><button class="btn btn-rex">TÌM</button></form><div class="quick-showtimes" th:if="${!quickShowtimes.isEmpty()}"><div class="quick-showtime-title"><span>ĐẶT NHANH</span><small>Suất chiếu sắp tới</small></div><div class="quick-showtime-scroll"><div class="quick-showtime-item" th:each="s:${quickShowtimes}"><div><strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong><span th:text="${#temporals.format(s.startTime,'dd/MM')}"></span></div><div class="quick-showtime-copy"><b th:text="${s.movie.title}"></b><small th:text="${s.auditorium.cinema.name+' • '+s.auditorium.name}"></small><em th:text="${availableSeats[s.id]+' ghế trống'}"></em></div><a sec:authorize="isAuthenticated()" th:if="${availableSeats[s.id] > 0}" th:href="@{'/booking/'+${s.id}}">ĐẶT</a><a sec:authorize="!isAuthenticated()" th:if="${availableSeats[s.id] > 0}" th:href="@{/auth/login(returnUrl=${'/booking/'+s.id})}">ĐẶT</a></div></div></div></div></section>
+<section class="quick-schedule"><div class="container-xl"><form class="quick-schedule-box" th:action="@{/schedule}" method="get"><div><span>XEM LỊCH CHIẾU TẠI</span><select name="cinemaId" class="form-select"><option value="">Tất cả rạp Rex</option><option th:each="c:${cinemas}" th:value="${c.id}" th:text="${c.name+' — '+c.city}"></option></select></div><button class="btn btn-rex">TÌM</button></form><div class="quick-showtimes" th:if="${!quickShowtimes.isEmpty()}"><div class="quick-showtime-title"><span>ĐẶT NHANH</span><small>Suất chiếu sắp tới</small></div><div class="quick-showtime-scroll"><div class="quick-showtime-item" th:each="s:${quickShowtimes}"><div><strong th:text="${#temporals.format(s.startTime,'HH:mm')}"></strong><span th:text="${#temporals.format(s.startTime,'dd/MM')}"></span></div><div class="quick-showtime-copy"><b th:text="${s.movie.title}"></b><small th:text="${s.auditorium.cinema.name+' • '+s.auditorium.name}"></small><em th:text="${availableSeats[s.id]+' ghế trống'}"></em></div><a sec:authorize="isAuthenticated()" th:if="${availableSeats[s.id] > 0}" th:href="@{'/booking/'+${s.id}}">ĐẶT NGAY</a><a sec:authorize="!isAuthenticated()" th:if="${availableSeats[s.id] > 0}" th:href="@{/auth/login(returnUrl=${'/booking/'+s.id})}">ĐẶT NGAY</a></div></div></div></div></section>
 
 <main>
 <section class="rex-section container-xl" id="now-showing-section">
@@ -49,19 +49,19 @@
 
 <section class="rex-section container-xl" id="events-section">
     <div class="section-heading light-line"><div><p class="eyebrow">WHAT'S NEW</p><h2>SỰ KIỆN LỚN</h2></div></div>
-    <div class="event-grid"><article class="event-card" th:each="e:${events}"><img th:if="${e.imageUrl!=null}" th:src="${e.imageUrl}" alt="event"><div class="event-overlay"><span th:text="${e.label}"></span><h3 th:text="${e.title}"></h3><p th:text="${e.description}"></p><a th:if="${e.linkUrl!=null and !#strings.isEmpty(e.linkUrl)}" th:href="${e.linkUrl}">XEM CHI TIẾT →</a></div></article></div>
+    <div class="event-grid"><article class="event-card" th:each="e:${events}"><img th:src="${@cinemaArtwork.imageUrl(e.imageUrl, 'event')}" data-image-fallback="event" th:alt="${e.title}"><div class="event-overlay"><span th:text="${e.label}"></span><h3 th:text="${e.title}"></h3><p th:text="${e.description}"></p><a th:if="${e.linkUrl!=null and !#strings.isEmpty(e.linkUrl)}" th:href="${e.linkUrl}">XEM CHI TIẾT →</a></div></article></div>
 </section>
 
 <section class="member-banner container-xl"><div class="member-banner-inner"><div><span class="eyebrow">THÀNH VIÊN REX</span><h2>Tích điểm mỗi lần xem phim.<br>Nâng hạng theo hành trình của bạn.</h2><p>1 điểm cho mỗi 10.000đ booking thành công. Theo dõi điểm và hạng thành viên ngay trong hồ sơ.</p><a sec:authorize="!isAuthenticated()" class="btn btn-outline-light btn-lg" th:href="@{/auth/register}">ĐĂNG KÝ MIỄN PHÍ</a><a sec:authorize="isAuthenticated()" class="btn btn-outline-light btn-lg" th:href="@{/profile}">XEM THẺ THÀNH VIÊN</a></div><div class="member-card-visual"><span>REX</span><strong>MEMBER</strong><small>CINEMAS CLUB</small></div></div></section>
 
 <section class="rex-section container-xl" id="articles-section">
     <div class="section-heading orange-line"><div><p class="eyebrow">STORIES</p><h2>BÀI VIẾT MỚI NHẤT</h2></div></div>
-    <div class="article-grid"><article class="article-card" th:each="a:${articles}"><a th:href="@{'/articles/'+${a.id}}"><img th:src="${a.imageUrl}" th:alt="${a.title}"></a><div><span th:text="${a.category}"></span><h3><a th:href="@{'/articles/'+${a.id}}" th:text="${a.title}"></a></h3><p th:text="${a.summary}"></p><small th:if="${a.publishDate!=null}" th:text="${#temporals.format(a.publishDate,'dd/MM/yyyy')}"></small></div></article></div>
+    <div class="article-grid"><article class="article-card" th:each="a:${articles}"><a th:href="@{'/articles/'+${a.id}}"><img th:src="${@cinemaArtwork.imageUrl(a.imageUrl, 'article')}" data-image-fallback="article" th:alt="${a.title}"></a><div><span th:text="${a.category}"></span><h3><a th:href="@{'/articles/'+${a.id}}" th:text="${a.title}"></a></h3><p th:text="${a.summary}"></p><small th:if="${a.publishDate!=null}" th:text="${#temporals.format(a.publishDate,'dd/MM/yyyy')}"></small></div></article></div>
 </section>
 
 <section class="rex-section container-xl" id="media-section">
     <div class="section-heading"><div><p class="eyebrow">WATCH</p><h2>TRAILER & CLIP</h2></div></div>
-    <div class="media-strip"><button class="media-card js-trailer-trigger" type="button" th:each="m:${mediaItems}" th:attr="data-trailer-url=${m.videoUrl},data-trailer-title=${m.title}"><img th:src="${m.thumbnailUrl}" th:alt="${m.title}"><div class="play-circle">▶</div><div><span th:text="${m.type}"></span><strong th:text="${m.title}"></strong></div></button></div>
+    <div class="media-strip"><button class="media-card js-trailer-trigger" type="button" th:each="m:${mediaItems}" th:attr="data-trailer-url=${m.videoUrl},data-trailer-title=${m.title}"><img th:src="${@cinemaArtwork.imageUrl(m.thumbnailUrl, 'media')}" data-image-fallback="media" th:alt="${m.title}"><div class="play-circle">▶</div><div><span th:text="${m.type}"></span><strong th:text="${m.title}"></strong></div></button></div>
 </section>
 </main>
 

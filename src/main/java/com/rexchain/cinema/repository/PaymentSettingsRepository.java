@@ -17,7 +17,8 @@ public class PaymentSettingsRepository {
     public boolean isSchemaAvailable() {
         try {
             Integer count = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM sys.tables WHERE name = 'payment_settings'", Integer.class);
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?", Integer.class,
+                    "payment_settings");
             return count != null && count > 0;
         } catch (DataAccessException ex) {
             return false;
@@ -27,7 +28,7 @@ public class PaymentSettingsRepository {
     public Optional<PaymentSettingsDto> findBankQr() {
         if (!isSchemaAvailable()) return Optional.empty();
         try {
-            return jdbc.query("SELECT TOP 1 id, payment_method, enabled, bank_name, bank_code, bank_account, " +
+            return jdbc.query("SELECT id, payment_method, enabled, bank_name, bank_code, bank_account, " +
                             "account_holder, default_account, payment_timeout_minutes, payment_prefix, " +
                             "payment_description_template, version, updated_at FROM payment_settings " +
                             "WHERE payment_method = 'BANK_QR'",
@@ -41,7 +42,7 @@ public class PaymentSettingsRepository {
         if (!isSchemaAvailable()) throw new IllegalStateException("Migration payment settings chưa được áp dụng");
         int updated = jdbc.update("UPDATE payment_settings SET enabled=?, bank_name=?, bank_code=?, bank_account=?, " +
                         "account_holder=?, default_account=?, payment_timeout_minutes=?, payment_prefix=?, " +
-                        "payment_description_template=?, version=version+1, updated_at=SYSUTCDATETIME() " +
+                        "payment_description_template=?, version=version+1, updated_at=CURRENT_TIMESTAMP " +
                         "WHERE payment_method='BANK_QR' AND version=?",
                 settings.isEnabled(), settings.getBankName(), settings.getBankCode(), settings.getBankAccount(),
                 settings.getAccountHolder(), settings.isDefaultAccount(), settings.getPaymentTimeoutMinutes(),
@@ -51,13 +52,13 @@ public class PaymentSettingsRepository {
                 throw new IllegalStateException("Cấu hình đã được thay đổi bởi tài khoản khác; hãy tải lại trang");
             jdbc.update("INSERT INTO payment_settings(payment_method, enabled, bank_name, bank_code, bank_account, " +
                             "account_holder, default_account, payment_timeout_minutes, payment_prefix, " +
-                            "payment_description_template, version, updated_at) VALUES('BANK_QR',?,?,?,?,?,?,?,?,?,0,SYSUTCDATETIME())",
+                            "payment_description_template, version, updated_at) VALUES('BANK_QR',?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP)",
                     settings.isEnabled(), settings.getBankName(), settings.getBankCode(), settings.getBankAccount(),
                     settings.getAccountHolder(), settings.isDefaultAccount(), settings.getPaymentTimeoutMinutes(),
                     settings.getPaymentPrefix(), settings.getPaymentDescriptionTemplate());
         }
         jdbc.update("INSERT INTO payment_settings_audit(actor, action, entity_key, changed_fields, created_at) " +
-                        "VALUES(?,?,?,?,SYSUTCDATETIME())", actor, "UPDATE", "BANK_QR",
+                        "VALUES(?,?,?,?,CURRENT_TIMESTAMP)", actor, "UPDATE", "BANK_QR",
                 "non-secret payment settings updated");
         return findBankQr().orElseThrow();
     }

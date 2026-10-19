@@ -100,17 +100,15 @@ public class BookingService {
             throw new IllegalArgumentException("Phương thức thanh toán không hợp lệ");
         LocalDateTime now = LocalDateTime.now();
         User user = users.findById(userId).orElseThrow();
-        if (user.getRole() == Role.CUSTOMER && method == PaymentMethod.PAY_AT_COUNTER)
-            throw new IllegalArgumentException("Khách hàng cần chọn phương thức thanh toán trực tuyến");
-        if (method == PaymentMethod.BANK_QR) {
-            if (bankTransferPaymentService == null) sepay.requireAvailable();
-            else bankTransferPaymentService.requireReady();
-        }
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(now)
                 || showtime.getAuditorium().getCinema() == null
                 || !showtime.getAuditorium().getCinema().isActive())
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
+        if (method != PaymentMethod.BANK_QR)
+            throw new IllegalArgumentException("Hiện chỉ hỗ trợ thanh toán QR qua SePay");
+        if (bankTransferPaymentService == null) sepay.requireAvailable();
+        else bankTransferPaymentService.requireReady();
 
         List<ShowtimeSeat> list = seats.findByIdInForUpdate(ids);
         if (list.size() != ids.size())
@@ -136,9 +134,7 @@ public class BookingService {
         Voucher voucher = resolveVoucher(voucherCode, beforeDiscount, now);
         BigDecimal discount = voucher == null ? BigDecimal.ZERO : calculateDiscount(voucher, beforeDiscount);
         BigDecimal total = beforeDiscount.subtract(discount).max(BigDecimal.ZERO);
-        boolean online = method == PaymentMethod.MOMO_SANDBOX
-                || method == PaymentMethod.VNPAY_SANDBOX
-                || method == PaymentMethod.BANK_QR;
+        boolean online = method == PaymentMethod.BANK_QR;
 
         Booking booking = new Booking();
         booking.setBookingCode("REX" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase());

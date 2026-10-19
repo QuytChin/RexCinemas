@@ -27,8 +27,8 @@
             </header>
 
             <div class="rex-ticket-hero">
-                <div class="rex-ticket-poster" th:if="${booking.showtime.movie.posterUrl != null and !#strings.isEmpty(booking.showtime.movie.posterUrl)}">
-                    <img th:src="${booking.showtime.movie.posterUrl}" th:alt="${booking.showtime.movie.title}">
+                <div class="rex-ticket-poster">
+                    <img th:src="${@cinemaArtwork.imageUrl(booking.showtime.movie.posterUrl, 'movie')}" data-image-fallback="movie" th:alt="${booking.showtime.movie.title}">
                 </div>
                 <div class="rex-ticket-title-block">
                     <span class="rex-ticket-label">PHIM</span>
@@ -52,7 +52,7 @@
                 <div class="rex-ticket-info-cell"><span class="rex-ticket-label">NGÀY ĐẶT</span><strong th:text="${#temporals.format(booking.createdAt,'dd/MM/yyyy HH:mm')}"></strong></div>
             </div>
             <div class="rex-ticket-payment-method-row">
-                <div class="rex-ticket-info-cell"><span class="rex-ticket-label">THANH TOÁN</span><strong th:text="${booking.paymentMethod.name()=='BANK_QR'?'Chuyển khoản ngân hàng':(booking.paymentMethod.name()=='MOMO_SANDBOX'?'Ví MoMo':(booking.paymentMethod.name()=='VNPAY_SANDBOX'?'VNPAY':'Thanh toán tại quầy'))}"></strong></div>
+                <div class="rex-ticket-info-cell"><span class="rex-ticket-label">THANH TOÁN</span><strong th:text="${booking.paymentMethod.name()=='BANK_QR'?'SePay QR':(booking.paymentMethod.name()=='MOMO_SANDBOX'?'Ví MoMo':(booking.paymentMethod.name()=='VNPAY_SANDBOX'?'VNPAY':'Thanh toán tại quầy'))}"></strong></div>
             </div>
 
             <div class="rex-ticket-payment-grid">

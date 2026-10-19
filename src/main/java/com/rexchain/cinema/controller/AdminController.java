@@ -84,18 +84,24 @@ public class AdminController {
     @GetMapping("/payments")
     String paymentSettings(Model model) {
         var savedSettings = paymentSettingsService.current();
-        boolean bankQrAvailable = sepayPaymentService.isAvailable();
+        boolean accountConfigured = hasText(savedSettings.getBankCode()) && hasText(savedSettings.getBankAccount());
+        boolean bankQrAvailable = savedSettings.isEnabled() && accountConfigured
+                && (savedSettings.isSchemaAvailable() || sepayProperties.isEnabled());
         boolean webhookConfigured = sepayProperties.getApiKey() != null && !sepayProperties.getApiKey().isBlank();
-        model.addAttribute("paymentMethods", PaymentMethod.values());
+        String bankCode = hasText(savedSettings.getBankCode()) ? savedSettings.getBankCode() : sepayProperties.getBankCode();
+        String bankAccount = hasText(savedSettings.getBankAccount()) ? savedSettings.getBankAccount() : sepayProperties.getBankAccount();
+        String paymentPrefix = hasText(savedSettings.getPaymentPrefix()) ? savedSettings.getPaymentPrefix() : sepayProperties.getPaymentPrefix();
+        model.addAttribute("paymentMethods", List.of(PaymentMethod.BANK_QR));
         model.addAttribute("transactions", bookings.findAllDetailed());
+        model.addAttribute("accountConfigured", accountConfigured);
         model.addAttribute("bankQrAvailable", bankQrAvailable);
         model.addAttribute("sepayEnabled", sepayProperties.isEnabled());
         model.addAttribute("webhookConfigured", webhookConfigured);
-        model.addAttribute("bankCode", blankOrFallback(sepayProperties.getBankCode(), "Chưa cấu hình"));
-        model.addAttribute("paymentPrefix", blankOrFallback(sepayProperties.getPaymentPrefix(), "REX"));
-        model.addAttribute("maskedBankAccount", maskAccount(sepayProperties.getBankAccount()));
-        model.addAttribute("qrPreviewUrl", bankQrAvailable
-                ? sepayPaymentService.qrImageUrl("REXPREVIEW", BigDecimal.valueOf(100_000)) : null);
+        model.addAttribute("paymentPrefix", blankOrFallback(paymentPrefix, "REX"));
+        model.addAttribute("maskedBankAccount", maskAccount(bankAccount));
+        model.addAttribute("bankCode", blankOrFallback(bankCode, "Chưa cấu hình"));
+        model.addAttribute("qrPreviewUrl", hasText(bankCode) && hasText(bankAccount)
+                ? sepayPaymentService.qrImageUrl(bankCode, bankAccount, "REXDEMO", BigDecimal.valueOf(100_000)) : null);
         model.addAttribute("paymentSettings", savedSettings);
         model.addAttribute("settingsSchemaAvailable", savedSettings.isSchemaAvailable());
         return "admin/payment-settings";
@@ -136,6 +142,10 @@ public class AdminController {
 
     private String blankOrFallback(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private String maskAccount(String account) {

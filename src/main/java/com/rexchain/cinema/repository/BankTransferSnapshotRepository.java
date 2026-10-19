@@ -15,7 +15,8 @@ public class BankTransferSnapshotRepository {
 
     public boolean isSchemaAvailable() {
         try {
-            Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM sys.tables WHERE name = 'bank_transfer_snapshots'", Integer.class);
+            Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?", Integer.class,
+                    "bank_transfer_snapshots");
             return count != null && count > 0;
         } catch (DataAccessException ex) { return false; }
     }
@@ -23,14 +24,14 @@ public class BankTransferSnapshotRepository {
     public void save(BankTransferSnapshot snapshot) {
         if (!isSchemaAvailable()) throw new IllegalStateException("Migration VietQR snapshot chưa được áp dụng");
         jdbc.update("INSERT INTO bank_transfer_snapshots(booking_code, bank_name, bank_code, bank_account, " +
-                        "account_holder, amount, payment_reference, expires_at, created_at) VALUES(?,?,?,?,?,?,?, ?,SYSUTCDATETIME())",
+                        "account_holder, amount, payment_reference, expires_at, created_at) VALUES(?,?,?,?,?,?,?, ?,CURRENT_TIMESTAMP)",
                 snapshot.getBookingCode(), snapshot.getBankName(), snapshot.getBankCode(), snapshot.getBankAccount(),
                 snapshot.getAccountHolder(), snapshot.getAmount(), snapshot.getPaymentReference(), snapshot.getExpiresAt());
     }
 
     public Optional<BankTransferSnapshot> findByBookingCode(String bookingCode) {
         if (!isSchemaAvailable()) return Optional.empty();
-        return jdbc.query("SELECT TOP 1 booking_code, bank_name, bank_code, bank_account, account_holder, amount, " +
+        return jdbc.query("SELECT booking_code, bank_name, bank_code, bank_account, account_holder, amount, " +
                         "payment_reference, expires_at FROM bank_transfer_snapshots WHERE booking_code=?", (rs, row) -> {
                     BankTransferSnapshot snapshot = new BankTransferSnapshot();
                     snapshot.setBookingCode(rs.getString("booking_code")); snapshot.setBankName(rs.getString("bank_name"));

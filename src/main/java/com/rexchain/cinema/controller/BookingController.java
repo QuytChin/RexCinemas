@@ -6,8 +6,6 @@ import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.BookingService;
 import com.rexchain.cinema.service.BankTransferPaymentService;
 import com.rexchain.cinema.service.QrCodeService;
-import com.rexchain.cinema.service.VnpayPaymentService;
-import com.rexchain.cinema.config.SePayProperties;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -29,14 +27,11 @@ public class BookingController {
     private final BookingService service;
     private final ComboProductRepository combos;
     private final QrCodeService qrCodes;
-    private final SePayProperties sepayProperties;
     private final BankTransferPaymentService bankTransferPaymentService;
-    private final VnpayPaymentService vnpay;
 
     public BookingController(ShowtimeRepository showtimes, ShowtimeSeatRepository showSeats,
                              UserRepository users, BookingRepository bookings, BookingService service,
                              ComboProductRepository combos, QrCodeService qrCodes,
-                             SePayProperties sepayProperties, VnpayPaymentService vnpay,
                              BankTransferPaymentService bankTransferPaymentService) {
         this.showtimes = showtimes;
         this.showSeats = showSeats;
@@ -45,8 +40,6 @@ public class BookingController {
         this.service = service;
         this.combos = combos;
         this.qrCodes = qrCodes;
-        this.sepayProperties = sepayProperties;
-        this.vnpay = vnpay;
         this.bankTransferPaymentService = bankTransferPaymentService;
     }
 
@@ -172,7 +165,6 @@ public class BookingController {
         model.addAttribute("showSeats", showSeats.findByShowtimeIdOrderBySeatSeatRowAscSeatSeatNumberAsc(showtimeId));
         model.addAttribute("combos", combos.findByActiveTrueOrderByIdAsc());
         model.addAttribute("sepayEnabled", bankTransferPaymentService.isReady());
-        model.addAttribute("vnpayEnabled", vnpay.configured());
     }
 
     private User current(Authentication auth) {

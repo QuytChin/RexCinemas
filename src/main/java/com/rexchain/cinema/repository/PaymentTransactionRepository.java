@@ -20,7 +20,8 @@ public class PaymentTransactionRepository {
 
     public boolean isSchemaAvailable() {
         try {
-            Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM sys.tables WHERE name = 'payment_transactions'", Integer.class);
+            Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?", Integer.class,
+                    "payment_transactions");
             return count != null && count > 0;
         } catch (DataAccessException ex) { return false; }
     }
@@ -30,7 +31,7 @@ public class PaymentTransactionRepository {
         try {
             jdbc.update("INSERT INTO payment_transactions(provider_transaction_id, gateway, transaction_date, " +
                             "account_number_last4, code, content, transfer_type, amount, reference_code, status, received_at) " +
-                            "VALUES(?,?,?,?,?,?,?,?,?,?,SYSUTCDATETIME())",
+                            "VALUES(?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
                     tx.getProviderTransactionId(), tx.getGateway(), tx.getTransactionDate(), tx.getAccountNumberLast4(),
                     tx.getCode(), tx.getContent(), tx.getTransferType(), tx.getAmount(), tx.getReferenceCode(), "RECEIVED");
             return true;
@@ -39,13 +40,13 @@ public class PaymentTransactionRepository {
 
     public Optional<PaymentTransactionDto> findByProviderId(String providerId) {
         if (!isSchemaAvailable()) return Optional.empty();
-        return jdbc.query("SELECT TOP 1 * FROM payment_transactions WHERE provider_transaction_id=?", this::map, providerId)
+        return jdbc.query("SELECT * FROM payment_transactions WHERE provider_transaction_id=?", this::map, providerId)
                 .stream().findFirst();
     }
 
     public Optional<PaymentTransactionDto> findById(Long id) {
         if (!isSchemaAvailable()) return Optional.empty();
-        return jdbc.query("SELECT TOP 1 * FROM payment_transactions WHERE id=?", this::map, id).stream().findFirst();
+        return jdbc.query("SELECT * FROM payment_transactions WHERE id=?", this::map, id).stream().findFirst();
     }
 
     public List<PaymentTransactionDto> search(String status, LocalDate from, LocalDate to, String query) {
@@ -66,15 +67,15 @@ public class PaymentTransactionRepository {
 
     public void updateStatus(String providerId, String status, String bookingCode, String paymentReference, String reason) {
         jdbc.update("UPDATE payment_transactions SET status=?, booking_code=?, payment_reference=?, reason=?, " +
-                        "verified_at=CASE WHEN ? IN ('VERIFIED','SETTLED','REFUND_PENDING') THEN COALESCE(verified_at,SYSUTCDATETIME()) ELSE verified_at END, " +
-                        "settled_at=CASE WHEN ? IN ('SETTLED','REFUND_PENDING') THEN COALESCE(settled_at,SYSUTCDATETIME()) ELSE settled_at END " +
+                        "verified_at=CASE WHEN ? IN ('VERIFIED','SETTLED','REFUND_PENDING') THEN COALESCE(verified_at,CURRENT_TIMESTAMP) ELSE verified_at END, " +
+                        "settled_at=CASE WHEN ? IN ('SETTLED','REFUND_PENDING') THEN COALESCE(settled_at,CURRENT_TIMESTAMP) ELSE settled_at END " +
                         "WHERE provider_transaction_id=?", status, bookingCode, paymentReference, reason, status, status, providerId);
     }
 
     public void audit(Long transactionId, String action, String actor, String details) {
         if (transactionId == null) return;
         jdbc.update("INSERT INTO payment_transaction_audit(transaction_id, action, actor, details, created_at) " +
-                        "VALUES(?,?,?,?,SYSUTCDATETIME())", transactionId, action, actor, details == null ? "" : details);
+                        "VALUES(?,?,?,?,CURRENT_TIMESTAMP)", transactionId, action, actor, details == null ? "" : details);
     }
 
     private PaymentTransactionDto map(ResultSet rs, int row) throws java.sql.SQLException {

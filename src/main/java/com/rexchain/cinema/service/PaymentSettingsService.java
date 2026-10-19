@@ -42,9 +42,9 @@ public class PaymentSettingsService {
     }
 
     private void validate(PaymentSettingsUpdateRequest request) {
-        if (request.getBankName() != null && request.getBankName().trim().length() > 120) throw new IllegalArgumentException("Tên ngân hàng quá dài");
+        if (request.getBankName() == null || request.getBankName().trim().length() > 120 || request.getBankName().trim().isEmpty()) throw new IllegalArgumentException("Vui lòng chọn ngân hàng");
         if (request.getBankCode() == null || !request.getBankCode().trim().matches("[A-Za-z0-9]{3,20}")) throw new IllegalArgumentException("Mã ngân hàng/BIN không hợp lệ");
-        if (request.getBankAccount() == null || !request.getBankAccount().trim().matches("[0-9]{6,30}")) throw new IllegalArgumentException("Số tài khoản không hợp lệ");
+        if (request.getBankAccount() == null || !request.getBankAccount().trim().matches("[0-9]{6,30}")) throw new IllegalArgumentException("Số tài khoản phải có từ 6 đến 30 chữ số");
         if (request.getPaymentTimeoutMinutes() < 1 || request.getPaymentTimeoutMinutes() > 1440) throw new IllegalArgumentException("Thời hạn thanh toán phải từ 1 đến 1.440 phút");
         if (request.getPaymentPrefix() == null || !request.getPaymentPrefix().trim().matches("[A-Za-z0-9]{2,20}")) throw new IllegalArgumentException("Tiền tố mã thanh toán không hợp lệ");
         if (request.getPaymentDescriptionTemplate() == null || request.getPaymentDescriptionTemplate().trim().length() > 120) throw new IllegalArgumentException("Mẫu nội dung chuyển khoản không hợp lệ");

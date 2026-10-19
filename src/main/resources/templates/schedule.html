@@ -43,10 +43,9 @@
              th:if="${entry != null and entry.key != null}">
         <div class="movie-show-row">
             <div class="movie-show-poster">
-                <img th:if="${entry.key.posterUrl != null and !#strings.isEmpty(entry.key.posterUrl)}"
-                     th:src="${entry.key.posterUrl}"
+                <img th:src="${@cinemaArtwork.imageUrl(entry.key.posterUrl, 'movie')}"
+                     data-image-fallback="movie"
                      th:alt="${(entry.key.title != null ? entry.key.title : 'Phim RexCinemas') + ' poster'}">
-                <span th:unless="${entry.key.posterUrl != null and !#strings.isEmpty(entry.key.posterUrl)}" aria-hidden="true">REX</span>
             </div>
             <div class="movie-show-info w-100">
                 <div class="movie-show-heading">

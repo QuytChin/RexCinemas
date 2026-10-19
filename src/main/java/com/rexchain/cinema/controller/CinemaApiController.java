@@ -161,7 +161,7 @@ public class CinemaApiController {
             return ResponseEntity.badRequest().body(Map.of("error", "Thiếu suất chiếu hoặc ghế"));
         }
         try {
-            PaymentMethod method = request.paymentMethod() == null ? PaymentMethod.PAY_AT_COUNTER : request.paymentMethod();
+            PaymentMethod method = request.paymentMethod() == null ? PaymentMethod.BANK_QR : request.paymentMethod();
             List<Long> comboIds = new ArrayList<>();
             List<Integer> comboQtys = new ArrayList<>();
             if (request.combos() != null) {
