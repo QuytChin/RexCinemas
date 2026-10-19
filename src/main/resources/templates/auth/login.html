@@ -22,6 +22,7 @@
             </div>
             <div class="alert alert-info" th:if="${returnUrl != null and #strings.startsWith(returnUrl,'/booking/')}">Đăng nhập xong hệ thống sẽ đưa bạn trở lại đúng suất chiếu vừa chọn.</div>
             <div class="alert alert-success" th:if="${param.registered}">Đăng ký thành công. Hãy đăng nhập.</div>
+            <div class="alert alert-success" th:if="${param.reset}">Đặt lại mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.</div>
             <div class="alert alert-info" th:if="${info}" th:text="${info}"></div>
             <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
             <form th:action="@{/auth/login}" method="post" class="auth-form" data-auth-form>

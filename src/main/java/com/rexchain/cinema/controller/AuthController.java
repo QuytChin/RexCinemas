@@ -2,15 +2,21 @@ package com.rexchain.cinema.controller;
 
 import com.rexchain.cinema.dto.LoginRequest;
 import com.rexchain.cinema.dto.RegisterRequest;
+import com.rexchain.cinema.dto.PasswordResetCompleteRequest;
+import com.rexchain.cinema.dto.PasswordResetRequest;
+import com.rexchain.cinema.dto.PasswordResetVerifyRequest;
 import com.rexchain.cinema.repository.CinemaRepository;
 import com.rexchain.cinema.service.AuthService;
+import com.rexchain.cinema.service.OtpRateLimitException;
 import com.rexchain.cinema.security.JwtService;
 import com.rexchain.cinema.service.AccessTokenRevocationService;
+import com.rexchain.cinema.service.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -27,17 +33,20 @@ public class AuthController {
     private final com.rexchain.cinema.service.OtpService otpService;
     private final JwtService jwt;
     private final AccessTokenRevocationService revocations;
+    private final PasswordResetService passwordReset;
     private final boolean secureCookie;
 
     public AuthController(AuthService auth, CinemaRepository cinemas,
                           com.rexchain.cinema.service.OtpService otpService,
                           JwtService jwt, AccessTokenRevocationService revocations,
+                          PasswordResetService passwordReset,
                           @Value("${app.cookie.secure:false}") boolean secureCookie) {
         this.auth = auth;
         this.cinemas = cinemas;
         this.otpService = otpService;
         this.jwt = jwt;
         this.revocations = revocations;
+        this.passwordReset = passwordReset;
         this.secureCookie = secureCookie;
     }
 
@@ -59,17 +68,20 @@ public class AuthController {
 
     @PostMapping({"/auth/register/send-otp", "/api/auth/register/send-otp"})
     @ResponseBody
-    public ResponseEntity<?> sendOtp(@Valid @RequestBody RegisterRequest form, BindingResult bindingResult) {
+    public ResponseEntity<?> sendOtp(@Valid @RequestBody RegisterRequest form, BindingResult bindingResult,
+                                     HttpServletRequest request) {
         if (bindingResult.hasErrors()) {
             return ResponseEntity.badRequest().body(Map.of("error", bindingResult.getAllErrors().get(0).getDefaultMessage()));
         }
         try {
             auth.validateRegistrationData(form);
-            otpService.generateAndSendOtp(form);
+            otpService.generateAndSendOtp(form, clientIp(request));
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Mã xác thực OTP đã được gửi tới email " + form.email() + ". Vui lòng kiểm tra hộp thư."
             ));
+        } catch (OtpRateLimitException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
@@ -78,18 +90,20 @@ public class AuthController {
     @PostMapping({"/auth/register/verify-otp", "/api/auth/register/verify-otp"})
     @ResponseBody
     public ResponseEntity<?> verifyOtp(@Valid @RequestBody com.rexchain.cinema.dto.VerifyOtpRequest req,
-                                       BindingResult bindingResult) {
+                                       BindingResult bindingResult, HttpServletRequest request) {
         if (bindingResult.hasErrors()) {
             return ResponseEntity.badRequest().body(Map.of("error", bindingResult.getAllErrors().get(0).getDefaultMessage()));
         }
         try {
-            RegisterRequest verified = otpService.verifyOtp(req.email(), req.otp());
+            com.rexchain.cinema.dto.VerifiedRegistration verified = otpService.verifyOtp(req.email(), req.otp(), clientIp(request));
             auth.createUserAfterOtp(verified);
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Đăng ký tài khoản thành công!",
                     "redirectUrl", "/login?registered"
             ));
+        } catch (OtpRateLimitException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
@@ -97,17 +111,19 @@ public class AuthController {
 
     @PostMapping({"/auth/register/resend-otp", "/api/auth/register/resend-otp"})
     @ResponseBody
-    public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> payload) {
+    public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> payload, HttpServletRequest request) {
         String email = payload.get("email");
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Email không được để trống"));
         }
         try {
-            otpService.resendOtp(email);
+            otpService.resendOtp(email, clientIp(request));
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "Đã gửi lại mã OTP tới email " + email
             ));
+        } catch (OtpRateLimitException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
@@ -189,9 +205,59 @@ public class AuthController {
 
     @GetMapping("/auth/forgot-password")
     String forgotPassword(Model model) {
-        model.addAttribute("returnUrl", "/");
-        model.addAttribute("info", "Khôi phục mật khẩu chưa được cấu hình qua email. Vui lòng liên hệ quản trị viên RexCinemas để được hỗ trợ.");
-        return "auth/login";
+        return "auth/forgot-password";
+    }
+
+    @PostMapping({"/auth/forgot-password/send-otp", "/api/auth/forgot-password/send-otp"})
+    @ResponseBody
+    public ResponseEntity<?> sendPasswordResetOtp(@Valid @RequestBody PasswordResetRequest request,
+                                                    BindingResult bindingResult, HttpServletRequest servletRequest) {
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity.badRequest().body(Map.of("error", bindingResult.getAllErrors().get(0).getDefaultMessage()));
+        }
+        try {
+            passwordReset.requestReset(request.email(), clientIp(servletRequest));
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Nếu email hợp lệ và đã đăng ký, mã OTP sẽ được gửi tới hộp thư của bạn."
+            ));
+        } catch (OtpRateLimitException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Không thể xử lý yêu cầu lúc này. Vui lòng thử lại sau."));
+        }
+    }
+
+    @PostMapping({"/auth/forgot-password/verify-otp", "/api/auth/forgot-password/verify-otp"})
+    @ResponseBody
+    public ResponseEntity<?> verifyPasswordResetOtp(@Valid @RequestBody PasswordResetVerifyRequest request,
+                                                      BindingResult bindingResult, HttpServletRequest servletRequest) {
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity.badRequest().body(Map.of("error", bindingResult.getAllErrors().get(0).getDefaultMessage()));
+        }
+        try {
+            String resetToken = passwordReset.verifyOtp(request.email(), request.otp(), clientIp(servletRequest));
+            return ResponseEntity.ok(Map.of("success", true, "resetToken", resetToken));
+        } catch (OtpRateLimitException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        }
+    }
+
+    @PostMapping({"/auth/forgot-password/reset", "/api/auth/forgot-password/reset"})
+    @ResponseBody
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody PasswordResetCompleteRequest request,
+                                            BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity.badRequest().body(Map.of("error", bindingResult.getAllErrors().get(0).getDefaultMessage()));
+        }
+        try {
+            passwordReset.resetPassword(request.email(), request.resetToken(), request.newPassword(), request.confirmPassword());
+            return ResponseEntity.ok(Map.of("success", true, "redirectUrl", "/login?reset=success"));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        }
     }
 
     private void addCookie(HttpServletResponse response, String token, boolean remember, boolean requestIsSecure) {
@@ -206,5 +272,9 @@ public class AuthController {
         String forwardedProto = request.getHeader("X-Forwarded-Proto");
         if (forwardedProto == null || forwardedProto.isBlank()) return false;
         return "https".equalsIgnoreCase(forwardedProto.split(",", 2)[0].trim());
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        return request == null || request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
     }
 }

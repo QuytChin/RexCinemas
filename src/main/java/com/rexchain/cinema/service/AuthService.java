@@ -1,6 +1,7 @@
 package com.rexchain.cinema.service;
 
 import com.rexchain.cinema.dto.RegisterRequest;
+import com.rexchain.cinema.dto.VerifiedRegistration;
 import com.rexchain.cinema.entity.Cinema;
 import com.rexchain.cinema.entity.Role;
 import com.rexchain.cinema.entity.User;
@@ -87,6 +88,17 @@ public class AuthService {
     @Transactional
     public User createUserAfterOtp(RegisterRequest request) {
         validateRegistrationData(request);
+        return createUser(request, passwordEncoder.encode(request.password()));
+    }
+
+    @Transactional
+    public User createUserAfterOtp(VerifiedRegistration verified) {
+        RegisterRequest validation = verified.asValidationRequest();
+        validateRegistrationData(validation);
+        return createUser(validation, verified.passwordHash());
+    }
+
+    private User createUser(RegisterRequest request, String encodedPassword) {
 
         String normalizedEmail = request.email().trim().toLowerCase();
         String phone = request.phone().trim();
@@ -123,7 +135,7 @@ public class AuthService {
             user.setNationalId(request.nationalId().trim());
         }
         user.setFavoriteCinema(favoriteCinema);
-        user.setPassword(passwordEncoder.encode(request.password()));
+        user.setPassword(encodedPassword);
         user.setRole(Role.CUSTOMER);
         user.setEnabled(true);
 

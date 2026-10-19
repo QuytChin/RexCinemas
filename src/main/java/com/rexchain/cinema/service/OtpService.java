@@ -1,135 +1,373 @@
 package com.rexchain.cinema.service;
 
 import com.rexchain.cinema.dto.RegisterRequest;
+import com.rexchain.cinema.dto.VerifiedRegistration;
+import com.rexchain.cinema.entity.OtpChallenge;
+import com.rexchain.cinema.entity.OtpRateLimit;
+import com.rexchain.cinema.repository.OtpChallengeRepository;
+import com.rexchain.cinema.repository.OtpRateLimitRepository;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class OtpService {
-    private static final Logger log = LoggerFactory.getLogger(OtpService.class);
-    private static final int OTP_EXPIRY_MINUTES = 5;
-    private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final int SEND_COOLDOWN_SECONDS = 60;
+    private static final int DEFAULT_OTP_EXPIRY_MINUTES = 5;
+    private static final int DEFAULT_MAX_FAILED_ATTEMPTS = 5;
+    private static final int DEFAULT_LOCKOUT_MINUTES = 1;
+    private static final int DEFAULT_SEND_COOLDOWN_SECONDS = 60;
+    private static final int DEFAULT_IP_SEND_COOLDOWN_SECONDS = 20;
+    private static final int DEFAULT_EMAIL_SENDS_PER_HOUR = 5;
+    private static final int DEFAULT_IP_SENDS_PER_HOUR = 20;
+    private static final int DEFAULT_IP_VERIFICATIONS_PER_HOUR = 60;
+    private static final String REGISTRATION_PURPOSE = "REGISTRATION";
+    private static final String SEND_PURPOSE = "REGISTRATION_SEND";
+    private static final String VERIFY_PURPOSE = "REGISTRATION_VERIFY";
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final JavaMailSender mailSender;
     private final String fromEmail;
+    private final OtpChallengeRepository challenges;
+    private final OtpRateLimitRepository rateLimits;
+    private final PasswordEncoder passwordEncoder;
+    private final int otpExpiryMinutes;
+    private final int maxFailedAttempts;
+    private final int lockoutMinutes;
+    private final int sendCooldownSeconds;
+    private final int ipSendCooldownSeconds;
+    private final int emailSendsPerHour;
+    private final int ipSendsPerHour;
+    private final int ipVerificationsPerHour;
 
-    // Lưu trữ OTP tạm thời trong bộ nhớ: email -> OtpData
-    private final Map<String, OtpData> otpStorage = new ConcurrentHashMap<>();
-    private final Map<String, Integer> failedAttemptsByEmail = new ConcurrentHashMap<>();
-    private final Map<String, LocalDateTime> nextOtpSendAt = new ConcurrentHashMap<>();
+    // Used only by the package-level compatibility constructor in unit tests.
+    private final Map<String, MemoryChallenge> memoryChallenges = new ConcurrentHashMap<>();
+    private final Map<String, LocalDateTime> memoryNextSendAt = new ConcurrentHashMap<>();
+    private final Map<String, LocalDateTime> memoryIpNextSendAt = new ConcurrentHashMap<>();
+    private final Map<String, Integer> memoryFailedAttempts = new ConcurrentHashMap<>();
+    private final Map<String, LocalDateTime> memoryLockedUntil = new ConcurrentHashMap<>();
 
-    public record OtpData(String otp, RegisterRequest request, LocalDateTime expiresAt) {}
+    private record MemoryChallenge(String otp, RegisterRequest request, LocalDateTime expiresAt) {}
 
-    public OtpService(JavaMailSender mailSender,
-                      @Value("${spring.mail.username}") String fromEmail) {
-        this.mailSender = mailSender;
-        this.fromEmail = fromEmail;
+    /** Compatibility constructor for unit tests; production uses the DB-backed constructor. */
+    public OtpService(JavaMailSender mailSender, @Value("${spring.mail.username}") String fromEmail) {
+        this(mailSender, fromEmail, null, null, new BCryptPasswordEncoder(),
+                DEFAULT_OTP_EXPIRY_MINUTES, DEFAULT_MAX_FAILED_ATTEMPTS, DEFAULT_LOCKOUT_MINUTES,
+                DEFAULT_SEND_COOLDOWN_SECONDS, DEFAULT_IP_SEND_COOLDOWN_SECONDS,
+                DEFAULT_EMAIL_SENDS_PER_HOUR, DEFAULT_IP_SENDS_PER_HOUR, DEFAULT_IP_VERIFICATIONS_PER_HOUR);
     }
 
-    /**
-     * Sinh mã OTP 6 chữ số ngẫu nhiên, lưu thông tin đăng ký và gửi email.
-     */
+    @Autowired
+    public OtpService(JavaMailSender mailSender,
+                      @Value("${spring.mail.username}") String fromEmail,
+                      OtpChallengeRepository challenges,
+                      OtpRateLimitRepository rateLimits,
+                      PasswordEncoder passwordEncoder,
+                      @Value("${app.otp.expiry-minutes:5}") int otpExpiryMinutes,
+                      @Value("${app.otp.max-failed-attempts:5}") int maxFailedAttempts,
+                      @Value("${app.otp.lockout-minutes:1}") int lockoutMinutes,
+                      @Value("${app.otp.email-cooldown-seconds:60}") int sendCooldownSeconds,
+                      @Value("${app.otp.ip-cooldown-seconds:20}") int ipSendCooldownSeconds,
+                      @Value("${app.otp.email-hourly-limit:5}") int emailSendsPerHour,
+                      @Value("${app.otp.ip-hourly-limit:20}") int ipSendsPerHour,
+                      @Value("${app.otp.ip-verification-hourly-limit:60}") int ipVerificationsPerHour) {
+        this.mailSender = mailSender;
+        this.fromEmail = fromEmail;
+        this.challenges = challenges;
+        this.rateLimits = rateLimits;
+        this.passwordEncoder = passwordEncoder;
+        this.otpExpiryMinutes = requirePositive("app.otp.expiry-minutes", otpExpiryMinutes);
+        this.maxFailedAttempts = requirePositive("app.otp.max-failed-attempts", maxFailedAttempts);
+        this.lockoutMinutes = requirePositive("app.otp.lockout-minutes", lockoutMinutes);
+        this.sendCooldownSeconds = requirePositive("app.otp.email-cooldown-seconds", sendCooldownSeconds);
+        this.ipSendCooldownSeconds = requirePositive("app.otp.ip-cooldown-seconds", ipSendCooldownSeconds);
+        this.emailSendsPerHour = requirePositive("app.otp.email-hourly-limit", emailSendsPerHour);
+        this.ipSendsPerHour = requirePositive("app.otp.ip-hourly-limit", ipSendsPerHour);
+        this.ipVerificationsPerHour = requirePositive("app.otp.ip-verification-hourly-limit", ipVerificationsPerHour);
+    }
+
+    @Scheduled(fixedDelayString = "${app.otp.cleanup-interval-ms:300000}")
+    @Transactional
+    public void removeExpiredChallenges() {
+        if (challenges != null) {
+            challenges.deleteByExpiresAtBefore(LocalDateTime.now());
+        }
+    }
+
     public void generateAndSendOtp(RegisterRequest request) {
-        String email = request.email().trim().toLowerCase();
-        enforceSendCooldown(email);
-        String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
-        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
+        generateAndSendOtp(request, "unknown");
+    }
 
-        otpStorage.put(email, new OtpData(otp, request, expiresAt));
-        log.info("Registration OTP generated; expiry at {}", expiresAt);
+    @Transactional
+    public void generateAndSendOtp(RegisterRequest request, String clientIp) {
+        if (challenges == null) {
+            generateInMemory(request, clientIp);
+            return;
+        }
+        String email = normalizeEmail(request.email());
+        LocalDateTime now = LocalDateTime.now();
+        OtpChallenge existing = challenges.findByEmailAndPurpose(email, REGISTRATION_PURPOSE).orElse(null);
+        rejectIfBefore(existing == null ? null : existing.getNextSendAt(), now);
+        enforceRateLimit("email:" + email, SEND_PURPOSE, emailSendsPerHour, sendCooldownSeconds, now);
+        enforceIpSendLimit(clientIp, now);
 
+        String otp = newOtp();
+        OtpChallenge challenge = existing == null ? new OtpChallenge() : existing;
+        fillChallenge(challenge, request, email, clientIp, otp, now);
+        challenges.save(challenge);
         sendEmail(email, request.fullName(), otp);
     }
 
-    /**
-     * Gửi lại mã OTP cho email đã có dữ liệu đăng ký.
-     */
     public void resendOtp(String email) {
-        String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
-        OtpData existing = otpStorage.get(normalizedEmail);
-        if (existing == null) {
-            throw new IllegalArgumentException("Không tìm thấy thông tin đăng ký cho email này. Vui lòng đăng ký lại.");
-        }
-
-        enforceSendCooldown(normalizedEmail);
-        String newOtp = String.format("%06d", RANDOM.nextInt(1_000_000));
-        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
-
-        otpStorage.put(normalizedEmail, new OtpData(newOtp, existing.request(), expiresAt));
-        sendEmail(normalizedEmail, existing.request().fullName(), newOtp);
+        resendOtp(email, "unknown");
     }
 
-    /**
-     * Xác thực mã OTP. Nếu hợp lệ, trả về RegisterRequest và xóa OTP khỏi bộ nhớ.
-     */
-    public synchronized RegisterRequest verifyOtp(String email, String inputOtp) {
-        return verifyOtpAt(email, inputOtp, LocalDateTime.now());
+    @Transactional
+    public void resendOtp(String email, String clientIp) {
+        String normalizedEmail = normalizeEmail(email);
+        if (challenges == null) {
+            resendInMemory(normalizedEmail, clientIp);
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        OtpChallenge challenge = challenges.findByEmailAndPurpose(normalizedEmail, REGISTRATION_PURPOSE).orElseThrow(
+                () -> new IllegalArgumentException("Yêu cầu OTP không tồn tại hoặc đã hết hạn. Vui lòng đăng ký lại."));
+        rejectIfBefore(challenge.getNextSendAt(), now);
+        enforceRateLimit("email:" + normalizedEmail, SEND_PURPOSE, emailSendsPerHour, sendCooldownSeconds, now);
+        enforceIpSendLimit(clientIp, now);
+
+        String newOtp = newOtp();
+        challenge.setOtpSalt(randomSalt());
+        challenge.setOtpHash(hashOtp(newOtp, challenge.getOtpSalt()));
+        challenge.setExpiresAt(now.plusMinutes(otpExpiryMinutes));
+        challenge.setNextSendAt(now.plusSeconds(sendCooldownSeconds));
+        challenge.setFailedAttempts(0);
+        challenge.setLockedUntil(null);
+        challenge.setClientIp(safeIp(clientIp));
+        challenges.save(challenge);
+        sendEmail(normalizedEmail, challenge.getFullName(), newOtp);
     }
 
-    synchronized RegisterRequest verifyOtpAt(String email, String inputOtp, LocalDateTime now) {
-        String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
-        OtpData data = otpStorage.get(normalizedEmail);
+    public VerifiedRegistration verifyOtp(String email, String inputOtp) {
+        return verifyOtp(email, inputOtp, "unknown");
+    }
 
-        if (data == null) {
-            throw new IllegalArgumentException("Mã OTP không tồn tại hoặc đã bị hủy. Vui lòng bấm gửi lại mã.");
+    @Transactional
+    public VerifiedRegistration verifyOtp(String email, String inputOtp, String clientIp) {
+        return verifyOtpAt(email, inputOtp, clientIp, LocalDateTime.now());
+    }
+
+    VerifiedRegistration verifyOtpAt(String email, String inputOtp, LocalDateTime now) {
+        return verifyOtpAt(email, inputOtp, "unknown", now);
+    }
+
+    @Transactional
+    VerifiedRegistration verifyOtpAt(String email, String inputOtp, String clientIp, LocalDateTime now) {
+        String normalizedEmail = normalizeEmail(email);
+        if (challenges == null) {
+            synchronized (memoryChallenges) {
+                return verifyInMemory(normalizedEmail, inputOtp, now);
+            }
+        }
+        String ip = safeIp(clientIp);
+        if (!"unknown".equals(ip)) {
+            enforceRateLimit("ip:" + ip, VERIFY_PURPOSE, ipVerificationsPerHour, 0, now);
         }
 
-        if (!now.isBefore(data.expiresAt())) {
-            otpStorage.remove(normalizedEmail);
-            failedAttemptsByEmail.remove(normalizedEmail);
-            throw new IllegalArgumentException("Mã OTP đã hết hạn. Vui lòng bấm 'Gửi lại mã OTP'.");
+        OtpChallenge challenge = challenges.findByEmailAndPurpose(normalizedEmail, REGISTRATION_PURPOSE).orElseThrow(
+                () -> new IllegalArgumentException("Mã OTP không tồn tại hoặc đã bị hủy. Vui lòng gửi lại mã."));
+        if (!now.isBefore(challenge.getExpiresAt())) {
+            challenges.delete(challenge);
+            throw new IllegalArgumentException("Mã OTP đã hết hạn. Vui lòng gửi lại mã OTP.");
+        }
+        if (challenge.getLockedUntil() != null && now.isBefore(challenge.getLockedUntil())) {
+            throw new OtpRateLimitException("OTP đang bị khóa tạm thời. Vui lòng thử lại sau.");
+        }
+        if (challenge.getLockedUntil() != null) {
+            challenge.setLockedUntil(null);
+            challenge.setFailedAttempts(0);
         }
 
-        if (!isOtpCorrect(normalizedEmail, data, inputOtp)) {
+        String normalizedOtp = inputOtp == null ? "" : inputOtp.trim();
+        boolean correct = MessageDigest.isEqual(
+                HexFormat.of().parseHex(hashOtp(normalizedOtp, challenge.getOtpSalt())),
+                HexFormat.of().parseHex(challenge.getOtpHash()));
+        if (!correct) {
+            int failures = challenge.getFailedAttempts() + 1;
+            challenge.setFailedAttempts(failures);
+            if (failures >= maxFailedAttempts) {
+                challenge.setLockedUntil(now.plusMinutes(lockoutMinutes));
+                challenges.save(challenge);
+                throw new OtpRateLimitException("OTP đã sai quá số lần cho phép và bị khóa tạm thời.");
+            }
+            challenges.save(challenge);
             throw new IllegalArgumentException("Mã OTP không chính xác. Vui lòng kiểm tra lại hộp thư.");
         }
 
-        // Xác thực thành công -> xóa dữ liệu OTP
-        otpStorage.remove(normalizedEmail);
-        return data.request();
+        VerifiedRegistration verified = new VerifiedRegistration(challenge.getFullName(), challenge.getEmail(),
+                challenge.getPhone(), challenge.getGender(), challenge.getBirthDate(), challenge.getPasswordHash(),
+                challenge.isTermsAccepted(), challenge.getUsername(), challenge.getNationalId(), challenge.getFavoriteCinemaId());
+        challenges.delete(challenge);
+        return verified;
     }
 
-    /**
-     * Gửi email OTP bằng template HTML chuẩn phong cách Rex Cinemas.
-     */
-    private boolean isOtpCorrect(String email, OtpData data, String inputOtp) {
-        if (data.otp().equals(inputOtp == null ? "" : inputOtp.trim())) {
-            failedAttemptsByEmail.remove(email);
-            return true;
+    private void generateInMemory(RegisterRequest request, String clientIp) {
+        synchronized (memoryChallenges) {
+            String email = normalizeEmail(request.email());
+            LocalDateTime now = LocalDateTime.now();
+            rejectIfBefore(memoryNextSendAt.get(email), now);
+            String ip = safeIp(clientIp);
+            if (!"unknown".equals(ip)) rejectIfBefore(memoryIpNextSendAt.get(ip), now);
+            String otp = newOtp();
+            memoryChallenges.put(email, new MemoryChallenge(otp, request, now.plusMinutes(otpExpiryMinutes)));
+            memoryNextSendAt.put(email, now.plusSeconds(sendCooldownSeconds));
+            if (!"unknown".equals(ip)) memoryIpNextSendAt.put(ip, now.plusSeconds(ipSendCooldownSeconds));
+            sendEmail(email, request.fullName(), otp);
         }
-        if (failedAttemptsByEmail.merge(email, 1, Integer::sum) >= MAX_FAILED_ATTEMPTS) {
-            otpStorage.remove(email);
-            failedAttemptsByEmail.remove(email);
-        }
-        return false;
     }
 
-    private void enforceSendCooldown(String email) {
-        LocalDateTime now = LocalDateTime.now();
-        AtomicReference<Boolean> blocked = new AtomicReference<>(false);
-        nextOtpSendAt.compute(email, (key, allowedAt) -> {
-            if (allowedAt != null && now.isBefore(allowedAt)) {
-                blocked.set(true);
-                return allowedAt;
+    private void resendInMemory(String email, String clientIp) {
+        synchronized (memoryChallenges) {
+            MemoryChallenge existing = memoryChallenges.get(email);
+            if (existing == null) throw new IllegalArgumentException("Yêu cầu OTP không tồn tại hoặc đã hết hạn. Vui lòng đăng ký lại.");
+            LocalDateTime now = LocalDateTime.now();
+            rejectIfBefore(memoryNextSendAt.get(email), now);
+            String ip = safeIp(clientIp);
+            if (!"unknown".equals(ip)) rejectIfBefore(memoryIpNextSendAt.get(ip), now);
+            String otp = newOtp();
+            memoryChallenges.put(email, new MemoryChallenge(otp, existing.request(), now.plusMinutes(otpExpiryMinutes)));
+            memoryNextSendAt.put(email, now.plusSeconds(sendCooldownSeconds));
+            if (!"unknown".equals(ip)) memoryIpNextSendAt.put(ip, now.plusSeconds(ipSendCooldownSeconds));
+            sendEmail(email, existing.request().fullName(), otp);
+        }
+    }
+
+    private VerifiedRegistration verifyInMemory(String email, String inputOtp, LocalDateTime now) {
+        MemoryChallenge data = memoryChallenges.get(email);
+        if (data == null) throw new IllegalArgumentException("Mã OTP không tồn tại hoặc đã bị hủy. Vui lòng gửi lại mã.");
+        if (!now.isBefore(data.expiresAt())) {
+            memoryChallenges.remove(email);
+            memoryFailedAttempts.remove(email);
+            throw new IllegalArgumentException("Mã OTP đã hết hạn. Vui lòng gửi lại mã OTP.");
+        }
+        LocalDateTime lockedUntil = memoryLockedUntil.get(email);
+        if (lockedUntil != null && now.isBefore(lockedUntil)) throw new OtpRateLimitException("OTP đang bị khóa tạm thời. Vui lòng thử lại sau.");
+        if (lockedUntil != null) {
+            memoryLockedUntil.remove(email);
+            memoryFailedAttempts.remove(email);
+        }
+        if (!data.otp().equals(inputOtp == null ? "" : inputOtp.trim())) {
+            int failures = memoryFailedAttempts.merge(email, 1, Integer::sum);
+            if (failures >= maxFailedAttempts) {
+                memoryLockedUntil.put(email, now.plusMinutes(lockoutMinutes));
+                throw new OtpRateLimitException("OTP đã sai quá số lần cho phép và bị khóa tạm thời.");
             }
-            return now.plusSeconds(SEND_COOLDOWN_SECONDS);
+            throw new IllegalArgumentException("Mã OTP không chính xác. Vui lòng kiểm tra lại hộp thư.");
+        }
+        memoryChallenges.remove(email);
+        memoryFailedAttempts.remove(email);
+        RegisterRequest request = data.request();
+        String hash = passwordEncoder == null ? request.password() : passwordEncoder.encode(request.password());
+        return new VerifiedRegistration(request.fullName(), request.email(), request.phone(), request.gender(), request.birthDate(),
+                hash, request.termsAccepted(), request.username(), request.nationalId(), request.favoriteCinemaId());
+    }
+
+    private void fillChallenge(OtpChallenge challenge, RegisterRequest request, String email, String clientIp,
+                               String otp, LocalDateTime now) {
+        challenge.setEmail(email);
+        challenge.setPurpose(REGISTRATION_PURPOSE);
+        challenge.setOtpSalt(randomSalt());
+        challenge.setOtpHash(hashOtp(otp, challenge.getOtpSalt()));
+        challenge.setFullName(request.fullName().trim());
+        challenge.setPhone(request.phone().trim());
+        challenge.setGender(request.gender().trim());
+        challenge.setBirthDate(request.birthDate());
+        challenge.setPasswordHash(passwordEncoder.encode(request.password()));
+        challenge.setTermsAccepted(request.termsAccepted());
+        challenge.setUsername(request.username());
+        challenge.setNationalId(request.nationalId());
+        challenge.setFavoriteCinemaId(request.favoriteCinemaId());
+        challenge.setExpiresAt(now.plusMinutes(otpExpiryMinutes));
+        challenge.setFailedAttempts(0);
+        challenge.setLockedUntil(null);
+        challenge.setNextSendAt(now.plusSeconds(sendCooldownSeconds));
+        challenge.setClientIp(safeIp(clientIp));
+    }
+
+    private void enforceIpSendLimit(String clientIp, LocalDateTime now) {
+        String ip = safeIp(clientIp);
+        if (!"unknown".equals(ip)) enforceRateLimit("ip:" + ip, SEND_PURPOSE, ipSendsPerHour, ipSendCooldownSeconds, now);
+    }
+
+    private void enforceRateLimit(String scopeKey, String purpose, int maxPerHour, int cooldownSeconds, LocalDateTime now) {
+        OtpRateLimit limit = rateLimits.findByScopeKeyAndPurpose(scopeKey, purpose).orElseGet(() -> {
+            OtpRateLimit created = new OtpRateLimit();
+            created.setScopeKey(scopeKey);
+            created.setPurpose(purpose);
+            created.setWindowStartedAt(now);
+            return created;
         });
-        if (blocked.get()) {
-            throw new IllegalArgumentException("Please wait before requesting another OTP.");
+        if (limit.getWindowStartedAt() == null || !now.isBefore(limit.getWindowStartedAt().plusHours(1))) {
+            limit.setWindowStartedAt(now);
+            limit.setWindowCount(0);
+            limit.setNextAllowedAt(null);
+        }
+        if (limit.getWindowCount() >= maxPerHour) throw new OtpRateLimitException("Yêu cầu OTP đã vượt giới hạn. Vui lòng thử lại sau.");
+        if (limit.getNextAllowedAt() != null && now.isBefore(limit.getNextAllowedAt())) {
+            throw new OtpRateLimitException("Vui lòng chờ trước khi yêu cầu OTP tiếp theo.");
+        }
+        limit.setWindowCount(limit.getWindowCount() + 1);
+        limit.setNextAllowedAt(now.plusSeconds(cooldownSeconds));
+        rateLimits.save(limit);
+    }
+
+    private void rejectIfBefore(LocalDateTime allowedAt, LocalDateTime now) {
+        if (allowedAt != null && now.isBefore(allowedAt)) throw new OtpRateLimitException("Vui lòng chờ trước khi yêu cầu OTP tiếp theo.");
+    }
+
+    private String normalizeEmail(String email) { return email == null ? "" : email.trim().toLowerCase(); }
+
+    private String safeIp(String clientIp) {
+        if (clientIp == null || clientIp.isBlank()) return "unknown";
+        String value = clientIp.trim();
+        return value.length() > 64 ? value.substring(0, 64) : value;
+    }
+
+    private String newOtp() { return String.format("%06d", RANDOM.nextInt(1_000_000)); }
+
+    private int requirePositive(String property, int value) {
+        if (value <= 0) throw new IllegalStateException(property + " must be positive");
+        return value;
+    }
+
+    private String randomSalt() {
+        byte[] salt = new byte[16];
+        RANDOM.nextBytes(salt);
+        return HexFormat.of().formatHex(salt);
+    }
+
+    private String hashOtp(String otp, String salt) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest((salt + ":" + otp).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("OTP hashing is unavailable", ex);
         }
     }
 
@@ -137,74 +375,23 @@ public class OtpService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
             helper.setFrom(fromEmail, "Rex Cinemas");
             helper.setTo(toEmail);
             helper.setSubject("[Rex Cinemas] Mã xác thực OTP đăng ký tài khoản");
-
             String html = """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Mã xác thực OTP - Rex Cinemas</title>
-                </head>
-                <body style="margin: 0; padding: 0; background-color: #0b0d14; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #ffffff;">
-                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0b0d14; padding: 40px 10px;">
-                        <tr>
-                            <td align="center">
-                                <table width="600" border="0" cellspacing="0" cellpadding="0" style="background: linear-gradient(180deg, #151b28 0%%, #0f131d 100%%); border-radius: 16px; border: 1px solid #28354d; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.6);">
-                                    <!-- Header -->
-                                    <tr>
-                                        <td align="center" style="padding: 35px 20px 25px; border-bottom: 1px solid #222d42; background: radial-gradient(circle at 50%% 0%%, rgba(239,35,60,0.2), transparent 70%%);">
-                                            <h1 style="margin: 0; color: #ffe500; font-size: 28px; font-weight: 900; letter-spacing: 2px;">REX CINEMAS</h1>
-                                            <p style="margin: 5px 0 0; color: #8f9db5; font-size: 13px; letter-spacing: 1px; text-transform: uppercase;">Trải nghiệm điện ảnh đỉnh cao</p>
-                                        </td>
-                                    </tr>
-                                    <!-- Body -->
-                                    <tr>
-                                        <td style="padding: 35px 40px;">
-                                            <p style="font-size: 16px; color: #e1e7f0; margin: 0 0 15px;">Xin chào <strong style="color: #ffe500;">%s</strong>,</p>
-                                            <p style="font-size: 14px; line-height: 1.6; color: #b2bed2; margin: 0 0 25px;">
-                                                Bạn đang thực hiện đăng ký tài khoản thành viên tại <strong>Rex Cinemas</strong>. Để hoàn tất kích hoạt tài khoản, vui lòng sử dụng mã xác thực OTP bên dưới:
-                                            </p>
-                                            
-                                            <!-- OTP Box -->
-                                            <div style="text-align: center; margin: 30px 0; padding: 22px; background: rgba(0,0,0,0.4); border-radius: 12px; border: 2px dashed #ffe500;">
-                                                <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #8f9db5; display: block; margin-bottom: 8px;">MÃ XÁC THỰC OTP CỦA BẠN</span>
-                                                <span style="font-family: monospace, 'Courier New', Courier; font-size: 38px; font-weight: 800; letter-spacing: 8px; color: #ffe500;">%s</span>
-                                            </div>
-                                            
-                                            <p style="font-size: 13px; line-height: 1.6; color: #ff8595; margin: 0 0 15px;">
-                                                ⏱️ Mã này có hiệu lực trong vòng <strong>5 phút</strong>. Tuyệt đối không chia sẻ mã này cho bất kỳ ai.
-                                            </p>
-                                            <p style="font-size: 13px; line-height: 1.6; color: #78879e; margin: 25px 0 0; border-top: 1px solid #1c2638; padding-top: 20px;">
-                                                Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email. Tài khoản của bạn sẽ không bị ảnh hưởng.
-                                            </p>
-                                        </td>
-                                    </tr>
-                                    <!-- Footer -->
-                                    <tr>
-                                        <td align="center" style="padding: 20px; background-color: #0a0d14; color: #5f6e85; font-size: 12px; border-top: 1px solid #1c2638;">
-                                            © 2026 Rex Cinemas Chain. Mọi quyền được bảo lưu.
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-                </body>
-                </html>
-                """.formatted(fullName, otp);
-
+                    <html><body style="font-family:Arial,sans-serif;background:#0b0d14;color:#fff;padding:24px">
+                    <h2 style="color:#ffe500">REX CINEMAS</h2>
+                    <p>Xin chào <strong>%s</strong>,</p>
+                    <p>Mã xác thực đăng ký của bạn là:</p>
+                    <p style="font-size:34px;font-weight:bold;letter-spacing:8px;color:#ffe500">%s</p>
+                    <p>Mã có hiệu lực trong 5 phút và chỉ dùng một lần.</p>
+                    </body></html>
+                    """.formatted(fullName, otp);
             helper.setText(html, true);
             mailSender.send(message);
-            log.info("Registration OTP email sent");
         } catch (MessagingException e) {
-            log.error("Failed to send registration OTP email ({})", e.getClass().getSimpleName());
             throw new IllegalStateException("Không thể gửi email xác thực. Vui lòng thử lại sau.");
         } catch (Exception e) {
-            log.error("Unexpected registration OTP email error ({})", e.getClass().getSimpleName());
             throw new IllegalStateException("Hệ thống gửi thư gặp sự cố. Vui lòng thử lại sau.");
         }
     }

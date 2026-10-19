@@ -1,6 +1,7 @@
 package com.rexchain.cinema.service;
 
 import com.rexchain.cinema.dto.RegisterRequest;
+import com.rexchain.cinema.dto.VerifiedRegistration;
 import jakarta.mail.BodyPart;
 import jakarta.mail.Multipart;
 import jakarta.mail.Session;
@@ -110,6 +111,26 @@ class OtpServiceTest {
     }
 
     @Test
+    void lockoutExpiresBeforeOtpAndAllowsRetry() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
+        RegisterRequest request = sampleRequest("lockout@example.invalid");
+        otpService.generateAndSendOtp(request);
+        String code = sentOtp();
+        String wrongCode = code.equals("000000") ? "000001" : "000000";
+
+        for (int i = 0; i < 5; i++) {
+            assertThatThrownBy(() -> otpService.verifyOtp(request.email(), wrongCode))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThatThrownBy(() -> otpService.verifyOtp(request.email(), code))
+                .isInstanceOf(com.rexchain.cinema.service.OtpRateLimitException.class);
+
+        VerifiedRegistration verified = otpService.verifyOtpAt(request.email(), code, LocalDateTime.now().plusMinutes(2));
+        assertThat(verified.email()).isEqualTo(request.email());
+        assertThat(verified.passwordHash()).isNotEqualTo(request.password());
+    }
+
+    @Test
     void otpIsSingleUseAndBoundToTheRequestedEmail() throws Exception {
         when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
         RegisterRequest request = sampleRequest("bound@example.invalid");
@@ -118,7 +139,9 @@ class OtpServiceTest {
 
         assertThatThrownBy(() -> otpService.verifyOtp("different@example.invalid", code))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThat(otpService.verifyOtp(request.email(), code)).isEqualTo(request);
+        VerifiedRegistration verified = otpService.verifyOtp(request.email(), code);
+        assertThat(verified.email()).isEqualTo(request.email());
+        assertThat(verified.passwordHash()).isNotEqualTo(request.password());
         assertThatThrownBy(() -> otpService.verifyOtp(request.email(), code))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -145,6 +168,36 @@ class OtpServiceTest {
         }
     }
 
+    @Test
+    void concurrentSendRequestsAreRateLimitedWithoutSendingDuplicateMail() throws Exception {
+        when(mailSender.createMimeMessage()).thenAnswer(invocation -> new MimeMessage((Session) null));
+        RegisterRequest request = sampleRequest("concurrent-send@example.invalid");
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Boolean> first = executor.submit(() -> sendAfterGate(request, ready, start));
+            Future<Boolean> second = executor.submit(() -> sendAfterGate(request, ready, start));
+            ready.await();
+            start.countDown();
+            assertThat((first.get() ? 1 : 0) + (second.get() ? 1 : 0)).isEqualTo(1);
+            verify(mailSender, times(1)).send(any(MimeMessage.class));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private boolean sendAfterGate(RegisterRequest request, CountDownLatch ready, CountDownLatch start) throws Exception {
+        ready.countDown();
+        start.await();
+        try {
+            otpService.generateAndSendOtp(request, "198.51.100.10");
+            return true;
+        } catch (IllegalArgumentException expected) {
+            return false;
+        }
+    }
+
     private boolean verifyAfterGate(String email, String code, CountDownLatch ready, CountDownLatch start,
                                     AtomicInteger customersCreated) throws Exception {
         ready.countDown();
@@ -161,7 +214,7 @@ class OtpServiceTest {
     private String sentOtp() throws Exception {
         ArgumentCaptor<MimeMessage> sentMessage = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender, times(1)).send(sentMessage.capture());
-        Matcher otpMatcher = Pattern.compile("(?s)font-size: 38px.*?>(\\d{6})</span>")
+        Matcher otpMatcher = Pattern.compile("(?s)font-size:34px.*?>(\\d{6})</p>")
                 .matcher(messageText(sentMessage.getValue().getContent()));
         assertThat(otpMatcher.find()).isTrue();
         return otpMatcher.group(1);

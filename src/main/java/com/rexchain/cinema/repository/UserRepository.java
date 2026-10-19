@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.Optional;
 public interface UserRepository extends JpaRepository<User,Long>{
     Optional<User> findByEmailIgnoreCase(String email);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where lower(u.email) = lower(:email)")
+    Optional<User> findByEmailIgnoreCaseForUpdate(@Param("email") String email);
     boolean existsByEmailIgnoreCase(String email);
     boolean existsByUsernameIgnoreCase(String username);
     boolean existsByPhone(String phone);

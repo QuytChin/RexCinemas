@@ -643,6 +643,7 @@ html[lang="vi"] :is(.auth-visual h1, .auth-panel h2, body.auth-page .auth-panel-
 .password-toggle:hover{color:var(--yellow)}
 .password-toggle .ui-icon{width:18px;height:18px}
 .profile-form-alert{margin-bottom:18px}
+.auth-reset-note{margin:0 0 18px;color:#b9c6d8;line-height:1.55;font-size:.86rem}
 @media(max-width:991px){.seat-row{min-width:max(520px,calc(var(--seat-columns)*40px + 36px))}}
 @media(max-width:767px){.profile-password-layout{grid-template-columns:1fr}.profile-password-layout>label:first-child{grid-column:auto}}
 @media(max-width:575px){.seat-row{min-width:max(450px,calc(var(--seat-columns)*38px + 36px))}}
