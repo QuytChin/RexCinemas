@@ -12,6 +12,8 @@
 <main class="container-fluid pt-page pb-5 rex-ticket-page">
     <div class="alert alert-danger mx-auto rex-ticket-alert" th:if="${param.paymentError}">Thanh toán không thành công hoặc chưa cấu hình cổng thanh toán. Booking đã được hủy và ghế đã trả lại.</div>
     <div class="alert alert-warning mx-auto rex-ticket-alert" th:if="${param.refundPending}">Cổng thanh toán đã ghi nhận tiền nhưng booking không còn đủ điều kiện xác nhận. Giao dịch đã chuyển sang chờ hoàn tiền; vui lòng liên hệ rạp với mã đặt vé bên dưới.</div>
+    <div class="alert alert-warning mx-auto rex-ticket-alert" th:if="${booking.status.name()=='REFUND_PENDING'}">Yêu cầu hoàn tiền đang chờ rạp xác nhận chuyển khoản. Chưa có xác nhận tiền đã về tài khoản.</div>
+    <div class="alert alert-info mx-auto rex-ticket-alert" th:if="${booking.status.name()=='REFUNDED'}">Rạp đã xác nhận hoàn tiền thủ công. Bạn có thể liên hệ rạp kèm mã đặt vé nếu cần đối soát thêm.</div>
 
     <div class="rex-ticket-actions mx-auto mb-3 d-flex justify-content-between align-items-center gap-2 flex-wrap">
         <div><span>Mã đặt vé:</span> <strong th:text="${booking.bookingCode}"></strong></div>

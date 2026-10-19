@@ -17,6 +17,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -37,12 +38,28 @@ class AuthServiceTest {
         verify(users, never()).saveAndFlush(any());
     }
 
+    @org.junit.jupiter.api.Test
+    void otpRegistrationAlwaysCreatesCustomer() {
+        RegisterRequest request = new RegisterRequest("Test Member", "customer@example.invalid", "0800000004",
+                "Nam", java.time.LocalDate.of(1990, 1, 1), "TestPassword123", "TestPassword123", true,
+                "test_member", null, null);
+        when(users.existsByEmailIgnoreCase("customer@example.invalid")).thenReturn(false);
+        when(users.existsByPhone("0800000004")).thenReturn(false);
+        when(users.existsByUsernameIgnoreCase("test_member")).thenReturn(false);
+        when(users.saveAndFlush(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User created = service.createUserAfterOtp(request);
+
+        assertSame(Role.CUSTOMER, created.getRole());
+        verify(users, times(1)).saveAndFlush(any(User.class));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"member@rexchain.vn", "rexmember", "0901234567"})
     void loginAcceptsEmailUsernameOrPhoneWhenIdentifierResolvesToOneUser(String identifier) {
         User user = user();
         when(users.findAllByLoginIdentifier(identifier)).thenReturn(List.of(user));
-        when(jwt.generate(user.getEmail(), user.getRole().name(), false)).thenReturn("token");
+        when(jwt.generate(user.getEmail(), user.getRole().name(), false, user.getCredentialVersion())).thenReturn("token");
 
         assertEquals("token", service.login(identifier, "secret"));
         verify(authenticationManager).authenticate(argThat(authentication ->
@@ -57,7 +74,7 @@ class AuthServiceTest {
 
         assertThrows(BadCredentialsException.class, () -> service.login("shared", "secret"));
         verify(authenticationManager, never()).authenticate(any());
-        verify(jwt, never()).generate(any(), any(), anyBoolean());
+        verify(jwt, never()).generate(any(), any(), anyBoolean(), anyInt());
     }
 
     private User user() {

@@ -3,6 +3,7 @@ package com.rexchain.cinema.controller;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.config.SePayProperties;
 import com.rexchain.cinema.dto.PaymentSettingsUpdateRequest;
+import com.rexchain.cinema.dto.ManualRefundConfirmation;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.*;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -41,6 +42,7 @@ public class AdminController {
     private final SePayProperties sepayProperties;
     private final PaymentSettingsService paymentSettingsService;
     private final PaymentTransactionRepository paymentTransactions;
+    private final LatePaymentCaseService latePaymentCases;
 
     public AdminController(MovieRepository movies, CinemaRepository cinemas, AuditoriumRepository auditoriums,
             ShowtimeRepository showtimes, BookingRepository bookings, UserRepository users,
@@ -49,7 +51,7 @@ public class AdminController {
             DashboardService dashboardService, BookingService bookingService,
             ShowtimeService showtimeService, SePayPaymentService sepayPaymentService,
             SePayProperties sepayProperties, PaymentSettingsService paymentSettingsService,
-            PaymentTransactionRepository paymentTransactions) {
+            PaymentTransactionRepository paymentTransactions, LatePaymentCaseService latePaymentCases) {
         this.movies = movies;
         this.cinemas = cinemas;
         this.auditoriums = auditoriums;
@@ -68,6 +70,7 @@ public class AdminController {
         this.sepayProperties = sepayProperties;
         this.paymentSettingsService = paymentSettingsService;
         this.paymentTransactions = paymentTransactions;
+        this.latePaymentCases = latePaymentCases;
     }
 
     @GetMapping
@@ -129,9 +132,64 @@ public class AdminController {
         model.addAttribute("filterFrom", from);
         model.addAttribute("filterTo", to);
         model.addAttribute("filterQuery", q);
-        model.addAttribute("transactionStatuses", List.of("RECEIVED", "VERIFIED", "SETTLED", "NEEDS_REVIEW", "REFUND_PENDING", "DUPLICATE"));
+        model.addAttribute("transactionStatuses", List.of("RECEIVED", "VERIFIED", "SETTLED", "NEEDS_REVIEW", "REFUND_PENDING", "LATE_PAYMENT_REFUND_PENDING", "DUPLICATE"));
         model.addAttribute("transactionsSchemaAvailable", paymentTransactions.isSchemaAvailable());
         return "admin/transactions";
+    }
+
+    @GetMapping("/late-payments")
+    String latePayments(@RequestParam(required = false) LatePaymentCaseStatus status,
+                        @RequestParam(required = false, name = "q") String query, Model model) {
+        model.addAttribute("cases", latePaymentCases.search(status, query));
+        model.addAttribute("filterStatus", status);
+        model.addAttribute("filterQuery", query);
+        model.addAttribute("caseStatuses", LatePaymentCaseStatus.values());
+        return "admin/late-payments";
+    }
+
+    @GetMapping("/late-payments/{id}")
+    String latePaymentDetail(@PathVariable Long id, Model model) {
+        model.addAttribute("latePaymentCase", latePaymentCases.findDetailed(id));
+        model.addAttribute("history", latePaymentCases.auditHistory(id));
+        return "admin/late-payment-detail";
+    }
+
+    @PostMapping("/late-payments/{id}/review")
+    String latePaymentReview(@PathVariable Long id, @RequestParam(required = false) String note,
+                             Authentication auth, RedirectAttributes redirect) {
+        try {
+            User operator = users.findByEmailIgnoreCase(auth.getName()).orElseThrow();
+            latePaymentCases.markNeedsReview(id, operator.getId(), operator.getEmail(), note);
+            redirect.addFlashAttribute("success", "Đã đánh dấu hồ sơ đang xử lý");
+        } catch (Exception ex) { redirect.addFlashAttribute("error", ex.getMessage()); }
+        return "redirect:/admin/late-payments/" + id;
+    }
+
+    @PostMapping("/late-payments/{id}/refund-failed")
+    String latePaymentRefundFailed(@PathVariable Long id, @RequestParam String reason,
+                                   Authentication auth, RedirectAttributes redirect) {
+        try {
+            User operator = users.findByEmailIgnoreCase(auth.getName()).orElseThrow();
+            latePaymentCases.markRefundFailed(id, operator.getId(), operator.getEmail(), reason);
+            redirect.addFlashAttribute("success", "Đã lưu lần hoàn tiền thất bại; có thể thử lại sau đối soát");
+        } catch (Exception ex) { redirect.addFlashAttribute("error", ex.getMessage()); }
+        return "redirect:/admin/late-payments/" + id;
+    }
+
+    @PostMapping("/late-payments/{id}/refund")
+    String latePaymentRefund(@PathVariable Long id, @RequestParam String refundReference,
+                             @RequestParam BigDecimal refundAmount, @RequestParam(required = false) String note,
+                             @RequestParam(required = false) String refundEvidence,
+                             @RequestParam(defaultValue = "false") boolean manualTransferConfirmed,
+                             Authentication auth, RedirectAttributes redirect) {
+        try {
+            if (!manualTransferConfirmed) throw new IllegalArgumentException("Chỉ xác nhận sau khi đã hoàn tiền thủ công");
+            User operator = users.findByEmailIgnoreCase(auth.getName()).orElseThrow();
+            latePaymentCases.confirmRefund(id, operator.getId(), operator.getEmail(),
+                    new ManualRefundConfirmation(refundReference, refundAmount, note, refundEvidence));
+            redirect.addFlashAttribute("success", "Đã lưu xác nhận hoàn tiền thủ công");
+        } catch (Exception ex) { redirect.addFlashAttribute("error", ex.getMessage()); }
+        return "redirect:/admin/late-payments/" + id;
     }
 
     @GetMapping("/transactions/{id}")
@@ -397,11 +455,19 @@ public class AdminController {
     }
 
     @PostMapping("/bookings/{id}/refund")
-    String refundBooking(@PathVariable Long id, @RequestParam(required = false) String note,
+    String refundBooking(@PathVariable Long id, @RequestParam String refundReference,
+                         @RequestParam BigDecimal refundAmount, @RequestParam(required = false) String note,
+                         @RequestParam(required = false) String refundEvidence,
+                         @RequestParam(defaultValue = "false") boolean manualTransferConfirmed,
                          Authentication auth, RedirectAttributes redirect) {
         try {
-            bookingService.processRefund(id, auth.getName(), note);
-            redirect.addFlashAttribute("success", "Đã duyệt và xác nhận hoàn tiền cho booking #" + id);
+            if (!manualTransferConfirmed)
+                throw new IllegalArgumentException("Chỉ xác nhận sau khi đã chuyển khoản hoàn tiền thủ công");
+            User operator = users.findByEmailIgnoreCase(auth.getName())
+                    .orElseThrow(() -> new IllegalStateException("Không xác định được tài khoản quản trị viên"));
+            bookingService.processRefund(id, operator.getId(), operator.getEmail(),
+                    new ManualRefundConfirmation(refundReference, refundAmount, note, refundEvidence));
+            redirect.addFlashAttribute("success", "Đã ghi nhận xác nhận hoàn tiền thủ công cho booking #" + id);
         } catch (Exception ex) {
             redirect.addFlashAttribute("error", ex.getMessage());
         }

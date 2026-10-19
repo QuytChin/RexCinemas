@@ -26,6 +26,10 @@ CALL rex_rewards_ensure_column('bookings', 'membership_discount_percent', 'DECIM
 CALL rex_rewards_ensure_column('bookings', 'membership_discount_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0');
 CALL rex_rewards_ensure_column('bookings', 'voucher_discount_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0');
 CALL rex_rewards_ensure_column('bookings', 'point_multiplier', 'DECIMAL(7,4) NOT NULL DEFAULT 1');
+CALL rex_rewards_ensure_column('bookings', 'refund_reference', 'VARCHAR(120) NULL');
+CALL rex_rewards_ensure_column('bookings', 'refund_amount', 'DECIMAL(12,2) NULL');
+CALL rex_rewards_ensure_column('bookings', 'refund_evidence', 'VARCHAR(600) NULL');
+CALL rex_rewards_ensure_column('bookings', 'refunded_by_user_id', 'BIGINT NULL');
 CALL rex_rewards_ensure_column('vouchers', 'owner_user_id', 'BIGINT NULL');
 CALL rex_rewards_ensure_column('vouchers', 'reward_redemption_reference', 'VARCHAR(80) NULL');
 DROP PROCEDURE rex_rewards_ensure_column;

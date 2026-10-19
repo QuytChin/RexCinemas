@@ -4,6 +4,9 @@ import com.rexchain.cinema.dto.LoginRequest;
 import com.rexchain.cinema.dto.RegisterRequest;
 import com.rexchain.cinema.repository.CinemaRepository;
 import com.rexchain.cinema.service.AuthService;
+import com.rexchain.cinema.security.JwtService;
+import com.rexchain.cinema.service.AccessTokenRevocationService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,14 +25,19 @@ public class AuthController {
     private final AuthService auth;
     private final CinemaRepository cinemas;
     private final com.rexchain.cinema.service.OtpService otpService;
+    private final JwtService jwt;
+    private final AccessTokenRevocationService revocations;
     private final boolean secureCookie;
 
     public AuthController(AuthService auth, CinemaRepository cinemas,
                           com.rexchain.cinema.service.OtpService otpService,
+                          JwtService jwt, AccessTokenRevocationService revocations,
                           @Value("${app.cookie.secure:false}") boolean secureCookie) {
         this.auth = auth;
         this.cinemas = cinemas;
         this.otpService = otpService;
+        this.jwt = jwt;
+        this.revocations = revocations;
         this.secureCookie = secureCookie;
     }
 
@@ -127,9 +135,9 @@ public class AuthController {
     String loginPost(@RequestParam String identifier, @RequestParam String password,
                      @RequestParam(required = false, defaultValue = "false") boolean remember,
                      @RequestParam(required = false) String returnUrl,
-                     HttpServletResponse response, Model model) {
+                     HttpServletRequest request, HttpServletResponse response, Model model) {
         try {
-            addCookie(response, auth.login(identifier, password, remember), remember);
+            addCookie(response, auth.login(identifier, password, remember), remember, secureRequest(request));
             return "redirect:" + safeReturnUrl(returnUrl);
         } catch (Exception ex) {
             model.addAttribute("error", "Thông tin đăng nhập hoặc mật khẩu không đúng");
@@ -140,19 +148,27 @@ public class AuthController {
     }
 
     @PostMapping("/auth/logout")
-    String logout(HttpServletResponse response) {
+    String logout(HttpServletRequest request, HttpServletResponse response) {
+        String token = request.getHeader("Authorization");
+        if (token != null && token.startsWith("Bearer ")) token = token.substring(7);
+        if (token == null && request.getCookies() != null) {
+            token = java.util.Arrays.stream(request.getCookies())
+                    .filter(cookie -> "access_token".equals(cookie.getName()))
+                    .map(jakarta.servlet.http.Cookie::getValue).findFirst().orElse(null);
+        }
+        if (token != null && jwt.valid(token)) revocations.revoke(token, jwt.extractExpiration(token));
         ResponseCookie cookie = ResponseCookie.from("access_token", "")
-                .httpOnly(true).secure(secureCookie).sameSite("Lax").path("/").maxAge(0).build();
+                .httpOnly(true).secure(secureCookie || secureRequest(request)).sameSite("Lax").path("/").maxAge(0).build();
         response.addHeader("Set-Cookie", cookie.toString());
         return "redirect:/";
     }
 
     @PostMapping("/api/auth/login")
     @ResponseBody
-    ResponseEntity<?> apiLogin(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+    ResponseEntity<?> apiLogin(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest, HttpServletResponse response) {
         try {
             String token = auth.login(request.identifier(), request.password());
-            addCookie(response, token, false);
+            addCookie(response, token, false, secureRequest(servletRequest));
             return ResponseEntity.ok(Map.of("token", token));
         } catch (Exception ex) {
             return ResponseEntity.status(401).body(Map.of("error", "Sai thông tin đăng nhập"));
@@ -178,10 +194,17 @@ public class AuthController {
         return "auth/login";
     }
 
-    private void addCookie(HttpServletResponse response, String token, boolean remember) {
+    private void addCookie(HttpServletResponse response, String token, boolean remember, boolean requestIsSecure) {
         ResponseCookie cookie = ResponseCookie.from("access_token", token)
-                .httpOnly(true).secure(secureCookie).sameSite("Lax").path("/")
-                .maxAge(remember ? Duration.ofDays(30) : Duration.ofDays(1)).build();
+                .httpOnly(true).secure(secureCookie || requestIsSecure).sameSite("Lax").path("/")
+                .maxAge(Duration.ofMillis(jwt.expirationMs(remember))).build();
         response.addHeader("Set-Cookie", cookie.toString());
+    }
+
+    private boolean secureRequest(HttpServletRequest request) {
+        if (request.isSecure()) return true;
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        if (forwardedProto == null || forwardedProto.isBlank()) return false;
+        return "https".equalsIgnoreCase(forwardedProto.split(",", 2)[0].trim());
     }
 }

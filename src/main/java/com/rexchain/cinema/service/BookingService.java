@@ -4,6 +4,7 @@ import com.rexchain.cinema.dto.CheckInResult;
 import com.rexchain.cinema.dto.BookingQuote;
 import com.rexchain.cinema.dto.MembershipBenefitQuote;
 import com.rexchain.cinema.entity.*;
+import com.rexchain.cinema.dto.ManualRefundConfirmation;
 import com.rexchain.cinema.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -86,8 +87,8 @@ public class BookingService {
     /* ──────────────────────────── HOLD & RELEASE (DELEGATED) ──────────────────────────── */
 
     @Transactional
-    public void holdSeats(Long userId, Long showtimeId, List<Long> ids) {
-        seatReservationService.holdSeats(userId, showtimeId, ids);
+    public LocalDateTime holdSeats(Long userId, Long showtimeId, List<Long> ids) {
+        return seatReservationService.holdSeats(userId, showtimeId, ids);
     }
 
     @Transactional
@@ -276,8 +277,18 @@ public class BookingService {
     }
 
     @Transactional
+    public Booking completeOnlinePayment(String bookingCode, String reference, LocalDateTime bankRecordedAt) {
+        return paymentService.completeOnlinePayment(bookingCode, reference, bankRecordedAt);
+    }
+
+    @Transactional
     public Booking cancelOnlinePayment(String bookingCode) {
         return paymentService.cancelOnlinePayment(bookingCode);
+    }
+
+    @Transactional
+    public Booking expireIfDue(String bookingCode) {
+        return paymentService.expireIfDue(bookingCode);
     }
 
     /* ──────────────────────── CANCEL BY ADMIN ──────────────────────── */
@@ -294,27 +305,12 @@ public class BookingService {
         boolean wasConfirmed = booking.getStatus() == BookingStatus.CONFIRMED;
         booking.setStatus(wasConfirmed ? BookingStatus.REFUND_PENDING : BookingStatus.CANCELLED);
         booking.setExpiresAt(null);
-        seatReservationService.releaseBookingSeats(booking);
-        if (wasConfirmed) {
-            Map<Long, Integer> restore = new TreeMap<>();
-            for (BookingCombo line : booking.getCombos()) {
-                if (line.getCombo() != null)
-                    restore.merge(line.getCombo().getId(), line.getQuantity(), Integer::sum);
-            }
-            if (!restore.isEmpty()) {
-                List<ComboProduct> locked = combos.findByIdInForUpdate(new ArrayList<>(restore.keySet()));
-                for (ComboProduct combo : locked)
-                    combo.setStockQuantity(combo.getStockQuantity() + restore.get(combo.getId()));
-                combos.saveAll(locked);
-            }
-            if (booking.getVoucherCode() != null) {
-                vouchers.findByCodeIgnoreCaseForUpdate(booking.getVoucherCode())
-                        .ifPresent(paymentService::decrementVoucher);
-            }
-        }
-        // Keep the same resource lock order as payment settlement: seats -> combos -> voucher -> user.
-        paymentService.reversePoints(booking);
-        return bookings.save(booking);
+        if (!wasConfirmed) seatReservationService.releaseBookingSeats(booking);
+        // A paid booking remains allocated while manual refund is pending. Resources and points
+        // are returned atomically only after a verified manual transfer.
+        Booking saved = bookings.save(booking);
+        if (wasConfirmed) paymentService.notifyRefundPending(saved);
+        return saved;
     }
 
     /* ──────────────────────── QR & CHECK-IN (DELEGATED) ──────────────────────── */
@@ -335,8 +331,9 @@ public class BookingService {
     }
 
     @Transactional
-    public Booking processRefund(Long bookingId, String operatorEmail, String note) {
-        return paymentService.processRefund(bookingId, operatorEmail, note);
+    public Booking processRefund(Long bookingId, Long operatorUserId, String operatorEmail,
+                                 ManualRefundConfirmation confirmation) {
+        return paymentService.processRefund(bookingId, operatorUserId, operatorEmail, confirmation);
     }
 
     /* ──────────────────────── SCHEDULED: RELEASE EXPIRED ──────────────────────── */

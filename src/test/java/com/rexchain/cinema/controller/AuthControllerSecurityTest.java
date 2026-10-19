@@ -1,7 +1,9 @@
 package com.rexchain.cinema.controller;
 
 import com.rexchain.cinema.config.SecurityConfig;
+import com.rexchain.cinema.dto.RegisterRequest;
 import com.rexchain.cinema.repository.CinemaRepository;
+import com.rexchain.cinema.repository.UserRepository;
 import com.rexchain.cinema.security.CustomUserDetailsService;
 import com.rexchain.cinema.security.JwtAuthenticationFilter;
 import com.rexchain.cinema.security.JwtService;
@@ -13,6 +15,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.TestPropertySource;
+import com.rexchain.cinema.service.AccessTokenRevocationService;
 
 import java.util.List;
 
@@ -27,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(AuthController.class)
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@TestPropertySource(properties = "server.forward-headers-strategy=framework")
 class AuthControllerSecurityTest {
 
     @Autowired
@@ -43,6 +48,12 @@ class AuthControllerSecurityTest {
 
     @MockBean
     private CustomUserDetailsService userDetailsService;
+
+    @MockBean
+    private UserRepository userRepository;
+
+    @MockBean
+    private AccessTokenRevocationService revocationService;
 
     @MockBean
     private com.rexchain.cinema.service.OtpService otpService;
@@ -97,6 +108,7 @@ class AuthControllerSecurityTest {
     @Test
     void validCredentialsIssueJwtCookieAndRedirect() throws Exception {
         when(authService.login("member@rexchain.vn", "secret", true)).thenReturn("signed-jwt");
+        when(jwtService.expirationMs(true)).thenReturn(2_592_000_000L);
 
         mockMvc.perform(post("/auth/login")
                         .with(csrf())
@@ -108,7 +120,48 @@ class AuthControllerSecurityTest {
                 .andExpect(redirectedUrl("/profile"))
                 .andExpect(header().string("Set-Cookie", containsString("access_token=signed-jwt")))
                 .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
-                .andExpect(header().string("Set-Cookie", containsString("SameSite=Lax")));
+                .andExpect(header().string("Set-Cookie", containsString("SameSite=Lax")))
+                .andExpect(header().string("Set-Cookie", containsString("Max-Age=2592000")))
+                .andExpect(header().string("Set-Cookie", not(containsString("Secure"))));
+    }
+
+    @Test
+    void secureRequestIssuesSecureCookie() throws Exception {
+        when(authService.login("member@rexchain.vn", "secret", false)).thenReturn("signed-jwt");
+        when(jwtService.expirationMs(false)).thenReturn(86_400_000L);
+
+        mockMvc.perform(post("/auth/login").secure(true).with(csrf())
+                        .param("identifier", "member@rexchain.vn").param("password", "secret"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Set-Cookie", containsString("Secure")))
+                .andExpect(header().string("Set-Cookie", containsString("Max-Age=86400")));
+    }
+
+    @Test
+    void forwardedHttpsRequestIssuesSecureCookie() throws Exception {
+        when(authService.login("member@rexchain.vn", "secret", false)).thenReturn("signed-jwt");
+        when(jwtService.expirationMs(false)).thenReturn(86_400_000L);
+
+        mockMvc.perform(post("/auth/login").header("X-Forwarded-Proto", "https").with(csrf())
+                        .param("identifier", "member@rexchain.vn").param("password", "secret"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Set-Cookie", containsString("Secure")));
+    }
+
+    @Test
+    void logoutRevokesCurrentJwtAndClearsHttpOnlyCookie() throws Exception {
+        String token = "existing-jwt";
+        java.time.Instant expiresAt = java.time.Instant.now().plusSeconds(600);
+        when(jwtService.valid(token)).thenReturn(true);
+        when(jwtService.extractExpiration(token)).thenReturn(expiresAt);
+
+        mockMvc.perform(post("/auth/logout").with(csrf()).cookie(new jakarta.servlet.http.Cookie("access_token", token)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Set-Cookie", containsString("access_token=")))
+                .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")))
+                .andExpect(header().string("Set-Cookie", containsString("HttpOnly")));
+
+        org.mockito.Mockito.verify(revocationService).revoke(token, expiresAt);
     }
 
     @Test
@@ -148,5 +201,133 @@ class AuthControllerSecurityTest {
 
         org.mockito.Mockito.verify(authService, org.mockito.Mockito.never())
                 .register(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void blankOtpIsRejectedBeforeVerificationOrUserCreation() throws Exception {
+        mockMvc.perform(post("/api/auth/register/verify-otp")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"email":"blank-otp@example.invalid","otp":""}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        org.mockito.Mockito.verify(otpService, org.mockito.Mockito.never())
+                .verifyOtp(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.verify(authService, org.mockito.Mockito.never())
+                .createUserAfterOtp(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void wrongOtpCannotCreateUser() throws Exception {
+        String email = "wrong-otp@example.invalid";
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("Invalid OTP"))
+                .when(otpService).verifyOtp(email, "000000");
+
+        mockMvc.perform(post("/api/auth/register/verify-otp")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"email":"wrong-otp@example.invalid","otp":"000000"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("OTP")));
+
+        org.mockito.Mockito.verify(authService, org.mockito.Mockito.never())
+                .createUserAfterOtp(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void expiredOtpCannotCreateUserOnHtmlRegistrationVerificationRoute() throws Exception {
+        String email = "expired-otp@example.invalid";
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("OTP expired"))
+                .when(otpService).verifyOtp(email, "123456");
+
+        mockMvc.perform(post("/auth/register/verify-otp")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"email":"expired-otp@example.invalid","otp":"123456"}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        org.mockito.Mockito.verify(authService, org.mockito.Mockito.never())
+                .createUserAfterOtp(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void replayedOtpProofCreatesAtMostOneUser() throws Exception {
+        String email = "replay-otp@example.invalid";
+        RegisterRequest verified = new RegisterRequest("Test Member", email, "0800000002", "Nam",
+                java.time.LocalDate.of(1990, 1, 1), "TestPassword123", "TestPassword123", true);
+        org.mockito.Mockito.when(otpService.verifyOtp(email, "654321"))
+                .thenReturn(verified)
+                .thenThrow(new IllegalArgumentException("OTP already consumed"));
+
+        String request = """
+                {"email":"replay-otp@example.invalid","otp":"654321"}
+                """;
+        mockMvc.perform(post("/api/auth/register/verify-otp")
+                        .with(csrf()).contentType("application/json").content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        mockMvc.perform(post("/api/auth/register/verify-otp")
+                        .with(csrf()).contentType("application/json").content(request))
+                .andExpect(status().isBadRequest());
+
+        org.mockito.Mockito.verify(authService, org.mockito.Mockito.times(1)).createUserAfterOtp(verified);
+    }
+
+    @Test
+    void correctOtpOnRegistrationRouteCreatesUserExactlyOnce() throws Exception {
+        String email = "correct-otp@example.invalid";
+        RegisterRequest verified = new RegisterRequest("Test Member", email, "0800000003", "Nam",
+                java.time.LocalDate.of(1990, 1, 1), "TestPassword123", "TestPassword123", true);
+        org.mockito.Mockito.when(otpService.verifyOtp(email, "246810")).thenReturn(verified);
+
+        mockMvc.perform(post("/auth/register/verify-otp")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"email":"correct-otp@example.invalid","otp":"246810"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.redirectUrl").value("/login?registered"));
+
+        org.mockito.Mockito.verify(authService, org.mockito.Mockito.times(1)).createUserAfterOtp(verified);
+    }
+
+    @Test
+    void publicRoleFieldCannotElevateOtpRegistrationToAdmin() throws Exception {
+        String email = "role-injection@example.invalid";
+        org.mockito.ArgumentCaptor<RegisterRequest> registration =
+                org.mockito.ArgumentCaptor.forClass(RegisterRequest.class);
+
+        mockMvc.perform(post("/api/auth/register/send-otp")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"fullName":"Test Member","email":"role-injection@example.invalid",
+                                 "phone":"0800000005","gender":"Nam","birthDate":"1990-01-01",
+                                 "password":"TestPassword123","confirmPassword":"TestPassword123",
+                                 "termsAccepted":true,"role":"ADMIN"}
+                                """))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(otpService).generateAndSendOtp(registration.capture());
+        RegisterRequest storedRegistration = registration.getValue();
+        org.mockito.Mockito.when(otpService.verifyOtp(email, "135790")).thenReturn(storedRegistration);
+
+        mockMvc.perform(post("/api/auth/register/verify-otp")
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"email":"role-injection@example.invalid","otp":"135790"}
+                                """))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(authService).createUserAfterOtp(storedRegistration);
     }
 }

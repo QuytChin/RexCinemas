@@ -5,6 +5,7 @@ import com.rexchain.cinema.security.CsrfCookieFilter;
 import com.rexchain.cinema.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -47,9 +48,10 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwt,
-                                    AuthenticationProvider authenticationProvider) throws Exception {
+                                    AuthenticationProvider authenticationProvider,
+                                    @Value("${app.cookie.secure:true}") boolean secureCookie) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        csrfRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/"));
+        csrfRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/").secure(secureCookie));
         CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
         csrfHandler.setCsrfRequestAttributeName(null);
         http.csrf(csrf -> csrf
@@ -66,7 +68,8 @@ public class SecurityConfig {
                                 "/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook").permitAll()
                         .requestMatchers(HttpMethod.GET, "/movies/**", "/schedule", "/articles/**",
                                 "/api/movies/**", "/api/showtimes/*/seats", "/api/snacks").permitAll()
-                        .requestMatchers("/admin/users/**", "/admin/payments/**", "/admin/transactions/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/users/**", "/admin/payments/**", "/admin/transactions/**", "/admin/late-payments/**",
+                                "/admin/bookings/*/refund").hasRole("ADMIN")
                         .requestMatchers("/admin/rewards/**").hasRole("ADMIN")
                         .requestMatchers("/admin/**").hasAnyRole("ADMIN", "CINEMA_MANAGER")
                         .anyRequest().authenticated())

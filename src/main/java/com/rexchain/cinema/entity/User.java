@@ -41,6 +41,8 @@ public class User {
     private Role role = Role.CUSTOMER;
     @Column(nullable = false)
     private boolean enabled = true;
+    @Column(name = "credential_version", nullable = false)
+    private int credentialVersion = 0;
     @Column(nullable = false)
     private int loyaltyPoints = 0;
     @Column(nullable = false)
@@ -84,6 +86,8 @@ public class User {
     public void setRole(Role role){ this.role = role; }
     public boolean isEnabled(){ return enabled; }
     public void setEnabled(boolean enabled){ this.enabled = enabled; }
+    public int getCredentialVersion(){ return credentialVersion; }
+    public void setCredentialVersion(int credentialVersion){ this.credentialVersion = Math.max(0, credentialVersion); }
     public int getLoyaltyPoints(){ return loyaltyPoints; }
     public void setLoyaltyPoints(int loyaltyPoints){ this.loyaltyPoints = Math.max(0, loyaltyPoints); }
     public int getLifetimePoints(){ return lifetimePoints; }

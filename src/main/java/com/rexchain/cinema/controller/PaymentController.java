@@ -7,6 +7,7 @@ import com.rexchain.cinema.entity.User;
 import com.rexchain.cinema.repository.BookingRepository;
 import com.rexchain.cinema.repository.UserRepository;
 import com.rexchain.cinema.service.BankTransferPaymentService;
+import com.rexchain.cinema.service.BookingService;
 import com.rexchain.cinema.dto.BankTransferSnapshot;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -19,14 +20,16 @@ public class PaymentController {
     private final BookingRepository bookings;
     private final UserRepository users;
     private final BankTransferPaymentService bankTransferPaymentService;
+    private final BookingService bookingService;
 
     public PaymentController(
             BookingRepository bookings,
             UserRepository users,
-            BankTransferPaymentService bankTransferPaymentService) {
+            BankTransferPaymentService bankTransferPaymentService, BookingService bookingService) {
         this.bookings = bookings;
         this.users = users;
         this.bankTransferPaymentService = bankTransferPaymentService;
+        this.bookingService = bookingService;
     }
 
     @GetMapping("/payment/{bookingId}/start")
@@ -42,6 +45,7 @@ public class PaymentController {
         }
 
         if (booking.getPaymentMethod() == PaymentMethod.BANK_QR) {
+            booking = bookingService.expireIfDue(booking.getBookingCode());
             return "redirect:/payment/" + booking.getId() + "/bank-qr";
         }
 
@@ -56,6 +60,7 @@ public class PaymentController {
             throw new IllegalStateException("Không có quyền xem thanh toán booking này");
         if (booking.getPaymentMethod() != PaymentMethod.BANK_QR)
             return "redirect:/payment/" + booking.getId() + "/start";
+        booking = bookingService.expireIfDue(booking.getBookingCode());
         if (booking.getStatus() != BookingStatus.PENDING)
             return "redirect:/bookings/" + booking.getId();
         try {

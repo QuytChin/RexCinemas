@@ -96,7 +96,8 @@
    const data=await r.json(); if(!r.ok)throw new Error(data.error||'Không thể giữ ghế');
    held=true; holdBtn.classList.add('d-none'); holdNotice.classList.remove('d-none');
    seats.forEach(b=>{b.disabled=true;if(selected.has(Number(b.dataset.id)))b.classList.add('selected')});
-   startCountdown(300); render(); showStage('combo');
+   const expiresMs = data.expiresAt ? Date.parse(String(data.expiresAt).replace(' ', 'T')) : NaN;
+   startCountdown(Number.isFinite(expiresMs) ? Math.max(0, Math.floor((expiresMs-Date.now())/1000)) : 0); render(); showStage('combo');
   }catch(e){showSeatError(e.message);holdBtn.disabled=false}
  });
  document.getElementById('goPayment')?.addEventListener('click',()=>{showStage('payment');requestQuote()});

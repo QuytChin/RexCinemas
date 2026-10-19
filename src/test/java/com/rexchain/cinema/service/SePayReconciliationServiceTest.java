@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -50,11 +51,12 @@ class SePayReconciliationServiceTest {
         when(snapshots.findByBookingCode("REX-1")).thenReturn(Optional.of(snapshot));
         Booking confirmed = booking(BookingStatus.CONFIRMED, BigDecimal.valueOf(100_000));
         confirmed.setBookingCode("REX-1"); confirmed.setPaymentReference("REXABC");
-        when(bookingService.completeOnlinePayment("REX-1", "tx-1")).thenReturn(confirmed);
+        when(bookingService.completeOnlinePayment("REX-1", "tx-1", LocalDateTime.of(2026, 10, 20, 3, 59)))
+                .thenReturn(confirmed);
 
         service.process(transaction("tx-1", "REXABC", "100000"));
 
-        verify(bookingService).completeOnlinePayment("REX-1", "tx-1");
+        verify(bookingService).completeOnlinePayment("REX-1", "tx-1", LocalDateTime.of(2026, 10, 20, 3, 59));
         verify(transactions).updateStatus("tx-1", "SETTLED", "REX-1", "REXABC", "CONFIRMED");
     }
 
@@ -94,7 +96,7 @@ class SePayReconciliationServiceTest {
     }
 
     private SePayWebhookRequest transaction(String id, String code, String amount) {
-        return new SePayWebhookRequest(id, "MBBank", null, "123456", null, code,
+        return new SePayWebhookRequest(id, "MBBank", "2026-10-20T03:59:00", "123456", null, code,
                 code, "in", new BigDecimal(amount), "REF-" + id);
     }
 }

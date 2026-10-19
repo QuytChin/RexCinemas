@@ -1,6 +1,7 @@
 package com.rexchain.cinema.service;
 
 import com.rexchain.cinema.entity.*;
+import com.rexchain.cinema.dto.ManualRefundConfirmation;
 import com.rexchain.cinema.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -54,6 +55,11 @@ public class PaymentService {
 
     @Transactional
     public Booking completeOnlinePayment(String bookingCode, String reference) {
+        return completeOnlinePayment(bookingCode, reference, LocalDateTime.now());
+    }
+
+    @Transactional
+    public Booking completeOnlinePayment(String bookingCode, String reference, LocalDateTime bankRecordedAt) {
         String normalizedReference = requireReference(reference);
         Booking booking = bookings.findByBookingCodeForUpdate(bookingCode)
                 .orElseThrow(() -> new IllegalArgumentException("Booking không tồn tại"));
@@ -67,11 +73,9 @@ public class PaymentService {
 
         LocalDateTime now = LocalDateTime.now();
         if (booking.getStatus() == BookingStatus.EXPIRED
-                || booking.getStatus() == BookingStatus.CANCELLED
-                || (booking.getStatus() == BookingStatus.PENDING
-                    && booking.getExpiresAt() != null && !booking.getExpiresAt().isAfter(now))) {
-            return markPaidForRefund(booking, normalizedReference, now);
-        }
+                || booking.getStatus() == BookingStatus.CANCELLED) return booking;
+        if (bankRecordedAt == null || booking.getExpiresAt() == null || !bankRecordedAt.isBefore(booking.getExpiresAt()))
+            return expirePendingBooking(booking);
         if (booking.getStatus() != BookingStatus.PENDING)
             throw new IllegalStateException("Booking không còn chờ thanh toán");
 
@@ -81,8 +85,8 @@ public class PaymentService {
         boolean seatHoldValid = lockedSeats.size() == seatIds.size()
                 && lockedSeats.stream().allMatch(seat -> seat.getStatus() == SeatStatus.HELD
                     && Objects.equals(seat.getHeldByUserId(), booking.getUser().getId())
-                    && seat.getHoldUntil() != null && seat.getHoldUntil().isAfter(now));
-        if (!seatHoldValid) return markPaidForRefund(booking, normalizedReference, now);
+                    && seat.getHoldUntil() != null && seat.getHoldUntil().isAfter(bankRecordedAt));
+        if (!seatHoldValid) return expirePendingBooking(booking);
 
         Map<Long, Integer> requiredStock = booking.getCombos().stream()
                 .filter(line -> line.getCombo() != null)
@@ -99,12 +103,11 @@ public class PaymentService {
                 && lockedVoucher.isActive()
                 && (lockedVoucher.getUsageLimit() == null
                     || lockedVoucher.getUsedCount() < lockedVoucher.getUsageLimit()));
-        if (!stockAvailable || !voucherAvailable)
-            return markPaidForRefund(booking, normalizedReference, now);
+        if (!stockAvailable || !voucherAvailable) return expirePendingBooking(booking);
 
         booking.setStatus(BookingStatus.CONFIRMED);
         recordProviderReference(booking, normalizedReference);
-        booking.setPaidAt(now);
+        booking.setPaidAt(bankRecordedAt);
         booking.setExpiresAt(null);
 
         for (ShowtimeSeat seat : lockedSeats) {
@@ -151,27 +154,53 @@ public class PaymentService {
             Booking booking = bookings.findByIdForUpdate(id).orElse(null);
             if (booking == null || booking.getStatus() != BookingStatus.PENDING
                     || booking.getExpiresAt() == null || booking.getExpiresAt().isAfter(now)) continue;
-            booking.setStatus(BookingStatus.EXPIRED);
-            seatReservationService.releaseBookingSeats(booking);
-            bookings.save(booking);
+            expirePendingBooking(booking);
         }
     }
 
+    /** Performs the same expiry transition during a user-visible QR request as the scheduler. */
     @Transactional
-    public Booking processRefund(Long bookingId, String operatorEmail, String note) {
+    public Booking expireIfDue(String bookingCode) {
+        Booking booking = bookings.findByBookingCodeForUpdate(bookingCode)
+                .orElseThrow(() -> new IllegalArgumentException("Booking không tồn tại"));
+        if (booking.getStatus() == BookingStatus.PENDING && booking.getExpiresAt() != null
+                && !booking.getExpiresAt().isAfter(LocalDateTime.now()))
+            return expirePendingBooking(booking);
+        return booking;
+    }
+
+    @Transactional
+    public Booking processRefund(Long bookingId, Long operatorUserId, String operatorEmail,
+                                 ManualRefundConfirmation confirmation) {
         Booking booking = bookings.findByIdForUpdate(bookingId).orElseThrow();
-        boolean paidCancellation = booking.getStatus() == BookingStatus.CANCELLED && booking.getPaidAt() != null;
-        if (booking.getStatus() != BookingStatus.REFUND_PENDING && !paidCancellation)
-            throw new IllegalStateException("Chỉ giao dịch đã thu tiền và đang chờ hoàn mới có thể xác nhận hoàn tiền");
+        if (booking.getStatus() == BookingStatus.REFUNDED)
+            return booking; // The locked row makes a repeated confirmation a no-op.
+        if (booking.getStatus() != BookingStatus.REFUND_PENDING)
+            throw new IllegalStateException("Chỉ booking đang chờ hoàn tiền mới có thể xác nhận hoàn");
+        if (operatorUserId == null || operatorEmail == null || operatorEmail.isBlank())
+            throw new IllegalArgumentException("Không xác định được quản trị viên xác nhận hoàn tiền");
+        if (confirmation == null)
+            throw new IllegalArgumentException("Phải cung cấp chứng từ xác nhận hoàn tiền thủ công");
+        confirmation.validateFor(booking);
+
         booking.setStatus(BookingStatus.REFUNDED);
         booking.setRefundedAt(LocalDateTime.now());
         booking.setRefundedBy(operatorEmail);
-        booking.setRefundNote(note != null && !note.isBlank() ? note.trim() : "Đã xác nhận hoàn tiền");
-        // Safe if cancellation already reversed points: the loyalty ledger is idempotent per booking.
+        booking.setRefundedByUserId(operatorUserId);
+        booking.setRefundReference(confirmation.transferReference());
+        booking.setRefundAmount(confirmation.amount());
+        booking.setRefundNote(confirmation.note());
+        booking.setRefundEvidence(confirmation.evidence());
+        releaseConfirmedResources(booking);
         reversePoints(booking);
         Booking saved = bookings.save(booking);
         if (notifications != null) notifications.refundProcessed(saved);
         return saved;
+    }
+
+    /** Notify the customer that the manual transfer has not been confirmed yet. */
+    public void notifyRefundPending(Booking booking) {
+        if (notifications != null) notifications.refundPending(booking);
     }
 
     public void awardPoints(Booking booking) {
@@ -218,13 +247,29 @@ public class PaymentService {
         if (rewardRedemptions != null) rewardRedemptions.restoreRewardVoucher(locked);
     }
 
-    private Booking markPaidForRefund(Booking booking, String reference, LocalDateTime paidAt) {
-        booking.setStatus(BookingStatus.REFUND_PENDING);
-        recordProviderReference(booking, normalizeReference(reference));
-        booking.setPaidAt(paidAt);
-        booking.setExpiresAt(null);
-        seatReservationService.releaseBookingSeats(booking);
+    private Booking expirePendingBooking(Booking booking) {
+        if (booking.getStatus() != BookingStatus.PENDING) return booking;
+        booking.setStatus(BookingStatus.EXPIRED);
+        // A pending booking may already have reserved combo stock and voucher usage.
+        // Release all temporary resources atomically with the status transition.
+        releaseConfirmedResources(booking);
         return bookings.save(booking);
+    }
+
+    /** Paid booking resources remain reserved until a manual refund is actually confirmed. */
+    private void releaseConfirmedResources(Booking booking) {
+        seatReservationService.releaseBookingSeats(booking);
+        Map<Long, Integer> restore = new TreeMap<>();
+        for (BookingCombo line : booking.getCombos()) {
+            if (line.getCombo() != null) restore.merge(line.getCombo().getId(), line.getQuantity(), Integer::sum);
+        }
+        if (!restore.isEmpty()) {
+            List<ComboProduct> locked = combos.findByIdInForUpdate(new ArrayList<>(restore.keySet()));
+            for (ComboProduct combo : locked) combo.setStockQuantity(combo.getStockQuantity() + restore.get(combo.getId()));
+            combos.saveAll(locked);
+        }
+        if (booking.getVoucherCode() != null)
+            vouchers.findByCodeIgnoreCaseForUpdate(booking.getVoucherCode()).ifPresent(this::decrementVoucher);
     }
 
     private void verifySameReference(Booking booking, String reference) {

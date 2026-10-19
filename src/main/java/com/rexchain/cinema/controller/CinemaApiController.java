@@ -143,10 +143,11 @@ public class CinemaApiController {
     }
 
     @GetMapping("/payment-status/{bookingCode}")
-    @Transactional(readOnly = true)
+    @Transactional
     public ResponseEntity<?> paymentStatus(@PathVariable String bookingCode, Authentication authentication) {
-        Booking booking = bookings.findByBookingCode(bookingCode).orElse(null);
-        if (booking == null) return ResponseEntity.notFound().build();
+        Booking booking;
+        try { booking = bookingService.expireIfDue(bookingCode); }
+        catch (IllegalArgumentException ex) { return ResponseEntity.notFound().build(); }
         User user = current(authentication);
         if (user.getRole() == Role.CUSTOMER && !booking.getUser().getId().equals(user.getId())) {
             return ResponseEntity.status(403).body(Map.of("error", "Không có quyền xem booking này"));

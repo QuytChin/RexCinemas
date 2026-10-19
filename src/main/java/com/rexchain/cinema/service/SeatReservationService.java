@@ -5,8 +5,11 @@ import com.rexchain.cinema.entity.BookingSeat;
 import com.rexchain.cinema.entity.SeatStatus;
 import com.rexchain.cinema.entity.Showtime;
 import com.rexchain.cinema.entity.ShowtimeSeat;
+import com.rexchain.cinema.entity.SeatHoldSession;
 import com.rexchain.cinema.repository.ShowtimeRepository;
 import com.rexchain.cinema.repository.ShowtimeSeatRepository;
+import com.rexchain.cinema.repository.SeatHoldSessionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,22 +27,33 @@ public class SeatReservationService {
     private final ShowtimeRepository showtimes;
     private final com.rexchain.cinema.repository.BookingSeatRepository bookingSeats;
     private final SeatBroadcastService broadcast;
+    private final SeatHoldSessionRepository holdSessions;
 
+    @Autowired
     public SeatReservationService(ShowtimeSeatRepository seats,
                                   ShowtimeRepository showtimes,
                                   com.rexchain.cinema.repository.BookingSeatRepository bookingSeats,
-                                  SeatBroadcastService broadcast) {
+                                  SeatBroadcastService broadcast,
+                                  SeatHoldSessionRepository holdSessions) {
         this.seats = seats;
         this.showtimes = showtimes;
         this.bookingSeats = bookingSeats;
         this.broadcast = broadcast;
+        this.holdSessions = holdSessions;
+    }
+
+    /** Compatibility constructor for isolated tests written before checkout sessions existed. */
+    SeatReservationService(ShowtimeSeatRepository seats, ShowtimeRepository showtimes,
+                           com.rexchain.cinema.repository.BookingSeatRepository bookingSeats,
+                           SeatBroadcastService broadcast) {
+        this(seats, showtimes, bookingSeats, broadcast, null);
     }
 
     /**
      * Giữ ghế tạm thời (5 phút) với Pessimistic Lock và kiểm tra Orphan Seat.
      */
     @Transactional
-    public void holdSeats(Long userId, Long showtimeId, List<Long> ids) {
+    public LocalDateTime holdSeats(Long userId, Long showtimeId, List<Long> ids) {
         if (ids == null || ids.isEmpty())
             throw new IllegalArgumentException("Hãy chọn ít nhất một ghế");
         if (ids.size() > 10)
@@ -58,6 +72,10 @@ public class SeatReservationService {
             throw new IllegalArgumentException("Danh sách ghế có dữ liệu trùng hoặc không hợp lệ");
 
         // Lock one stable seat-map snapshot so two concurrent selections cannot bypass the orphan rule.
+        LocalDateTime holdExpiresAt = checkoutExpiresAt(userId, showtime, now);
+        if (!holdExpiresAt.isAfter(now))
+            throw new IllegalStateException("Phiên thanh toán đã hết hạn; vui lòng bắt đầu lại");
+
         List<ShowtimeSeat> allSeats = seats.findByShowtimeIdForUpdate(showtimeId);
         Map<Long, ShowtimeSeat> byId = allSeats.stream()
                 .collect(Collectors.toMap(ShowtimeSeat::getId, seat -> seat));
@@ -87,10 +105,30 @@ public class SeatReservationService {
 
             seat.setStatus(SeatStatus.HELD);
             seat.setHeldByUserId(userId);
-            seat.setHoldUntil(now.plusMinutes(5));
+            seat.setHoldUntil(holdExpiresAt);
         }
         seats.saveAllAndFlush(list);
         broadcast.send(showtimeId, requestedIds, "HELD");
+        return holdExpiresAt;
+    }
+
+    private LocalDateTime checkoutExpiresAt(Long userId, Showtime showtime, LocalDateTime now) {
+        if (holdSessions == null) return now.plusMinutes(5);
+        SeatHoldSession session = holdSessions.findByUserIdAndShowtimeIdForUpdate(userId, showtime.getId())
+                .orElse(null);
+        if (session == null) {
+            session = new SeatHoldSession();
+            session.setUserId(userId);
+            session.setShowtime(showtime);
+            session.setExpiresAt(now.plusMinutes(5));
+            holdSessions.save(session);
+            return session.getExpiresAt();
+        }
+        if (!session.getExpiresAt().isAfter(now)) {
+            session.setExpiresAt(now.plusMinutes(5));
+            holdSessions.save(session);
+        }
+        return session.getExpiresAt();
     }
 
     /**

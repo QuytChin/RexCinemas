@@ -1,5 +1,6 @@
 package com.rexchain.cinema.repository;
 import com.rexchain.cinema.entity.User;
+import com.rexchain.cinema.entity.Role;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -13,6 +14,7 @@ public interface UserRepository extends JpaRepository<User,Long>{
     boolean existsByUsernameIgnoreCase(String username);
     boolean existsByPhone(String phone);
     boolean existsByNationalId(String nationalId);
+    List<User> findByRole(Role role);
 
     @Query("select u from User u where lower(u.email) = lower(:identifier) or lower(u.username) = lower(:identifier) or u.phone = :identifier")
     List<User> findAllByLoginIdentifier(@Param("identifier") String identifier);

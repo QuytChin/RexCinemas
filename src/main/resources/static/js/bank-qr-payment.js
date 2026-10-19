@@ -27,7 +27,7 @@
     if (!Number.isFinite(expiresMs)) return;
     const left = Math.max(0, Math.floor((expiresMs - Date.now()) / 1000));
     countdown.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
-    if (!left && !terminal) statusText.textContent = 'Đã hết thời gian giữ ghế';
+    if (!left && !terminal) statusText.textContent = 'Đã hết thời gian giữ ghế, đang xác nhận trạng thái';
   };
   const poll = async () => {
     if (terminal) return;

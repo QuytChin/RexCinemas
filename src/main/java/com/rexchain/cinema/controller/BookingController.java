@@ -60,8 +60,8 @@ public class BookingController {
     ResponseEntity<?> hold(@PathVariable Long showtimeId, @Valid @RequestBody HoldRequest req, Authentication auth) {
         try {
             User user = current(auth);
-            service.holdSeats(user.getId(), showtimeId, req.seatIds());
-            return ResponseEntity.ok(Map.of("message", "Đã giữ ghế trong 5 phút"));
+            java.time.LocalDateTime expiresAt = service.holdSeats(user.getId(), showtimeId, req.seatIds());
+            return ResponseEntity.ok(Map.of("message", "Đã giữ ghế trong 5 phút", "expiresAt", expiresAt));
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body(Map.of("error", safeMessage(ex, "Không thể giữ ghế")));
         }
@@ -126,14 +126,18 @@ public class BookingController {
     String ticket(@PathVariable Long id, Authentication auth, Model model) {
         Booking booking = authorizedBooking(id, auth);
         boolean changed = false;
-        for (BookingSeat s : booking.getSeats()) {
-            if (s.getTicketCode() == null || s.getTicketCode().isBlank()) {
-                s.setTicketCode("TKT-" + booking.getBookingCode() + "-" + s.getSeatLabel());
-                changed = true;
-            }
-            if (s.getQrToken() == null || s.getQrToken().isBlank()) {
-                s.setQrToken(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""));
-                changed = true;
+        // Ticket identifiers are issued only after settlement. EXPIRED and refund-pending
+        // bookings may still be viewed for status/support, but must never receive a QR token.
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            for (BookingSeat s : booking.getSeats()) {
+                if (s.getTicketCode() == null || s.getTicketCode().isBlank()) {
+                    s.setTicketCode("TKT-" + booking.getBookingCode() + "-" + s.getSeatLabel());
+                    changed = true;
+                }
+                if (s.getQrToken() == null || s.getQrToken().isBlank()) {
+                    s.setQrToken(UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", ""));
+                    changed = true;
+                }
             }
         }
         if (changed) {

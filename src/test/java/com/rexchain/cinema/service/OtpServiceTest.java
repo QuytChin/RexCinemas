@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -131,22 +132,26 @@ class OtpServiceTest {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger customersCreated = new AtomicInteger();
         try {
-            Future<Boolean> first = executor.submit(() -> verifyAfterGate(request.email(), code, ready, start));
-            Future<Boolean> second = executor.submit(() -> verifyAfterGate(request.email(), code, ready, start));
+            Future<Boolean> first = executor.submit(() -> verifyAfterGate(request.email(), code, ready, start, customersCreated));
+            Future<Boolean> second = executor.submit(() -> verifyAfterGate(request.email(), code, ready, start, customersCreated));
             ready.await();
             start.countDown();
             assertThat((first.get() ? 1 : 0) + (second.get() ? 1 : 0)).isEqualTo(1);
+            assertThat(customersCreated).hasValue(1);
         } finally {
             executor.shutdownNow();
         }
     }
 
-    private boolean verifyAfterGate(String email, String code, CountDownLatch ready, CountDownLatch start) throws Exception {
+    private boolean verifyAfterGate(String email, String code, CountDownLatch ready, CountDownLatch start,
+                                    AtomicInteger customersCreated) throws Exception {
         ready.countDown();
         start.await();
         try {
             otpService.verifyOtp(email, code);
+            customersCreated.incrementAndGet();
             return true;
         } catch (IllegalArgumentException expected) {
             return false;

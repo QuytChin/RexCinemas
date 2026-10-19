@@ -1,6 +1,7 @@
 package com.rexchain.cinema.config;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Profile;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,6 +19,7 @@ class RuntimeConfigurationContractTest {
     void requiredRuntimeCredentialsComeFromEnvironmentWithoutFallbacks() throws IOException {
         Properties base = properties("application.properties");
         Properties mysql = properties("application-mysql.properties");
+        Properties sqlserver = properties("application-sqlserver.properties");
 
         assertThat(base.getProperty("app.jwt.secret")).isEqualTo("${JWT_SECRET:}");
         assertEnvironmentOnly(base, "spring.mail.username", "MAIL_USERNAME", true);
@@ -27,6 +29,10 @@ class RuntimeConfigurationContractTest {
         assertBlankEnvironmentPlaceholder(base, "app.seed.admin-password");
         assertBlankEnvironmentPlaceholder(base, "app.seed.demo-customer-password");
         assertBlankEnvironmentPlaceholder(base, "app.seed.demo-manager-password");
+        assertThat(mysql.getProperty("spring.sql.init.mode")).isEqualTo("never");
+        assertThat(sqlserver.getProperty("spring.sql.init.mode")).isEqualTo("never");
+        assertThat(sqlserver.getProperty("spring.flyway.enabled")).isEqualTo("${FLYWAY_ENABLED:false}");
+        assertThat(sqlserver.getProperty("spring.flyway.baseline-on-migrate")).isEqualTo("false");
     }
 
     @Test
@@ -51,10 +57,16 @@ class RuntimeConfigurationContractTest {
         Properties prod = properties("application-prod.properties");
 
         assertThat(dev.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("${HIBERNATE_DDL_AUTO:update}");
+        assertThat(dev.getProperty("app.seed.enabled")).isEqualTo("${SEED_ENABLED:false}");
         assertThat(dev.getProperty("app.cookie.secure")).isEqualTo("${COOKIE_SECURE:false}");
         assertThat(prod.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");
         assertThat(prod.getProperty("spring.sql.init.mode")).isEqualTo("never");
+        assertThat(prod.getProperty("spring.flyway.baseline-on-migrate")).isEqualTo("false");
+        assertThat(prod.getProperty("app.seed.enabled")).isEqualTo("false");
         assertThat(prod.getProperty("app.cookie.secure")).isEqualTo("true");
+        assertThat(properties("application.properties").getProperty("server.forward-headers-strategy"))
+                .isEqualTo("framework");
+        assertThat(DataSeeder.class.getAnnotation(Profile.class).value()).containsExactly("dev");
     }
 
     private Properties properties(String name) throws IOException {

@@ -7,6 +7,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
@@ -14,6 +15,7 @@ import java.time.*;
 import java.util.List;
 
 @Configuration
+@Profile("dev")
 public class DataSeeder {
     @Bean
     CommandLineRunner seed(UserRepository users, MovieRepository movies, CinemaRepository cinemas,
@@ -24,10 +26,12 @@ public class DataSeeder {
                            SeatRepository seats, ShowtimeSeatRepository showtimeSeats,
                            @Value("${app.seed.admin-email:admin@rexchain.vn}") String adminEmail,
                            @Value("${app.seed.admin-password:}") String adminPassword,
+                           @Value("${app.seed.enabled:false}") boolean seedEnabled,
                            @Value("${app.seed.demo-users:false}") boolean seedDemoUsers,
                            @Value("${app.seed.demo-customer-password:}") String demoCustomerPassword,
                            @Value("${app.seed.demo-manager-password:}") String demoManagerPassword) {
         return args -> {
+            if (!seedEnabled) return;
             seedUsers(users, passwordEncoder, adminEmail, adminPassword, seedDemoUsers,
                     demoCustomerPassword, demoManagerPassword);
             if (seedDemoUsers) ensureDemoMembership(users);
@@ -102,6 +106,9 @@ public class DataSeeder {
 
     private void upsertUser(UserRepository users, PasswordEncoder encoder, String email, String name, String password, Role role) {
         User user = users.findByEmailIgnoreCase(email).orElseGet(User::new);
+        if (user.getId() != null && !encoder.matches(password, user.getPassword())) {
+            user.setCredentialVersion(user.getCredentialVersion() + 1);
+        }
         user.setEmail(email.trim().toLowerCase());
         user.setFullName(name);
         user.setPassword(encoder.encode(password));

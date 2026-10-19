@@ -67,7 +67,7 @@ public class PaymentTransactionRepository {
 
     public void updateStatus(String providerId, String status, String bookingCode, String paymentReference, String reason) {
         jdbc.update("UPDATE payment_transactions SET status=?, booking_code=?, payment_reference=?, reason=?, " +
-                        "verified_at=CASE WHEN ? IN ('VERIFIED','SETTLED','REFUND_PENDING') THEN COALESCE(verified_at,CURRENT_TIMESTAMP) ELSE verified_at END, " +
+                        "verified_at=CASE WHEN ? IN ('VERIFIED','SETTLED','REFUND_PENDING','LATE_PAYMENT_REFUND_PENDING') THEN COALESCE(verified_at,CURRENT_TIMESTAMP) ELSE verified_at END, " +
                         "settled_at=CASE WHEN ? IN ('SETTLED','REFUND_PENDING') THEN COALESCE(settled_at,CURRENT_TIMESTAMP) ELSE settled_at END " +
                         "WHERE provider_transaction_id=?", status, bookingCode, paymentReference, reason, status, status, providerId);
     }

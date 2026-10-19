@@ -144,6 +144,6 @@ public class AuthService {
         if (matches.size() != 1) throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
         User user = matches.getFirst();
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getEmail(), password));
-        return jwt.generate(user.getEmail(), user.getRole().name(), remember);
+        return jwt.generate(user.getEmail(), user.getRole().name(), remember, user.getCredentialVersion());
     }
 }

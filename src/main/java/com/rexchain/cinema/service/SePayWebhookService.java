@@ -17,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 @Service
 public class SePayWebhookService {
@@ -25,22 +28,31 @@ public class SePayWebhookService {
     private final SePayProperties properties;
     private final PaymentTransactionRepository transactions;
     private final BankTransferSnapshotRepository snapshots;
+    private final LatePaymentCaseService latePaymentCases;
 
     /** Compatibility constructor for focused tests from before the reconciliation ledger. */
     public SePayWebhookService(BookingRepository bookings, BookingService bookingService,
                                SePayProperties properties) {
-        this(bookings, bookingService, properties, null, null);
+        this(bookings, bookingService, properties, null, null, null);
+    }
+
+    /** Compatibility constructor for reconciliation tests that do not need late-case persistence. */
+    public SePayWebhookService(BookingRepository bookings, BookingService bookingService,
+                               SePayProperties properties, PaymentTransactionRepository transactions,
+                               BankTransferSnapshotRepository snapshots) {
+        this(bookings, bookingService, properties, transactions, snapshots, null);
     }
 
     @Autowired
     public SePayWebhookService(BookingRepository bookings, BookingService bookingService,
                                SePayProperties properties, PaymentTransactionRepository transactions,
-                               BankTransferSnapshotRepository snapshots) {
+                               BankTransferSnapshotRepository snapshots, LatePaymentCaseService latePaymentCases) {
         this.bookings = bookings;
         this.bookingService = bookingService;
         this.properties = properties;
         this.transactions = transactions;
         this.snapshots = snapshots;
+        this.latePaymentCases = latePaymentCases;
     }
 
     @Transactional
@@ -106,9 +118,16 @@ public class SePayWebhookService {
         transactions.findByProviderId(transaction.id().trim())
                 .ifPresent(value -> transactions.audit(value.getId(), "VERIFIED", "SEPAY", "Đủ điều kiện settlement"));
 
-        Booking settled = bookingService.completeOnlinePayment(booking.getBookingCode(), trim(transaction.id()));
-        String status = settled.getStatus() == BookingStatus.CONFIRMED ? "SETTLED"
-                : settled.getStatus() == BookingStatus.REFUND_PENDING ? "REFUND_PENDING" : "NEEDS_REVIEW";
+        LocalDateTime bankRecordedAt = bankRecordedAt(transaction.transactionDate());
+        if (bankRecordedAt == null) {
+            review(transaction, ledgerId, booking, "Không xác định được thời điểm ngân hàng ghi nhận giao dịch");
+            return;
+        }
+        Booking settled = bookingService.completeOnlinePayment(booking.getBookingCode(), trim(transaction.id()), bankRecordedAt);
+        String status = settled.getStatus() == BookingStatus.CONFIRMED ? "SETTLED" : "LATE_PAYMENT_REFUND_PENDING";
+        if (settled.getStatus() != BookingStatus.CONFIRMED && latePaymentCases != null)
+            latePaymentCases.open(settled, trim(transaction.id()), transaction.transferAmount(), bankRecordedAt,
+                    "Giao dịch hợp lệ nhưng không thể xác nhận booking an toàn");
         transactions.updateStatus(transaction.id().trim(), status, settled.getBookingCode(),
                 settled.getPaymentReference(), settled.getStatus().name());
         transactions.findByProviderId(transaction.id().trim())
@@ -193,4 +212,16 @@ public class SePayWebhookService {
 
     private String trim(String value) { return blank(value) ? null : value.trim(); }
     private boolean blank(String value) { return value == null || value.isBlank(); }
+
+    private LocalDateTime bankRecordedAt(String raw) {
+        String value = trim(raw);
+        if (value == null) return null;
+        for (DateTimeFormatter formatter : List.of(DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
+                DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))) {
+            try { return LocalDateTime.parse(value, formatter); }
+            catch (DateTimeParseException ignored) { }
+        }
+        return null;
+    }
 }

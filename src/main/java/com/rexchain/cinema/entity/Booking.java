@@ -106,6 +106,18 @@ public class Booking {
     @Column(length = 255)
     private String refundNote;
 
+    /** Manual bank-transfer reconciliation evidence. Set only once the refund is verified. */
+    @Column(length = 120)
+    private String refundReference;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal refundAmount;
+
+    @Column(length = 600)
+    private String refundEvidence;
+
+    private Long refundedByUserId;
+
     /** When this PENDING booking should be auto-expired by the scheduled job. */
     private LocalDateTime expiresAt;
 
@@ -185,6 +197,14 @@ public class Booking {
     public void setRefundedBy(String refundedBy) { this.refundedBy = refundedBy; }
     public String getRefundNote() { return refundNote; }
     public void setRefundNote(String refundNote) { this.refundNote = refundNote; }
+    public String getRefundReference() { return refundReference; }
+    public void setRefundReference(String refundReference) { this.refundReference = refundReference; }
+    public BigDecimal getRefundAmount() { return refundAmount; }
+    public void setRefundAmount(BigDecimal refundAmount) { this.refundAmount = refundAmount; }
+    public String getRefundEvidence() { return refundEvidence; }
+    public void setRefundEvidence(String refundEvidence) { this.refundEvidence = refundEvidence; }
+    public Long getRefundedByUserId() { return refundedByUserId; }
+    public void setRefundedByUserId(Long refundedByUserId) { this.refundedByUserId = refundedByUserId; }
     public List<BookingCombo> getCombos() { return combos; }
     public void setCombos(List<BookingCombo> combos) { this.combos = combos; }
 }
