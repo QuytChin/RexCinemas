@@ -46,6 +46,12 @@ public class User {
     @Column(nullable = false)
     private int lifetimePoints = 0;
     @Column(nullable = false)
+    private int tierQualifyingPoints = 0;
+    @Column(nullable = false)
+    private int redeemedPoints = 0;
+    @Column(nullable = false)
+    private int reversedPoints = 0;
+    @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public Long getId(){ return id; }
@@ -82,22 +88,30 @@ public class User {
     public void setLoyaltyPoints(int loyaltyPoints){ this.loyaltyPoints = Math.max(0, loyaltyPoints); }
     public int getLifetimePoints(){ return lifetimePoints; }
     public void setLifetimePoints(int lifetimePoints){ this.lifetimePoints = Math.max(0, lifetimePoints); }
+    public int getTierQualifyingPoints(){ return tierQualifyingPoints; }
+    public void setTierQualifyingPoints(int value){ this.tierQualifyingPoints = Math.max(0, value); }
+    public int getRedeemedPoints(){ return redeemedPoints; }
+    public void setRedeemedPoints(int value){ this.redeemedPoints = Math.max(0, value); }
+    public int getReversedPoints(){ return reversedPoints; }
+    public void setReversedPoints(int value){ this.reversedPoints = Math.max(0, value); }
     public LocalDateTime getCreatedAt(){ return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt){ this.createdAt = createdAt; }
 
     @Transient
     public MembershipTier getMembershipTier(){
-        if (lifetimePoints >= 1200) return MembershipTier.DIAMOND;
-        if (lifetimePoints >= 600) return MembershipTier.GOLD;
-        if (lifetimePoints >= 250) return MembershipTier.SILVER;
+        int points = tierQualifyingPoints > 0 ? tierQualifyingPoints : lifetimePoints;
+        if (points >= 1200) return MembershipTier.DIAMOND;
+        if (points >= 600) return MembershipTier.GOLD;
+        if (points >= 250) return MembershipTier.SILVER;
         return MembershipTier.MEMBER;
     }
 
     @Transient
     public int getNextTierTarget(){
-        if (lifetimePoints < 250) return 250;
-        if (lifetimePoints < 600) return 600;
-        if (lifetimePoints < 1200) return 1200;
+        int points = tierQualifyingPoints > 0 ? tierQualifyingPoints : lifetimePoints;
+        if (points < 250) return 250;
+        if (points < 600) return 600;
+        if (points < 1200) return 1200;
         return 1200;
     }
 
@@ -105,10 +119,11 @@ public class User {
     public int getTierProgressPercent(){
         int start;
         int target;
-        if (lifetimePoints < 250) { start = 0; target = 250; }
-        else if (lifetimePoints < 600) { start = 250; target = 600; }
-        else if (lifetimePoints < 1200) { start = 600; target = 1200; }
+        int points = tierQualifyingPoints > 0 ? tierQualifyingPoints : lifetimePoints;
+        if (points < 250) { start = 0; target = 250; }
+        else if (points < 600) { start = 250; target = 600; }
+        else if (points < 1200) { start = 600; target = 1200; }
         else return 100;
-        return Math.min(100, Math.max(0, (int)Math.round((lifetimePoints - start) * 100.0 / (target - start))));
+        return Math.min(100, Math.max(0, (int)Math.round((points - start) * 100.0 / (target - start))));
     }
 }

@@ -96,7 +96,8 @@ public class HomeController {
     String schedule(@RequestParam(required = false) Long cinemaId,
                     @RequestParam(required = false) Long movieId,
                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                    Model model) {
+                    Model model, jakarta.servlet.http.HttpSession session) {
+        if (cinemaId == null) cinemaId = (Long) session.getAttribute("selectedCinemaId");
         LocalDate selectedDate = date == null ? LocalDate.now() : date;
         LocalDateTime fromTime = selectedDate.equals(LocalDate.now()) ? LocalDateTime.now() : selectedDate.atStartOfDay();
         List<Showtime> list = showtimes.findSchedule(fromTime, selectedDate.plusDays(1).atStartOfDay(), cinemaId, movieId);

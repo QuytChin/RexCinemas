@@ -10,6 +10,8 @@
  const holdNotice=document.getElementById('holdNotice');
  const seatIds=document.getElementById('seatIds');
  const comboQtys=[...document.querySelectorAll('.combo-qty')];
+ const comboIds=[...document.querySelectorAll('input[name="comboIds"]')];
+ const voucherInput=document.querySelector('input[name="voucherCode"]');
  const stageSeats=document.getElementById('stageSeats');
  const stageCombos=document.getElementById('stageCombos');
  const stagePayment=document.getElementById('stagePayment');
@@ -50,6 +52,22 @@
   if(!held) holdBtn.disabled=!selected.size;
   seatIds.value=[...selected.keys()].join(',');
  }
+ function rewardLine(id,label){
+  let line=document.getElementById(id);
+  if(!line){line=document.createElement('div');line.className='summary-line';line.id=id;line.innerHTML='<span></span><strong></strong>';const total=document.querySelector('.summary-total');total.parentNode.insertBefore(line,total)}
+  line.querySelector('span').textContent=label;return line.querySelector('strong');
+ }
+ async function requestQuote(){
+  if(!held||!selected.size)return;
+  try{
+   const r=await fetch(`/api/showtimes/${window.SHOWTIME_ID}/quote`,{method:'POST',headers:{'Content-Type':'application/json',...csrfHeaders()},body:JSON.stringify({seatIds:[...selected.keys()],comboIds:comboIds.map(x=>Number(x.value)),comboQtys:comboQtys.map(x=>Number(x.value)||0),voucherCode:voucherInput?.value||''})});
+   const data=await r.json();if(!r.ok)throw new Error(data.error||'Không thể tính ưu đãi');
+   grandPreview.textContent=money(data.totalAmount);
+   const voucher=rewardLine('voucherDiscountLine','Voucher');voucher.textContent=data.voucherDiscount?'-'+money(data.voucherDiscount):'0đ';
+   const membership=rewardLine('membershipDiscountLine','Rex Rewards');membership.textContent=data.membershipDiscount?'-'+money(data.membershipDiscount):'0đ';
+   const points=rewardLine('expectedPointsLine','Điểm dự kiến');points.textContent=(data.expectedPoints||0)+' điểm';
+  }catch(e){if(voucherInput?.value)showSeatError(e.message)}
+ }
  function showStage(name){
   [stageSeats,stageCombos,stagePayment].forEach(x=>x&&x.classList.remove('active'));
   [progressSeat,progressCombo,progressPayment].forEach(x=>x&&x.classList.remove('active'));
@@ -81,7 +99,8 @@
    startCountdown(300); render(); showStage('combo');
   }catch(e){showSeatError(e.message);holdBtn.disabled=false}
  });
- document.getElementById('goPayment')?.addEventListener('click',()=>showStage('payment'));
+ document.getElementById('goPayment')?.addEventListener('click',()=>{showStage('payment');requestQuote()});
+ voucherInput?.addEventListener('change',requestQuote);
  document.getElementById('backToCombos')?.addEventListener('click',()=>showStage('combo'));
  document.getElementById('backToSeats')?.addEventListener('click',async()=>{
   const ids=[...selected.keys()];

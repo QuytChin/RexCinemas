@@ -39,6 +39,7 @@
             <a data-admin-route="/admin/users" sec:authorize="hasRole('ADMIN')" th:href="@{/admin/users}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#users"></use></svg><span>Người dùng</span></a>
             <a data-admin-route="/admin/payments" sec:authorize="hasRole('ADMIN')" th:href="@{/admin/payments}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#credit-card"></use></svg><span>Thanh toán</span></a>
             <a data-admin-route="/admin/transactions" sec:authorize="hasRole('ADMIN')" th:href="@{/admin/transactions}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#receipt"></use></svg><span>Giao dịch</span></a>
+            <a data-admin-route="/admin/rewards" sec:authorize="hasRole('ADMIN')" th:href="@{/admin/rewards}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#coins"></use></svg><span>Rex Rewards</span></a>
         </nav>
 
         <div class="admin-sidebar-footer">

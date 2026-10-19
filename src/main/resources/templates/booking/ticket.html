@@ -10,7 +10,6 @@
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container-fluid pt-page pb-5 rex-ticket-page">
-    <div class="alert alert-success mx-auto rex-ticket-alert" th:if="${param.success}">Đặt vé thành công. QR điện tử đã sẵn sàng để check-in tại rạp.</div>
     <div class="alert alert-danger mx-auto rex-ticket-alert" th:if="${param.paymentError}">Thanh toán không thành công hoặc chưa cấu hình cổng thanh toán. Booking đã được hủy và ghế đã trả lại.</div>
     <div class="alert alert-warning mx-auto rex-ticket-alert" th:if="${param.refundPending}">Cổng thanh toán đã ghi nhận tiền nhưng booking không còn đủ điều kiện xác nhận. Giao dịch đã chuyển sang chờ hoàn tiền; vui lòng liên hệ rạp với mã đặt vé bên dưới.</div>
 

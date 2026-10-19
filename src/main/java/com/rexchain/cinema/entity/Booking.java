@@ -65,6 +65,28 @@ public class Booking {
     @Column(nullable = false)
     private boolean pointsAwarded = false;
 
+    @Column(nullable = false)
+    private int earnedPoints = 0;
+
+    @Column(nullable = false)
+    private boolean pointsReversed = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private MembershipTier membershipTierSnapshot;
+
+    @Column(precision = 7, scale = 4)
+    private BigDecimal membershipDiscountPercent = BigDecimal.ZERO;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal membershipDiscountAmount = BigDecimal.ZERO;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal voucherDiscountAmount = BigDecimal.ZERO;
+
+    @Column(precision = 7, scale = 4)
+    private BigDecimal pointMultiplier = BigDecimal.ONE;
+
     /** Secret random token encoded into the QR. Never show it as the human booking code. */
     @Column(unique = true, length = 80)
     private String qrToken;
@@ -130,6 +152,20 @@ public class Booking {
     public void setStatus(BookingStatus status) { this.status = status; }
     public boolean isPointsAwarded() { return pointsAwarded; }
     public void setPointsAwarded(boolean pointsAwarded) { this.pointsAwarded = pointsAwarded; }
+    public int getEarnedPoints() { return earnedPoints; }
+    public void setEarnedPoints(int earnedPoints) { this.earnedPoints = Math.max(0, earnedPoints); }
+    public boolean isPointsReversed() { return pointsReversed; }
+    public void setPointsReversed(boolean pointsReversed) { this.pointsReversed = pointsReversed; }
+    public MembershipTier getMembershipTierSnapshot() { return membershipTierSnapshot; }
+    public void setMembershipTierSnapshot(MembershipTier membershipTierSnapshot) { this.membershipTierSnapshot = membershipTierSnapshot; }
+    public BigDecimal getMembershipDiscountPercent() { return membershipDiscountPercent == null ? BigDecimal.ZERO : membershipDiscountPercent; }
+    public void setMembershipDiscountPercent(BigDecimal value) { this.membershipDiscountPercent = value == null ? BigDecimal.ZERO : value; }
+    public BigDecimal getMembershipDiscountAmount() { return membershipDiscountAmount == null ? BigDecimal.ZERO : membershipDiscountAmount; }
+    public void setMembershipDiscountAmount(BigDecimal value) { this.membershipDiscountAmount = value == null ? BigDecimal.ZERO : value; }
+    public BigDecimal getVoucherDiscountAmount() { return voucherDiscountAmount == null ? BigDecimal.ZERO : voucherDiscountAmount; }
+    public void setVoucherDiscountAmount(BigDecimal value) { this.voucherDiscountAmount = value == null ? BigDecimal.ZERO : value; }
+    public BigDecimal getPointMultiplier() { return pointMultiplier == null ? BigDecimal.ONE : pointMultiplier; }
+    public void setPointMultiplier(BigDecimal value) { this.pointMultiplier = value == null ? BigDecimal.ONE : value; }
     public String getQrToken() { return qrToken; }
     public void setQrToken(String qrToken) { this.qrToken = qrToken; }
     public LocalDateTime getCheckedInAt() { return checkedInAt; }

@@ -2,6 +2,7 @@ package com.rexchain.cinema.service;
 
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,11 +22,16 @@ public class PaymentService {
     private final VoucherRepository vouchers;
     private final SeatBroadcastService broadcast;
     private final SeatReservationService seatReservationService;
+    private final NotificationService notifications;
+    private final LoyaltyService loyalty;
+    private final RewardRedemptionService rewardRedemptions;
 
+    @Autowired
     public PaymentService(BookingRepository bookings, ShowtimeSeatRepository seats,
                           UserRepository users, ComboProductRepository combos,
                           VoucherRepository vouchers, SeatBroadcastService broadcast,
-                          SeatReservationService seatReservationService) {
+                          SeatReservationService seatReservationService, NotificationService notifications,
+                          LoyaltyService loyalty, RewardRedemptionService rewardRedemptions) {
         this.bookings = bookings;
         this.seats = seats;
         this.users = users;
@@ -33,6 +39,17 @@ public class PaymentService {
         this.vouchers = vouchers;
         this.broadcast = broadcast;
         this.seatReservationService = seatReservationService;
+        this.notifications = notifications;
+        this.loyalty = loyalty;
+        this.rewardRedemptions = rewardRedemptions;
+    }
+
+    /** Compatibility constructor for focused tests. */
+    PaymentService(BookingRepository bookings, ShowtimeSeatRepository seats,
+                          UserRepository users, ComboProductRepository combos,
+                          VoucherRepository vouchers, SeatBroadcastService broadcast,
+                          SeatReservationService seatReservationService) {
+        this(bookings, seats, users, combos, vouchers, broadcast, seatReservationService, null, null, null);
     }
 
     @Transactional
@@ -104,9 +121,12 @@ public class PaymentService {
         if (lockedVoucher != null) {
             lockedVoucher.setUsedCount(lockedVoucher.getUsedCount() + 1);
             vouchers.save(lockedVoucher);
+            if (rewardRedemptions != null) rewardRedemptions.markVoucherUsed(lockedVoucher);
         }
         awardPoints(booking);
-        return bookings.save(booking);
+        Booking saved = bookings.save(booking);
+        if (notifications != null) notifications.paymentConfirmed(saved);
+        return saved;
     }
 
     @Transactional
@@ -117,7 +137,9 @@ public class PaymentService {
         booking.setStatus(BookingStatus.CANCELLED);
         booking.setExpiresAt(null);
         seatReservationService.releaseBookingSeats(booking);
-        return bookings.save(booking);
+        Booking saved = bookings.save(booking);
+        if (notifications != null) notifications.bookingCancelled(saved);
+        return saved;
     }
 
     @Transactional
@@ -145,10 +167,18 @@ public class PaymentService {
         booking.setRefundedAt(LocalDateTime.now());
         booking.setRefundedBy(operatorEmail);
         booking.setRefundNote(note != null && !note.isBlank() ? note.trim() : "Đã xác nhận hoàn tiền");
-        return bookings.save(booking);
+        // Safe if cancellation already reversed points: the loyalty ledger is idempotent per booking.
+        reversePoints(booking);
+        Booking saved = bookings.save(booking);
+        if (notifications != null) notifications.refundProcessed(saved);
+        return saved;
     }
 
     public void awardPoints(Booking booking) {
+        if (loyalty != null) {
+            loyalty.awardBooking(booking);
+            return;
+        }
         if (booking.isPointsAwarded() || booking.getStatus() != BookingStatus.CONFIRMED) return;
         User user = users.findByIdForUpdate(booking.getUser().getId()).orElseThrow();
         int points = pointsFor(booking);
@@ -159,6 +189,10 @@ public class PaymentService {
     }
 
     public void reversePoints(Booking booking) {
+        if (loyalty != null) {
+            loyalty.reverseBooking(booking);
+            return;
+        }
         if (!booking.isPointsAwarded()) return;
         User user = users.findByIdForUpdate(booking.getUser().getId()).orElseThrow();
         int points = pointsFor(booking);
@@ -174,12 +208,14 @@ public class PaymentService {
             throw new IllegalStateException("Voucher đã hết lượt sử dụng");
         locked.setUsedCount(locked.getUsedCount() + 1);
         vouchers.save(locked);
+        if (rewardRedemptions != null) rewardRedemptions.markVoucherUsed(locked);
     }
 
     public void decrementVoucher(Voucher voucher) {
         Voucher locked = vouchers.findByIdForUpdate(voucher.getId()).orElseThrow();
         locked.setUsedCount(Math.max(0, locked.getUsedCount() - 1));
         vouchers.save(locked);
+        if (rewardRedemptions != null) rewardRedemptions.restoreRewardVoucher(locked);
     }
 
     private Booking markPaidForRefund(Booking booking, String reference, LocalDateTime paidAt) {

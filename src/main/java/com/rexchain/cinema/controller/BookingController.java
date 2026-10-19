@@ -1,6 +1,7 @@
 package com.rexchain.cinema.controller;
 
 import com.rexchain.cinema.dto.HoldRequest;
+import com.rexchain.cinema.dto.BookingQuoteRequest;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.BookingService;
@@ -75,6 +76,18 @@ public class BookingController {
             return ResponseEntity.ok(Map.of("message", "Đã trả ghế"));
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body(Map.of("error", safeMessage(ex, "Không thể trả ghế")));
+        }
+    }
+
+    @PostMapping("/api/showtimes/{showtimeId}/quote")
+    @ResponseBody
+    ResponseEntity<?> quote(@PathVariable Long showtimeId, @RequestBody BookingQuoteRequest request, Authentication auth) {
+        try {
+            User user = current(auth);
+            return ResponseEntity.ok(service.quote(user.getId(), showtimeId, request.seatIds(), request.voucherCode(),
+                    request.comboIds(), request.comboQtys()));
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", safeMessage(ex, "Unable to calculate loyalty benefits")));
         }
     }
 
@@ -162,7 +175,16 @@ public class BookingController {
 
     private void loadBooking(Model model, Long showtimeId) {
         model.addAttribute("showtime", showtimes.findById(showtimeId).orElseThrow());
-        model.addAttribute("showSeats", showSeats.findByShowtimeIdOrderBySeatSeatRowAscSeatSeatNumberAsc(showtimeId));
+        List<ShowtimeSeat> allShowSeats = showSeats.findByShowtimeIdOrderBySeatSeatRowAscSeatSeatNumberAsc(showtimeId);
+        Map<String, List<ShowtimeSeat>> seatRows = new LinkedHashMap<>();
+        int seatGridColumns = 1;
+        for (ShowtimeSeat showSeat : allShowSeats) {
+            seatRows.computeIfAbsent(showSeat.getSeat().getSeatRow(), ignored -> new ArrayList<>()).add(showSeat);
+            seatGridColumns = Math.max(seatGridColumns, showSeat.getSeat().getSeatNumber());
+        }
+        model.addAttribute("showSeats", allShowSeats);
+        model.addAttribute("seatRows", seatRows);
+        model.addAttribute("seatGridColumns", seatGridColumns);
         model.addAttribute("combos", combos.findByActiveTrueOrderByIdAsc());
         model.addAttribute("sepayEnabled", bankTransferPaymentService.isReady());
     }

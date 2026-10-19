@@ -20,6 +20,10 @@ public class Voucher {
     private Integer usageLimit;
     @Column(nullable=false) private int usedCount=0;
     @Column(nullable=false) private boolean active=true;
+    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="owner_user_id")
+    private User ownerUser;
+    @Column(length=80)
+    private String rewardRedemptionReference;
     public Long getId(){return id;} public void setId(Long v){id=v;}
     public Long getVersion(){return version;} public void setVersion(Long v){version=v;}
     public String getCode(){return code;} public void setCode(String v){code=v;}
@@ -33,4 +37,6 @@ public class Voucher {
     public Integer getUsageLimit(){return usageLimit;} public void setUsageLimit(Integer v){usageLimit=v;}
     public int getUsedCount(){return usedCount;} public void setUsedCount(int v){usedCount=v;}
     public boolean isActive(){return active;} public void setActive(boolean v){active=v;}
+    public User getOwnerUser(){return ownerUser;} public void setOwnerUser(User v){ownerUser=v;}
+    public String getRewardRedemptionReference(){return rewardRedemptionReference;} public void setRewardRedemptionReference(String v){rewardRedemptionReference=v;}
 }

@@ -18,6 +18,11 @@ public class PaymentSettingsService {
 
     public PaymentSettingsDto current() {
         PaymentSettingsDto value = repository.findBankQr().orElseGet(this::fromEnvironment);
+        if (value.getBankName() == null || value.getBankName().isBlank()) value.setBankName(sepay.getBankName());
+        if (value.getAccountHolder() == null || value.getAccountHolder().isBlank()) value.setAccountHolder(sepay.getAccountHolder());
+        if (value.getBankCode() == null || value.getBankCode().isBlank()) value.setBankCode(sepay.getBankCode());
+        if (value.getBankAccount() == null || value.getBankAccount().isBlank()) value.setBankAccount(sepay.getBankAccount());
+        if (value.getPaymentPrefix() == null || value.getPaymentPrefix().isBlank()) value.setPaymentPrefix(sepay.getPaymentPrefix());
         value.setSchemaAvailable(repository.isSchemaAvailable());
         return value;
     }
@@ -36,8 +41,8 @@ public class PaymentSettingsService {
 
     private PaymentSettingsDto fromEnvironment() {
         PaymentSettingsDto value = new PaymentSettingsDto();
-        value.setEnabled(sepay.isEnabled()); value.setBankCode(sepay.getBankCode());
-        value.setBankAccount(sepay.getBankAccount()); value.setPaymentPrefix(sepay.getPaymentPrefix());
+        value.setEnabled(sepay.isEnabled()); value.setBankName(sepay.getBankName()); value.setAccountHolder(sepay.getAccountHolder());
+        value.setBankCode(sepay.getBankCode()); value.setBankAccount(sepay.getBankAccount()); value.setPaymentPrefix(sepay.getPaymentPrefix());
         value.setSchemaAvailable(false); return value;
     }
 

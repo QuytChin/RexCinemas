@@ -1,6 +1,8 @@
 package com.rexchain.cinema.service;
 
 import com.rexchain.cinema.dto.CheckInResult;
+import com.rexchain.cinema.dto.BookingQuote;
+import com.rexchain.cinema.dto.MembershipBenefitQuote;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +40,8 @@ public class BookingService {
     private final CheckInService checkInService;
     private final SePayPaymentService sepay;
     private final BankTransferPaymentService bankTransferPaymentService;
+    private final MembershipService membershipService;
+    private final LoyaltyService loyaltyService;
 
     @Autowired
     public BookingService(ShowtimeSeatRepository seats,
@@ -51,7 +55,9 @@ public class BookingService {
                           PaymentService paymentService,
                           CheckInService checkInService,
                           SePayPaymentService sepay,
-                          BankTransferPaymentService bankTransferPaymentService) {
+                          BankTransferPaymentService bankTransferPaymentService,
+                          MembershipService membershipService,
+                          LoyaltyService loyaltyService) {
         this.seats = seats;
         this.bookings = bookings;
         this.users = users;
@@ -64,6 +70,8 @@ public class BookingService {
         this.checkInService = checkInService;
         this.sepay = sepay;
         this.bankTransferPaymentService = bankTransferPaymentService;
+        this.membershipService = membershipService;
+        this.loyaltyService = loyaltyService;
     }
 
     /** Compatibility constructor for focused unit tests that do not exercise BANK_QR. */
@@ -72,7 +80,7 @@ public class BookingService {
                           VoucherRepository vouchers, SeatReservationService seatReservationService,
                           PaymentService paymentService, CheckInService checkInService, SePayPaymentService sepay) {
         this(seats, bookings, users, showtimes, broadcast, combos, vouchers, seatReservationService,
-                paymentService, checkInService, sepay, null);
+                paymentService, checkInService, sepay, null, null, null);
     }
 
     /* ──────────────────────────── HOLD & RELEASE (DELEGATED) ──────────────────────────── */
@@ -85,6 +93,32 @@ public class BookingService {
     @Transactional
     public void releaseOwnHolds(Long userId, Long showtimeId, List<Long> ids) {
         seatReservationService.releaseOwnHolds(userId, showtimeId, ids);
+    }
+
+    /** Server-side preview used by the payment step; confirmation recalculates under locks. */
+    @Transactional(readOnly = true)
+    public BookingQuote quote(Long userId, Long showtimeId, List<Long> ids, String voucherCode,
+                              List<Long> comboIds, List<Integer> comboQtys) {
+        if (ids == null || ids.isEmpty()) throw new IllegalArgumentException("Select at least one seat");
+        User user = users.findById(userId).orElseThrow();
+        List<ShowtimeSeat> selected = seats.findByIdIn(ids);
+        if (selected.size() != ids.size() || selected.stream().anyMatch(seat -> !seat.getShowtime().getId().equals(showtimeId)
+                || seat.getStatus() != SeatStatus.HELD || !Objects.equals(seat.getHeldByUserId(), userId)))
+            throw new IllegalStateException("Seats are no longer held for this booking session");
+        BigDecimal seatAmount = selected.stream().map(ShowtimeSeat::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+        Map<ComboProduct, Integer> comboMap = resolveCombos(comboIds, comboQtys);
+        BigDecimal comboAmount = comboMap.entrySet().stream()
+                .map(entry -> entry.getKey().getPrice().multiply(BigDecimal.valueOf(entry.getValue())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal beforeDiscount = seatAmount.add(comboAmount);
+        Voucher voucher = previewVoucher(voucherCode, beforeDiscount, LocalDateTime.now(), user);
+        BigDecimal voucherDiscount = voucher == null ? BigDecimal.ZERO : calculateDiscount(voucher, beforeDiscount);
+        MembershipBenefitQuote benefit = membershipService.quote(user, seatAmount, voucherDiscount);
+        BigDecimal total = beforeDiscount.subtract(benefit.totalDiscountAmount().min(beforeDiscount)).max(BigDecimal.ZERO);
+        int points = loyaltyService == null ? 0 : loyaltyService.earnedPointsFor(total, benefit.pointMultiplier());
+        return new BookingQuote(seatAmount, comboAmount, benefit.voucherDiscountAmount(), benefit.ticketDiscountAmount(),
+                benefit.totalDiscountAmount(), total, points, benefit.tier(), benefit.pointMultiplier(),
+                benefit.voucherApplied(), benefit.voucherApplied() && voucher != null ? voucher.getCode() : null);
     }
 
     /* ──────────────────────────── CONFIRM BOOKING ──────────────────────────── */
@@ -131,8 +165,14 @@ public class BookingService {
                 .map(e -> e.getKey().getPrice().multiply(BigDecimal.valueOf(e.getValue())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal beforeDiscount = seatAmount.add(comboAmount);
-        Voucher voucher = resolveVoucher(voucherCode, beforeDiscount, now);
-        BigDecimal discount = voucher == null ? BigDecimal.ZERO : calculateDiscount(voucher, beforeDiscount);
+        Voucher voucher = resolveVoucher(voucherCode, beforeDiscount, now, user);
+        BigDecimal voucherDiscount = voucher == null ? BigDecimal.ZERO : calculateDiscount(voucher, beforeDiscount);
+        MembershipBenefitQuote benefit = membershipService == null
+                ? new MembershipBenefitQuote(user.getMembershipTier(), BigDecimal.ZERO, BigDecimal.ZERO,
+                voucherDiscount, voucherDiscount, BigDecimal.ONE, voucher != null, false)
+                : membershipService.quote(user, seatAmount, voucherDiscount);
+        if (!benefit.voucherApplied()) voucher = null;
+        BigDecimal discount = benefit.totalDiscountAmount().min(beforeDiscount);
         BigDecimal total = beforeDiscount.subtract(discount).max(BigDecimal.ZERO);
         boolean online = method == PaymentMethod.BANK_QR;
 
@@ -150,6 +190,11 @@ public class BookingService {
         booking.setSeatAmount(seatAmount);
         booking.setComboAmount(comboAmount);
         booking.setDiscountAmount(discount);
+        booking.setVoucherDiscountAmount(benefit.voucherDiscountAmount());
+        booking.setMembershipTierSnapshot(benefit.tier());
+        booking.setMembershipDiscountPercent(benefit.ticketDiscountPercent());
+        booking.setMembershipDiscountAmount(benefit.ticketDiscountAmount());
+        booking.setPointMultiplier(benefit.pointMultiplier());
         booking.setVoucherCode(voucher == null ? null : voucher.getCode());
         booking.setTotalAmount(total);
         if (!online)
@@ -337,7 +382,7 @@ public class BookingService {
         return result;
     }
 
-    private Voucher resolveVoucher(String code, BigDecimal subtotal, LocalDateTime now) {
+    private Voucher resolveVoucher(String code, BigDecimal subtotal, LocalDateTime now, User user) {
         if (code == null || code.isBlank())
             return null;
         Voucher voucher = vouchers.findByCodeIgnoreCaseForUpdate(code.trim())
@@ -350,8 +395,28 @@ public class BookingService {
             throw new IllegalArgumentException("Voucher đã hết hạn");
         if (voucher.getUsageLimit() != null && voucher.getUsedCount() >= voucher.getUsageLimit())
             throw new IllegalArgumentException("Voucher đã hết lượt sử dụng");
+        if (voucher.getOwnerUser() != null && !voucher.getOwnerUser().getId().equals(user.getId()))
+            throw new IllegalArgumentException("Voucher này thuộc về một tài khoản khác");
         if (voucher.getMinOrderAmount() != null && subtotal.compareTo(voucher.getMinOrderAmount()) < 0)
             throw new IllegalArgumentException("Đơn hàng chưa đạt giá trị tối thiểu của voucher");
+        return voucher;
+    }
+
+    private Voucher previewVoucher(String code, BigDecimal subtotal, LocalDateTime now, User user) {
+        if (code == null || code.isBlank()) return null;
+        Voucher voucher = vouchers.findByCodeIgnoreCase(code.trim())
+                .orElseThrow(() -> new IllegalArgumentException("Voucher does not exist"));
+        if (!voucher.isActive()) throw new IllegalArgumentException("Voucher is disabled");
+        if (voucher.getValidFrom() != null && voucher.getValidFrom().isAfter(now))
+            throw new IllegalArgumentException("Voucher is not active yet");
+        if (voucher.getValidUntil() != null && voucher.getValidUntil().isBefore(now))
+            throw new IllegalArgumentException("Voucher has expired");
+        if (voucher.getUsageLimit() != null && voucher.getUsedCount() >= voucher.getUsageLimit())
+            throw new IllegalArgumentException("Voucher has reached its usage limit");
+        if (voucher.getOwnerUser() != null && !voucher.getOwnerUser().getId().equals(user.getId()))
+            throw new IllegalArgumentException("Voucher belongs to another account");
+        if (voucher.getMinOrderAmount() != null && subtotal.compareTo(voucher.getMinOrderAmount()) < 0)
+            throw new IllegalArgumentException("Order does not meet the voucher minimum");
         return voucher;
     }
 
