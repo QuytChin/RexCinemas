@@ -30,7 +30,7 @@ public class OtpService {
     public record OtpData(String otp, RegisterRequest request, LocalDateTime expiresAt) {}
 
     public OtpService(JavaMailSender mailSender,
-                      @Value("${spring.mail.username:huybach219@gmail.com}") String fromEmail) {
+                      @Value("${spring.mail.username}") String fromEmail) {
         this.mailSender = mailSender;
         this.fromEmail = fromEmail;
     }
@@ -44,7 +44,7 @@ public class OtpService {
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
 
         otpStorage.put(email, new OtpData(otp, request, expiresAt));
-        log.info("Generated OTP for {}: (valid until {})", email, expiresAt);
+        log.info("Registration OTP generated; expiry at {}", expiresAt);
 
         sendEmail(email, request.fullName(), otp);
     }
@@ -160,13 +160,13 @@ public class OtpService {
 
             helper.setText(html, true);
             mailSender.send(message);
-            log.info("OTP email successfully sent to {}", toEmail);
+            log.info("Registration OTP email sent");
         } catch (MessagingException e) {
-            log.error("Failed to send OTP email to {}", toEmail, e);
-            throw new IllegalStateException("Không thể gửi email xác thực. Vui lòng kiểm tra lại địa chỉ email hoặc thử lại sau.", e);
+            log.error("Failed to send registration OTP email ({})", e.getClass().getSimpleName());
+            throw new IllegalStateException("Không thể gửi email xác thực. Vui lòng thử lại sau.");
         } catch (Exception e) {
-            log.error("Unexpected error while sending email", e);
-            throw new IllegalStateException("Hệ thống gửi thư gặp sự cố: " + e.getMessage(), e);
+            log.error("Unexpected registration OTP email error ({})", e.getClass().getSimpleName());
+            throw new IllegalStateException("Hệ thống gửi thư gặp sự cố. Vui lòng thử lại sau.");
         }
     }
 }

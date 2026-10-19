@@ -7,6 +7,8 @@ import javax.crypto.SecretKey; import java.nio.charset.StandardCharsets; import 
 public class JwtService {
     private final SecretKey key; private final long expirationMs; private final long rememberExpirationMs;
     public JwtService(@Value("${app.jwt.secret}") String secret,@Value("${app.jwt.expiration-ms:86400000}") long expirationMs,@Value("${app.jwt.remember-expiration-ms:2592000000}") long rememberExpirationMs){
+        if (secret == null || secret.isBlank() || secret.getBytes(StandardCharsets.UTF_8).length < 32)
+            throw new IllegalStateException("JWT_SECRET is required and must contain at least 32 UTF-8 bytes");
         this.key=Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)); this.expirationMs=expirationMs; this.rememberExpirationMs=rememberExpirationMs;
     }
     public String generate(String email, String role){return generate(email,role,false);}

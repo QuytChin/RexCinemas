@@ -2,8 +2,36 @@
 
 Hệ thống quản lý chuỗi rạp và đặt vé xem phim trực tuyến bằng **Spring Boot + Thymeleaf + Bootstrap + JPA + MySQL/PostgreSQL/SQL Server + JWT + WebSocket + Cloudinary**, có luồng booking realtime và **vé điện tử QR check-in tại cổng**.
 
-Các secret không có giá trị mặc định trong source. Tối thiểu phải đặt `JWT_SECRET` (32 byte trở lên)
-và `DB_PASSWORD` trước khi chạy. Khi triển khai HTTPS, đặt thêm `COOKIE_SECURE=true`.
+Ứng dụng không cung cấp secret hay mật khẩu mặc định. Hãy cấu hình qua environment variables hoặc secret store; không commit file `.env`. Chạy local với profile `dev,mysql`, còn production dùng `prod,mysql`. `JWT_SECRET` phải có ít nhất 32 byte UTF-8. `DB_USERNAME`, `DB_PASSWORD`, `MAIL_USERNAME` và `MAIL_PASSWORD` là bắt buộc; ứng dụng dừng sớm nếu thiếu. Production bật cookie `Secure` và yêu cầu HTTPS.
+
+### Cấu hình local
+
+Sao chép `.env.example` thành `.env.local` để làm danh sách biến cần cấu hình. Spring Boot không tự nạp file `.env`; hãy nhập các giá trị vào cấu hình môi trường của IDE/terminal/secret manager. Dùng giá trị riêng cho máy local, không tái sử dụng credential production.
+
+PowerShell ví dụ (đặt giá trị trực tiếp tại terminal riêng của bạn, không lưu vào source):
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = "dev,mysql"
+$env:DB_URL = "jdbc:mysql://localhost:3306/rex_chain_cinema?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh"
+$env:DB_USERNAME = "<local-db-user>"
+$env:DB_PASSWORD = "<local-db-password>"
+$env:JWT_SECRET = "<unique-random-secret-at-least-32-bytes>"
+$env:MAIL_USERNAME = "<smtp-account>"
+$env:MAIL_PASSWORD = "<smtp-app-password>"
+```
+
+Production: đặt `SPRING_PROFILES_ACTIVE=mysql,prod` (profile `prod` đứng sau để ghi đè tùy chọn môi trường), cấu hình các biến bắt buộc qua secret store, dùng HTTPS và chỉ định migration ngoài ứng dụng. Profile `prod` bật cookie `Secure`, dùng Hibernate `validate` và không chạy SQL init lúc khởi động.
+
+### Xoay vòng credential đã từng xuất hiện trong Git
+
+Các commit cũ có chứa credential; thay đổi file hiện tại không xóa chúng khỏi lịch sử. Thực hiện qua chủ sở hữu dịch vụ theo trình tự, rồi cập nhật secret store và khởi động lại ứng dụng:
+
+1. Tạo `JWT_SECRET` mới, tối thiểu 32 byte và riêng cho môi trường. Sau khi triển khai, mọi JWT hiện hành sẽ mất hiệu lực và người dùng cần đăng nhập lại.
+2. Thu hồi Gmail App Password cũ trong tài khoản Google, tạo App Password mới và cập nhật `MAIL_PASSWORD` cùng `MAIL_USERNAME` nếu cần.
+3. Đổi mật khẩu MySQL bằng tài khoản DBA theo quy trình vận hành, cập nhật `DB_USERNAME`/`DB_PASSWORD`, rồi triển khai cấu hình đồng bộ. Không đổi credential từ ứng dụng này.
+4. Kiểm tra login, OTP qua mail thử nghiệm, kết nối database staging, rồi mới triển khai production.
+
+Không paste credential vào ticket, chat, log hoặc Git. `.env.example` chỉ chứa placeholder.
 
 ## 1. Luồng hoàn chỉnh
 
