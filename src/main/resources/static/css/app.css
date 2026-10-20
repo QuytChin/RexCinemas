@@ -665,3 +665,36 @@ html[lang="vi"] :is(.auth-visual h1, .auth-panel h2, body.auth-page .auth-panel-
 .bank-qr-page[data-payment-unavailable="true"] [data-payment-details]>div:not(:last-child),.bank-qr-page[data-payment-unavailable="true"] [data-payment-qr]{display:none}.bank-qr-page[data-payment-unavailable="true"] .bank-qr-details{margin-top:12px}
 .bank-qr-expired{margin-top:22px;padding:18px;border:1px solid rgba(255,171,180,.35);border-radius:12px;background:rgba(255,171,180,.08)}.bank-qr-expired[hidden]{display:none}.bank-qr-expired h2{font-size:1.2rem;color:#fff}.bank-qr-expired p{color:#d9e0eb}.bank-qr-page[data-payment-unavailable="true"] .bank-qr-card{grid-template-columns:1fr}
 .notification-popover{max-width:calc(100vw - 24px);overflow:hidden}.notification-popover .notification-list{overflow-x:hidden;overflow-y:auto}.notification-popover .notification-item{min-width:0;max-width:100%}.notification-popover .notification-item strong,.notification-popover .notification-item span{min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:break-word}.notification-popover-actions{display:grid;gap:5px;margin-top:8px}.notification-mark-all{justify-self:center;padding:4px 8px;border:0;background:transparent;color:var(--yellow);font:700 .72rem/1.3 Inter,sans-serif;text-decoration:underline;cursor:pointer}.notification-mark-all:hover,.notification-mark-all:focus-visible{color:#fff}.notification-read-failed{outline:1px solid rgba(255,143,143,.75);outline-offset:-1px}
+
+/* Admin room management */
+.admin-rooms-page{max-width:1640px;margin-inline:auto}
+.admin-rooms-page .ui-page-header{margin-bottom:24px}
+.admin-rooms-page .admin-list-toolbar__form{grid-template-columns:minmax(220px,1.5fr) repeat(4,minmax(125px,.8fr)) auto;gap:12px;align-items:end}
+.admin-rooms-page .admin-filter-field{min-width:0}
+.admin-rooms-page .admin-list-toolbar__actions{display:flex;align-items:end;gap:9px}
+.admin-rooms-page .admin-list-toolbar__actions .btn{min-height:44px;white-space:nowrap}
+.admin-room-alert{margin:0 0 16px;border-radius:10px}
+.admin-room-create,.admin-room-list{margin-top:22px}
+.admin-room-section-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:13px}
+.admin-room-section-heading h2{margin:0;color:#f2f5fa;font-size:1.08rem;font-weight:650;letter-spacing:0}
+.admin-room-section-heading p{margin:4px 0 0;color:#9eacc1;font-size:.82rem;line-height:1.45}
+.admin-room-form{padding:18px;border:1px solid rgba(183,191,209,.14);border-radius:14px;background:linear-gradient(145deg,rgba(25,40,68,.92),rgba(15,26,47,.96));box-shadow:0 10px 26px rgba(2,8,23,.12)}
+.admin-room-form-grid{display:grid;grid-template-columns:minmax(180px,1.25fr) minmax(180px,1.2fr) minmax(120px,.7fr) minmax(135px,.8fr) minmax(145px,.7fr);gap:14px;align-items:end}
+.admin-room-field{display:grid;grid-template-rows:auto 44px minmax(1em,auto);min-width:0;gap:6px}
+.admin-room-field label{margin:0;color:#d4deed;font-size:.78rem;font-weight:600}
+.admin-room-field .form-control,.admin-room-field .form-select{width:100%;height:44px;min-height:44px;padding:8px 12px;border:1px solid rgba(170,187,212,.24);border-radius:9px;background-color:#0d172b;color:#f4f6fb;font-family:var(--ui-font);font-size:.86rem}
+.admin-room-field .form-control:focus,.admin-room-field .form-select:focus{border-color:var(--yellow);box-shadow:0 0 0 .18rem rgba(244,229,0,.12)}
+.admin-room-field small{min-height:1em;color:#8798b0;font-size:.69rem;line-height:1.3}
+.admin-room-form-actions{display:flex;align-items:end}
+.admin-room-form-actions .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;height:44px;min-height:44px;border-radius:9px;white-space:nowrap}
+.admin-room-form-actions .ui-icon{width:17px;height:17px}
+.admin-room-table-wrap{width:100%;overflow-x:auto;border:1px solid rgba(183,191,209,.14);border-radius:12px;background:rgba(13,23,43,.55);overscroll-behavior-x:contain}
+.admin-room-table{min-width:720px;margin:0;--bs-table-bg:transparent;--bs-table-color:#eaf0f8;--bs-table-border-color:rgba(183,191,209,.12);--bs-table-hover-bg:rgba(255,255,255,.035);--bs-table-hover-color:#fff}
+.admin-room-table thead th{padding:13px 16px;border-bottom-color:rgba(244,229,0,.25);color:#aebbd0;font-size:.72rem;font-weight:650;letter-spacing:.035em;white-space:nowrap}
+.admin-room-table tbody td{padding:14px 16px;vertical-align:middle}
+.admin-room-table tbody td:first-child{min-width:170px}
+.admin-room-capacity{color:#f4e500;font-weight:600;white-space:nowrap}
+.admin-room-empty{padding:28px!important;color:#aebbd0;text-align:center}
+@media(max-width:1199px){.admin-rooms-page .admin-list-toolbar__form{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-rooms-page .admin-filter-field--search{grid-column:span 2}.admin-rooms-page .admin-list-toolbar__actions{grid-column:1/-1;justify-content:flex-end}.admin-room-form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.admin-room-field--cinema,.admin-room-field--name{grid-column:span 2}.admin-room-form-actions{grid-column:span 4}}
+@media(max-width:767px){.admin-rooms-page .admin-list-toolbar__form{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.admin-rooms-page .admin-filter-field--search{grid-column:1/-1}.admin-rooms-page .admin-list-toolbar__actions{display:grid;grid-template-columns:1fr 1fr;grid-column:1/-1}.admin-room-form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.admin-room-field--cinema,.admin-room-field--name{grid-column:span 1}.admin-room-form-actions{grid-column:1/-1}.admin-room-form-actions .btn{width:100%}}
+@media(max-width:420px){.admin-rooms-page .admin-list-toolbar__form{grid-template-columns:1fr}.admin-rooms-page .admin-filter-field--search,.admin-rooms-page .admin-list-toolbar__actions{grid-column:1}.admin-rooms-page .admin-list-toolbar__actions{grid-template-columns:1fr 1fr}.admin-room-form{padding:14px}.admin-room-form-grid{grid-template-columns:1fr}.admin-room-field--cinema,.admin-room-field--name,.admin-room-form-actions{grid-column:1}}

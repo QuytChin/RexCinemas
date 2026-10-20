@@ -384,9 +384,13 @@ public class AdminController {
 
     @GetMapping("/auditoriums")
     String auditoriums(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("name,cinema.name", "active",
-                new String[]{"id", "name"}, new String[]{"cinema"});
-        display(model, request, params, lists.query(auditoriums, params, options), options, "auditoriums", "true", "false");
+        var options = new AdminListSupport.Options("name,cinema.name", "cinema.name",
+                new String[]{"name", "id"}, new String[]{"cinema"})
+                .withLabels("Rạp", "Nhập tên phòng hoặc rạp");
+        String[] cinemaNames = cinemas.findAll().stream().map(Cinema::getName)
+                .filter(java.util.Objects::nonNull).distinct().sorted().toArray(String[]::new);
+        display(model, request, params, lists.query(auditoriums, params, options), options, "auditoriums",
+                (Object[]) cinemaNames);
         model.addAttribute("cinemas", cinemas.findByActiveTrueOrderByCityAscNameAsc());
         return "admin/auditoriums";
     }
@@ -395,11 +399,17 @@ public class AdminController {
     String auditoriumSave(@RequestParam Long cinemaId,
             @RequestParam String name,
             @RequestParam int totalRows,
-            @RequestParam int seatsPerRow) {
-        Cinema cinema = cinemas.findById(cinemaId).orElseThrow();
-        if (!cinema.isActive())
+            @RequestParam int seatsPerRow,
+            RedirectAttributes redirect) {
+        try {
+            Cinema cinema = cinemas.findById(cinemaId).orElseThrow();
+            if (!cinema.isActive())
             throw new IllegalArgumentException("Rạp đang bị ẩn");
-        setup.createAuditorium(cinema, name, totalRows, seatsPerRow);
+            setup.createAuditorium(cinema, name, totalRows, seatsPerRow);
+        redirect.addFlashAttribute("success", "Tạo phòng chiếu thành công.");
+        } catch (IllegalArgumentException error) {
+            redirect.addFlashAttribute("error", error.getMessage());
+        }
         return "redirect:/admin/auditoriums";
     }
 
