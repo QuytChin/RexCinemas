@@ -201,14 +201,28 @@ class AdminPaginationIntegrationTest {
         cinema.setName("REX_TEST_CITY_FILTER");
         cinema.setCity("Thành phố thử nghiệm");
         cinema.setAddress("Địa chỉ thử nghiệm");
+        cinema.setActive(false);
         cinemas.saveAndFlush(cinema);
+        Cinema activeCinema = new Cinema();
+        activeCinema.setName("REX_TEST_ACTIVE_CITY_FILTER");
+        activeCinema.setCity("Thành phố thử nghiệm");
+        activeCinema.setAddress("Địa chỉ đang hoạt động");
+        activeCinema.setActive(true);
+        cinemas.saveAndFlush(activeCinema);
 
-        var result = mvc.perform(get("/admin/cinemas").param("status", "Thành phố thử nghiệm"))
+        var result = mvc.perform(get("/admin/cinemas").param("status", "Thành phố thử nghiệm")
+                        .param("active", "false"))
                 .andExpect(status().isOk())
                 .andReturn();
         String html = result.getResponse().getContentAsString();
-        assertThat(html).contains("Nhập tên rạp", "Thành phố", "Thành phố thử nghiệm", "REX_TEST_CITY_FILTER")
+        int cardListStart = html.indexOf("<section class=\"row g-4 admin-cinema-grid\"");
+        int cardListEnd = html.indexOf("</section>", cardListStart);
+        String cardList = html.substring(cardListStart, cardListEnd);
+        assertThat(html).contains("Nhập tên rạp", "Thành phố", "Thành phố thử nghiệm", "REX_TEST_CITY_FILTER",
+                        "Trạng thái", "Hoạt động", "Đã ẩn", "name=\"active\"")
                 .doesNotContain("Sắp xếp theo", "name=\"sort\"", "name=\"dir\"");
+        assertThat(cardList).contains("REX_TEST_CITY_FILTER")
+                .doesNotContain("REX_TEST_ACTIVE_CITY_FILTER");
     }
 
     @Test

@@ -318,7 +318,17 @@ public class AdminController {
                 .withoutSortControls();
         String[] cities = cinemas.findAll().stream().map(Cinema::getCity).filter(java.util.Objects::nonNull)
                 .distinct().sorted().toArray(String[]::new);
-        display(model, request, params, lists.query(cinemas, params, options), options, "cinemas", (Object[]) cities);
+        String active = params.getOrDefault("active", "");
+        org.springframework.data.jpa.domain.Specification<Cinema> activeFilter = (root, query, cb) -> {
+            if (active.isBlank()) return cb.conjunction();
+            if ("true".equals(active) || "false".equals(active))
+                return cb.equal(root.get("active"), Boolean.valueOf(active));
+            return cb.disjunction();
+        };
+        display(model, request, params, lists.query(cinemas, params, options, activeFilter), options, "cinemas", (Object[]) cities);
+        model.addAttribute("adminShowActiveFilter", true);
+        model.addAttribute("adminActive", active);
+        model.addAttribute("adminToolbarVariant", "cinemas");
         return "admin/cinemas";
     }
 

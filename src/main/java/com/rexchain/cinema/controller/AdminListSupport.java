@@ -133,6 +133,8 @@ public class AdminListSupport {
         model.addAttribute("adminFilterLabel", filterLabel(options.filter(), options.filterLabel()));
         model.addAttribute("adminSearchPlaceholder", options.searchPlaceholder());
         model.addAttribute("adminShowSortControls", options.showSortControls());
+        model.addAttribute("adminShowActiveFilter", false);
+        model.addAttribute("adminActive", "");
         model.addAttribute("adminPrev", link(request, "page", page.getNumber() - 1));
         model.addAttribute("adminNext", link(request, "page", page.getNumber() + 1));
         model.addAttribute("adminFirst", link(request, "page", 0));
