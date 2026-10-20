@@ -1,23 +1,54 @@
 package com.rexchain.cinema.security;
-import com.rexchain.cinema.entity.User;
-import com.rexchain.cinema.repository.UserRepository;
+
 import com.rexchain.cinema.service.AccessTokenRevocationService;
-import jakarta.servlet.*; import jakarta.servlet.http.*; import org.springframework.security.authentication.UsernamePasswordAuthenticationToken; import org.springframework.security.core.context.SecurityContextHolder; import org.springframework.security.core.userdetails.UserDetails; import org.springframework.stereotype.Component; import org.springframework.web.filter.OncePerRequestFilter; import java.io.IOException; import java.util.Arrays;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.Arrays;
+
 @Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter{
- private final JwtService jwt; private final CustomUserDetailsService uds; private final UserRepository users; private final AccessTokenRevocationService revocations;
- public JwtAuthenticationFilter(JwtService jwt,CustomUserDetailsService uds,UserRepository users,AccessTokenRevocationService revocations){this.jwt=jwt;this.uds=uds;this.users=users;this.revocations=revocations;}
- @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain)throws ServletException,IOException{
-  String token=null; String auth=req.getHeader("Authorization"); if(auth!=null&&auth.startsWith("Bearer ")) token=auth.substring(7);
-  if(token==null&&req.getCookies()!=null) token=Arrays.stream(req.getCookies()).filter(c->"access_token".equals(c.getName())).map(Cookie::getValue).findFirst().orElse(null);
-  if(token!=null&&SecurityContextHolder.getContext().getAuthentication()==null&&jwt.valid(token)&&!revocations.isRevoked(token)){
-   String email=jwt.extractEmail(token);
-   User user=users.findByEmailIgnoreCase(email).orElse(null);
-   if(user!=null&&user.isEnabled()&&user.getCredentialVersion()==jwt.extractCredentialVersion(token)){
-    UserDetails ud=uds.loadUserByUsername(email);
-    if(ud.isEnabled()&&ud.isAccountNonExpired()&&ud.isAccountNonLocked()&&ud.isCredentialsNonExpired()) SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(ud,null,ud.getAuthorities()));
-   }
-  }
-  chain.doFilter(req,res);
- }
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private final JwtService jwt;
+    private final CustomUserDetailsService userDetailsService;
+    private final AccessTokenRevocationService revocations;
+
+    public JwtAuthenticationFilter(JwtService jwt, CustomUserDetailsService userDetailsService,
+                                   AccessTokenRevocationService revocations) {
+        this.jwt = jwt;
+        this.userDetailsService = userDetailsService;
+        this.revocations = revocations;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+        String token = null;
+        String authorization = request.getHeader("Authorization");
+        if (authorization != null && authorization.startsWith("Bearer ")) token = authorization.substring(7);
+        if (token == null && request.getCookies() != null) {
+            token = Arrays.stream(request.getCookies()).filter(cookie -> "access_token".equals(cookie.getName()))
+                    .map(Cookie::getValue).findFirst().orElse(null);
+        }
+
+        if (token != null && SecurityContextHolder.getContext().getAuthentication() == null
+                && jwt.valid(token) && !revocations.isRevoked(token)) {
+            String email = jwt.extractEmail(token);
+            UserDetails details = userDetailsService.loadUserForToken(email, jwt.extractCredentialVersion(token));
+            if (details != null && details.isEnabled() && details.isAccountNonExpired()
+                    && details.isAccountNonLocked() && details.isCredentialsNonExpired()) {
+                SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                        details, null, details.getAuthorities()));
+            }
+        }
+        chain.doFilter(request, response);
+    }
 }

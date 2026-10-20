@@ -28,7 +28,10 @@ class PaymentMetadataSchemaScopeTest {
         jdbc.execute("CREATE TABLE PUBLIC.bank_transfer_snapshots (id BIGINT PRIMARY KEY)");
         jdbc.execute("CREATE TABLE PUBLIC.payment_settings (id BIGINT PRIMARY KEY)");
 
-        assertThat(transactions.isSchemaAvailable()).isTrue();
+        // Transaction-table availability is intentionally a startup snapshot; a fresh instance
+        // represents the next application startup after migrations have been applied.
+        assertThat(transactions.isSchemaAvailable()).isFalse();
+        assertThat(new PaymentTransactionRepository(jdbc, resolver).isSchemaAvailable()).isTrue();
         assertThat(snapshots.isSchemaAvailable()).isTrue();
         assertThat(settings.isSchemaAvailable()).isTrue();
     }

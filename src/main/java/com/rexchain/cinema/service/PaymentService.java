@@ -4,6 +4,7 @@ import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.dto.ManualRefundConfirmation;
 import com.rexchain.cinema.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -156,13 +157,19 @@ public class PaymentService {
     @Transactional
     public void expirePendingBookings() {
         LocalDateTime now = LocalDateTime.now();
-        List<Long> ids = bookings.findByStatusAndExpiresAtBefore(BookingStatus.PENDING, now).stream()
-                .map(Booking::getId).sorted().toList();
-        for (Long id : ids) {
-            Booking booking = bookings.findByIdForUpdate(id).orElse(null);
-            if (booking == null || booking.getStatus() != BookingStatus.PENDING
-                    || booking.getExpiresAt() == null || booking.getExpiresAt().isAfter(now)) continue;
-            expirePendingBooking(booking);
+        final int batchSize = 100;
+        Long afterId = null;
+        while (true) {
+            List<Long> batch = bookings.findExpiredBookingIds(BookingStatus.PENDING, now, afterId,
+                    PageRequest.of(0, batchSize));
+            if (batch.isEmpty()) break;
+            for (Long id : batch) {
+                Booking booking = bookings.findByIdForUpdate(id).orElse(null);
+                if (booking == null || booking.getStatus() != BookingStatus.PENDING
+                        || booking.getExpiresAt() == null || booking.getExpiresAt().isAfter(now)) continue;
+                expirePendingBooking(booking);
+            }
+            afterId = batch.get(batch.size() - 1);
         }
     }
 

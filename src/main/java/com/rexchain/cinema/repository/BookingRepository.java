@@ -54,6 +54,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
 
     @EntityGraph(attributePaths = {"showtime", "showtime.movie", "showtime.auditorium", "showtime.auditorium.cinema", "user"})
     List<Booking> findByUserIdOrderByCreatedAtDesc(Long userId);
+    @EntityGraph(attributePaths = {"showtime", "showtime.movie", "showtime.auditorium", "showtime.auditorium.cinema", "user"})
+    org.springframework.data.domain.Page<Booking> findByUserIdOrderByCreatedAtDesc(Long userId, org.springframework.data.domain.Pageable pageable);
     List<Booking> findByStatusOrderByCreatedAtAsc(BookingStatus status);
     Optional<Booking> findByBookingCode(String bookingCode);
     Optional<Booking> findByQrToken(String qrToken);
@@ -191,8 +193,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
     List<Booking> findByIdIn(Collection<Long> ids);
 
 
-    /** Fix 1: Find PENDING bookings that have passed their expiry time. */
-    List<Booking> findByStatusAndExpiresAtBefore(BookingStatus status, LocalDateTime before);
+    @Query("select b.id from Booking b where b.status = :status and b.expiresAt < :before " +
+            "and (:afterId is null or b.id > :afterId) order by b.id")
+    List<Long> findExpiredBookingIds(@Param("status") BookingStatus status,
+                                     @Param("before") LocalDateTime before,
+                                     @Param("afterId") Long afterId,
+                                     Pageable pageable);
 
     /** Fix 3: Pessimistic lock on booking — prevents duplicate payment webhook processing. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

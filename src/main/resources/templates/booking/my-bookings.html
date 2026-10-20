@@ -13,5 +13,10 @@
         </div>
     </div>
     <div th:if="${bookings.isEmpty()}" class="empty-state">Bạn chưa có vé nào.</div>
+    <nav class="d-flex justify-content-between align-items-center mt-4" th:if="${bookingPage.totalPages > 1}" aria-label="Phân trang lịch sử vé">
+        <a class="btn btn-outline-light" th:if="${bookingPage.hasPrevious()}" th:href="@{/bookings(page=${bookingPage.number - 1})}">Trang trước</a>
+        <span class="text-secondary" th:text="|Trang ${bookingPage.number + 1} / ${bookingPage.totalPages}|">Trang 1 / 1</span>
+        <a class="btn btn-outline-light" th:if="${bookingPage.hasNext()}" th:href="@{/bookings(page=${bookingPage.number + 1})}">Trang sau</a>
+    </nav>
 </main><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body></html>

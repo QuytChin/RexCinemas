@@ -12,6 +12,9 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -117,8 +120,11 @@ public class BookingController {
     }
 
     @GetMapping("/bookings")
-    String mine(Authentication auth, Model model) {
-        model.addAttribute("bookings", bookings.findByUserIdOrderByCreatedAtDesc(current(auth).getId()));
+    String mine(@RequestParam(defaultValue = "0") int page, Authentication auth, Model model) {
+        Page<Booking> bookingPage = bookings.findByUserIdOrderByCreatedAtDesc(current(auth).getId(),
+                PageRequest.of(Math.max(0, page), 10, Sort.by(Sort.Direction.DESC, "createdAt")));
+        model.addAttribute("bookings", bookingPage);
+        model.addAttribute("bookingPage", bookingPage);
         return "booking/my-bookings";
     }
 

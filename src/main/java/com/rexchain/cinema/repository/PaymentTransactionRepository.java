@@ -5,6 +5,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +20,7 @@ import java.util.Optional;
 public class PaymentTransactionRepository {
     private final JdbcTemplate jdbc;
     private final DatabaseSchemaResolver schemaResolver;
+    private volatile Boolean schemaAvailable;
 
     public PaymentTransactionRepository(JdbcTemplate jdbc, DatabaseSchemaResolver schemaResolver) {
         this.jdbc = jdbc;
@@ -26,6 +28,20 @@ public class PaymentTransactionRepository {
     }
 
     public boolean isSchemaAvailable() {
+        if (schemaAvailable != null) return schemaAvailable;
+        synchronized (this) {
+            if (schemaAvailable != null) return schemaAvailable;
+            schemaAvailable = detectSchemaAvailability();
+            return schemaAvailable;
+        }
+    }
+
+    @PostConstruct
+    void validateSchemaAtStartup() {
+        isSchemaAvailable();
+    }
+
+    private boolean detectSchemaAvailability() {
         try {
             Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables " +
                             "WHERE table_schema = ? AND LOWER(table_name) = LOWER(?)", Integer.class,

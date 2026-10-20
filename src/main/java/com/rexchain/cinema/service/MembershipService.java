@@ -16,9 +16,12 @@ import java.util.*;
 
 @Service
 public class MembershipService {
+    private static final long TIER_POLICY_CACHE_MILLIS = 30_000;
     private final LoyaltySettingsRepository settingsRepository;
     private final MembershipTierPolicyRepository policies;
     private final LoyaltyPolicyAuditRepository policyAudits;
+    private volatile List<MembershipTierPolicy> cachedTierPolicies;
+    private volatile long tierPolicyCacheExpiresAt;
 
     public MembershipService(LoyaltySettingsRepository settingsRepository, MembershipTierPolicyRepository policies,
                              LoyaltyPolicyAuditRepository policyAudits) {
@@ -34,9 +37,21 @@ public class MembershipService {
 
     @Transactional(readOnly = true)
     public List<MembershipTierPolicy> tierPolicies() {
-        List<MembershipTierPolicy> configured = policies.findAllByOrderByQualifyingThresholdAsc();
-        validatePolicies(configured);
-        return configured;
+        List<MembershipTierPolicy> cached = cachedTierPolicies;
+        long now = System.currentTimeMillis();
+        if (cached != null && now < tierPolicyCacheExpiresAt) return cached;
+        synchronized (this) {
+            cached = cachedTierPolicies;
+            now = System.currentTimeMillis();
+            if (cached == null || now >= tierPolicyCacheExpiresAt) {
+                List<MembershipTierPolicy> configured = policies.findAllByOrderByQualifyingThresholdAsc();
+                validatePolicies(configured);
+                cached = List.copyOf(configured);
+                cachedTierPolicies = cached;
+                tierPolicyCacheExpiresAt = now + TIER_POLICY_CACHE_MILLIS;
+            }
+            return cached;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -138,6 +153,8 @@ public class MembershipService {
         policies.save(value);
         validateTierOrder();
         audit("TIER", tier.name(), before, policySnapshot(value), actor);
+        cachedTierPolicies = null;
+        tierPolicyCacheExpiresAt = 0;
     }
 
     private void validateTierOrder() {

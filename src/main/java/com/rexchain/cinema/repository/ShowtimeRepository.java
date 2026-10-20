@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +23,11 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long>, org.s
            "and s.startTime > :after " +
            "order by s.startTime asc")
     List<Showtime> findPublicByStartTimeAfterOrderByStartTimeAsc(@Param("after") LocalDateTime after);
+
+    @Query("select s from Showtime s join fetch s.movie m join fetch s.auditorium a join fetch a.cinema c " +
+           "where s.active=true and m.active=true and c.active=true and s.startTime > :after " +
+           "order by s.startTime asc")
+    List<Showtime> findTopPublicByStartTimeAfter(@Param("after") LocalDateTime after, Pageable pageable);
     long countByActiveTrueAndStartTimeBetween(LocalDateTime from, LocalDateTime to);
     List<Showtime> findByAuditoriumIdAndActiveTrueAndStartTimeBetweenOrderByStartTimeAsc(
             Long auditoriumId, LocalDateTime from, LocalDateTime to);

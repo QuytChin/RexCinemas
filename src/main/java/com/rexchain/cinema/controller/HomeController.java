@@ -3,6 +3,7 @@ package com.rexchain.cinema.controller;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -57,8 +58,8 @@ public class HomeController {
         model.addAttribute("events", events.findTop4ByActiveTrueOrderBySortOrderAscCreatedAtDesc());
         model.addAttribute("articles", articles.findTop6ByActiveTrueOrderBySortOrderAscPublishDateDesc());
         model.addAttribute("mediaItems", mediaItems.findTop8ByActiveTrueOrderBySortOrderAscCreatedAtDesc());
-        List<Showtime> quickShowtimes = showtimes.findPublicByStartTimeAfterOrderByStartTimeAsc(LocalDateTime.now())
-                .stream().limit(8).toList();
+        List<Showtime> quickShowtimes = showtimes.findTopPublicByStartTimeAfter(
+                LocalDateTime.now(), PageRequest.of(0, 8));
         model.addAttribute("quickShowtimes", quickShowtimes);
         populateAvailability(model, quickShowtimes);
         model.addAttribute("dates", dateOptions(today, 7));
