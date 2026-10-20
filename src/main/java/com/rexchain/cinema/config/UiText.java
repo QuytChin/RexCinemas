@@ -15,6 +15,8 @@ public class UiText {
             Map.entry("publishDate", "Ngày đăng"), Map.entry("releaseDate", "Ngày khởi chiếu"),
             Map.entry("title", "Tiêu đề"), Map.entry("email", "Email"),
             Map.entry("fullName", "Họ và tên"), Map.entry("pointsCost", "Điểm đổi"),
+            Map.entry("NOW_SHOWING", "Đang chiếu"), Map.entry("COMING_SOON", "Sắp chiếu"),
+            Map.entry("ENDED", "Đã kết thúc"),
             Map.entry("price", "Giá"), Map.entry("validUntil", "Ngày hết hạn"),
             Map.entry("code", "Mã"), Map.entry("PENDING", "Chờ thanh toán"),
             Map.entry("CONFIRMED", "Đã xác nhận"), Map.entry("CANCELLED", "Đã hủy"),
