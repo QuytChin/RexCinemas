@@ -23,9 +23,16 @@ import java.util.Map;
 
 @Component
 public class AdminListSupport {
-    public record Options(String search, String filter, String[] sorts, String[] fetches) {
+    public record Options(String search, String filter, String[] sorts, String[] fetches,
+                          String filterLabel, String searchPlaceholder) {
+        public Options(String search, String filter, String[] sorts, String[] fetches) {
+            this(search, filter, sorts, fetches, "Trạng thái", "Nhập từ khóa cần tìm");
+        }
         public Options(String search, String filter, String... sorts) {
             this(search, filter, sorts, new String[0]);
+        }
+        public Options withLabels(String filterLabel, String searchPlaceholder) {
+            return new Options(search, filter, sorts, fetches, filterLabel, searchPlaceholder);
         }
     }
 
@@ -120,6 +127,8 @@ public class AdminListSupport {
         model.addAttribute("adminDir", page.getSort().iterator().next().getDirection().name().toLowerCase());
         model.addAttribute("adminSorts", options.sorts());
         model.addAttribute("adminStatuses", statusOptions);
+        model.addAttribute("adminFilterLabel", filterLabel(options.filter(), options.filterLabel()));
+        model.addAttribute("adminSearchPlaceholder", options.searchPlaceholder());
         model.addAttribute("adminPrev", link(request, "page", page.getNumber() - 1));
         model.addAttribute("adminNext", link(request, "page", page.getNumber() + 1));
         model.addAttribute("adminFirst", link(request, "page", 0));
@@ -136,6 +145,17 @@ public class AdminListSupport {
 
     private int number(String value, int fallback) {
         try { return Integer.parseInt(value); } catch (NumberFormatException ex) { return fallback; }
+    }
+
+    private String filterLabel(String filter, String fallback) {
+        if (filter == null) return fallback;
+        return switch (filter) {
+            case "role" -> "Vai trò";
+            case "active" -> "Hiển thị";
+            case "type" -> "Loại nội dung";
+            case "transactionType" -> "Loại giao dịch";
+            default -> fallback;
+        };
     }
 
     private String trim(String value) {
