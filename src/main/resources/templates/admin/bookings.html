@@ -15,7 +15,7 @@
             <td><span th:text="${b.paymentMethod}"></span><div class="small text-secondary" th:if="${b.paymentReference!=null}" th:text="${b.paymentReference}"></div><div class="small" th:if="${b.voucherCode!=null}" th:text="${'Voucher: '+b.voucherCode}"></div></td>
             <td><strong th:text="${#numbers.formatDecimal(b.totalAmount,0,'COMMA',0,'POINT')+'đ'}"></strong></td>
             <td>
-                <span class="badge" th:classappend="${b.status.name()=='CONFIRMED'?' text-bg-success':(b.status.name()=='PENDING'?' text-bg-warning':(b.status.name()=='REFUND_PENDING'?' text-bg-danger text-white':(b.status.name()=='REFUNDED'?' text-bg-info':' text-bg-secondary')))}" th:text="${b.status}"></span>
+                <span class="badge" th:classappend="${b.status.name()=='CONFIRMED'?' text-bg-success':(b.status.name()=='PENDING'?' text-bg-warning':(b.status.name()=='REFUND_PENDING'?' text-bg-danger text-white':(b.status.name()=='REFUNDED'?' text-bg-info':' text-bg-secondary')))}" th:text="${@uiText.label(b.status)}"></span>
                 <div class="mt-2"><span class="badge text-bg-info" th:if="${b.checkedIn}">ĐÃ CHECK-IN</span><span class="badge text-bg-dark border" th:if="${b.status.name()=='CONFIRMED' and !b.checkedIn}">CHƯA CHECK-IN</span></div>
                 <div class="small text-secondary mt-1" th:if="${b.checkedInAt!=null}" th:text="${#temporals.format(b.checkedInAt,'HH:mm dd/MM')}"></div>
                 <div class="small text-warning mt-1" th:if="${b.refundedAt!=null}" th:text="${'Hoàn: '+#temporals.format(b.refundedAt,'HH:mm dd/MM')}"></div>
