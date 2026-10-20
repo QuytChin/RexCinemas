@@ -12,7 +12,7 @@
       th:attr="data-status-url=@{'/api/payment-status/' + ${booking.bookingCode}},data-ticket-url=@{'/bookings/' + ${booking.id}},data-seat-map-url=${seatMapUrl},data-expires-at-epoch=${expiresAtEpochMillis},data-server-now-epoch=${serverNowEpochMillis}">
     <div class="bank-qr-card">
         <div class="bank-qr-copy">
-            <p class="eyebrow">BANK QR PAYMENT</p>
+            <p class="eyebrow">THANH TOÁN QR NGÂN HÀNG</p>
             <h1>Đang chờ thanh toán</h1>
             <p class="bank-qr-lead">Mở ứng dụng ngân hàng, quét mã QR và nhập đúng nội dung chuyển khoản bên dưới.</p>
             <div class="bank-qr-status"><span class="bank-qr-status-dot"></span><strong id="paymentStatusText">Đang chờ thanh toán</strong></div>

@@ -20,14 +20,14 @@
         <table class="table table-dark table-hover align-middle">
             <thead>
             <tr>
-                <th>ID</th>
+                <th>Mã</th>
                 <th>Phim</th>
                 <th>Phân loại</th>
                 <th>Thể loại</th>
                 <th>Thời lượng</th>
                 <th>Trạng thái chiếu</th>
                 <th>Hiển thị</th>
-                <th></th>
+                <th class="text-end">Thao tác</th>
             </tr>
             </thead>
             <tbody>
@@ -35,7 +35,7 @@
                 <td th:text="${m.id}"></td>
                 <td>
                     <strong th:text="${m.title}"></strong>
-                    <div class="small text-secondary" th:if="${m.releaseDate != null}" th:text="'KC: ' + ${#temporals.format(m.releaseDate, 'dd/MM/yyyy')}"></div>
+                    <div class="small text-secondary" th:if="${m.releaseDate != null}" th:text="'Khởi chiếu: ' + ${#temporals.format(m.releaseDate, 'dd/MM/yyyy')}"></div>
                 </td>
                 <td>
                     <span class="badge bg-secondary text-uppercase fw-bold" th:text="${m.ageRating != null ? m.ageRating.code : 'P'}"></span>

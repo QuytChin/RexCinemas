@@ -34,7 +34,8 @@ public class AdminContentController {
     @GetMapping("/events")
     String events(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
                   HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("title,label", "active", "sortOrder", "createdAt", "title", "id");
+        var options = new AdminListSupport.Options("title,label", "active", "sortOrder", "createdAt", "title", "id")
+                .withLabels("Hiển thị", "Tên hoặc nhãn sự kiện");
         var page = lists.query(events, params, options);
         model.addAttribute("events", page.getContent());
         lists.present(model, page, params, options, request, "true", "false");
@@ -80,7 +81,8 @@ public class AdminContentController {
     @GetMapping("/articles")
     String articles(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
                     HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("title,category", "active", "createdAt", "publishDate", "title", "id");
+        var options = new AdminListSupport.Options("title,category", "active", "createdAt", "publishDate", "title", "id")
+                .withLabels("Hiển thị", "Tiêu đề hoặc chuyên mục");
         var page = lists.query(articles, params, options);
         model.addAttribute("articles", page.getContent());
         lists.present(model, page, params, options, request, "true", "false");
@@ -130,7 +132,8 @@ public class AdminContentController {
     @GetMapping("/media")
     String media(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
                  HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("title", "type", "sortOrder", "createdAt", "title", "id");
+        var options = new AdminListSupport.Options("title", "type", "sortOrder", "createdAt", "title", "id")
+                .withLabels("Loại nội dung", "Tên video hoặc clip");
         var page = lists.query(mediaItems, params, options);
         model.addAttribute("mediaItems", page.getContent());
         lists.present(model, page, params, options, request, MediaType.values()[0].name(), MediaType.values()[1].name());

@@ -26,7 +26,8 @@ public class AdminRewardsController {
     String dashboard(@RequestParam Map<String, String> params, HttpServletRequest request, Model model){
         model.addAttribute("memberCount",users.count()); model.addAttribute("availablePoints",users.sumAvailablePoints()); model.addAttribute("lifetimePoints",users.sumLifetimePoints()); model.addAttribute("redeemedPoints",users.sumRedeemedPoints());
         var ledgerOptions = new AdminListSupport.Options("reference,user.email", "transactionType",
-                new String[]{"createdAt", "pointsDelta", "id"}, new String[]{"user"});
+                new String[]{"createdAt", "pointsDelta", "id"}, new String[]{"user"})
+                .withLabels("Loại biến động", "Mã tham chiếu hoặc email khách");
         Page<LoyaltyLedgerEntry> ledgerPage = lists.query(ledger, params, ledgerOptions);
         model.addAttribute("entries", ledgerPage.getContent());
         lists.present(model, ledgerPage, params, ledgerOptions, request,

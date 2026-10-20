@@ -158,7 +158,8 @@ public class AdminController {
     String latePayments(@RequestParam(required = false) LatePaymentCaseStatus status,
                         @RequestParam(required = false, name = "q") String query,
                         @RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("", "status", "createdAt", "amount", "status", "id");
+        var options = new AdminListSupport.Options("booking.bookingCode,providerTransactionId,booking.user.email", "status", "createdAt", "amount", "status", "id")
+                .withLabels("Trạng thái hồ sơ", "Mã booking, mã giao dịch, email khách");
         var page = latePaymentCases.search(status, query, lists.pageable(params, options.sorts()));
         display(model, request, params, page, options, "cases", LatePaymentCaseStatus.values());
         model.addAttribute("filterStatus", status);
@@ -235,7 +236,7 @@ public class AdminController {
     @GetMapping("/movies")
     String movies(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
         var options = new AdminListSupport.Options("title,genre", "status", "createdAt", "title", "releaseDate", "id")
-                .withLabels("Trạng thái", "Nhập tên phim");
+                .withLabels("Trạng thái chiếu", "Tên phim hoặc thể loại");
         display(model, request, params, lists.query(movies, params, options), options, "movies", MovieStatus.values());
         return "admin/movies";
     }
@@ -417,7 +418,8 @@ public class AdminController {
     String showtimes(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
                      HttpServletRequest request, Model model) {
         var options = new AdminListSupport.Options("movie.title,auditorium.name", "active",
-                new String[]{"startTime", "basePrice", "id"}, new String[]{"movie", "auditorium.cinema"});
+                new String[]{"startTime", "basePrice", "id"}, new String[]{"movie", "auditorium.cinema"})
+                .withLabels("Hiển thị", "Tên phim, tên phòng");
         display(model, request, params, lists.query(showtimes, params, options), options, "showtimes", "true", "false");
         model.addAttribute("movies", movies.findAll());
         model.addAttribute("auditoriums", auditoriums.findAll());
@@ -510,7 +512,8 @@ public class AdminController {
     @Transactional(readOnly = true)
     String bookings(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
         var options = new AdminListSupport.Options("bookingCode,user.email,user.fullName,showtime.movie.title", "status",
-                new String[]{"createdAt", "totalAmount", "status", "id"}, new String[]{"user", "showtime.movie", "showtime.auditorium.cinema"});
+                new String[]{"createdAt", "totalAmount", "status", "id"}, new String[]{"user", "showtime.movie", "showtime.auditorium.cinema"})
+                .withLabels("Trạng thái booking", "Mã booking, email, tên khách, tên phim");
         display(model, request, params, bookingPage(params, options), options, "bookings", BookingStatus.values());
         return "admin/bookings";
     }
@@ -549,7 +552,8 @@ public class AdminController {
     @GetMapping("/users")
     @Transactional(readOnly = true)
     String users(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("fullName,email,username,phone", "role", "createdAt", "email", "fullName", "id");
+        var options = new AdminListSupport.Options("fullName,email,username,phone", "role", "createdAt", "email", "fullName", "id")
+                .withLabels("Vai trò", "Tên, email, số điện thoại");
         Page<User> page = lists.query(users, params, options);
         display(model, request, params, page, options, "users", Role.values());
         java.util.Map<Long, MembershipTier> memberTiers = new java.util.HashMap<>();
@@ -582,7 +586,8 @@ public class AdminController {
     @GetMapping("/combos")
     String combos(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
                   HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("name", "active", "createdAt", "name", "price", "id");
+        var options = new AdminListSupport.Options("name", "active", "createdAt", "name", "price", "id")
+                .withLabels("Hiển thị", "Tên combo");
         display(model, request, params, lists.query(combos, params, options), options, "combos", "true", "false");
         model.addAttribute("editCombo",
                 edit == null ? new ComboProduct() : combos.findById(edit).orElse(new ComboProduct()));
@@ -626,7 +631,8 @@ public class AdminController {
     @GetMapping("/vouchers")
     String vouchers(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
                     HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("code,name", "active", "id", "code", "name", "validUntil");
+        var options = new AdminListSupport.Options("code,name", "active", "id", "code", "name", "validUntil")
+                .withLabels("Hiển thị", "Mã hoặc tên voucher");
         display(model, request, params, lists.query(vouchers, params, options), options, "vouchers", "true", "false");
         model.addAttribute("discountTypes", DiscountType.values());
         model.addAttribute("editVoucher", edit == null ? new Voucher() : vouchers.findById(edit).orElse(new Voucher()));
@@ -684,7 +690,8 @@ public class AdminController {
     @GetMapping("/reviews")
     String reviews(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
         var options = new AdminListSupport.Options("movie.title,user.email", null,
-                new String[]{"createdAt", "rating", "id"}, new String[]{"movie", "user"});
+                new String[]{"createdAt", "rating", "id"}, new String[]{"movie", "user"})
+                .withLabels("Trạng thái", "Tên phim hoặc email khách");
         display(model, request, params, lists.query(reviews, params, options), options, "reviews");
         return "admin/reviews";
     }

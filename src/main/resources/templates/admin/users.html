@@ -16,14 +16,14 @@
   <div th:replace="~{fragments/admin-list :: filters}"></div>
   <div class="table-responsive">
     <table class="table table-dark table-hover align-middle">
-      <thead><tr><th>ID</th><th>Họ tên</th><th>Email</th><th>Hạng</th><th>Điểm</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+      <thead><tr><th>Mã</th><th>Họ tên</th><th>Email</th><th>Hạng</th><th>Điểm</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
       <tbody>
       <tr th:each="u:${users}">
         <td th:text="${u.id}"></td><td th:text="${u.fullName}"></td><td th:text="${u.email}"></td>
-        <td><span class="badge text-bg-dark" th:text="${memberTiers[u.id]}"></span></td>
-        <td><strong th:text="${u.loyaltyPoints}"></strong><div class="small text-secondary" th:text="${u.lifetimePoints+' lifetime'}"></div></td>
+        <td><span class="badge text-bg-dark" th:text="${@uiText.label(memberTiers[u.id])}"></span></td>
+        <td><strong th:text="${u.loyaltyPoints}"></strong><div class="small text-secondary" th:text="${u.lifetimePoints+' điểm tích lũy'}"></div></td>
         <td><form th:action="@{'/admin/users/'+${u.id}+'/role'}" method="post" class="d-flex gap-2">
-          <select name="role" class="form-select form-select-sm"><option th:each="r:${roles}" th:value="${r}" th:text="${r}" th:selected="${r==u.role}"></option></select>
+          <select name="role" class="form-select form-select-sm" aria-label="Vai trò"><option th:each="r:${roles}" th:value="${r}" th:text="${@uiText.label(r)}" th:selected="${r==u.role}"></option></select>
           <button class="btn btn-outline-light btn-sm">Lưu</button>
         </form></td>
         <td><span class="badge" th:classappend="${u.enabled?' text-bg-success':' text-bg-secondary'}" th:text="${u.enabled?'Hoạt động':'Đã khóa'}"></span></td>

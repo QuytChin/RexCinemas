@@ -11,7 +11,7 @@
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container-fluid admin-page-wrap pt-page pb-5">
     <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
-    <h1 th:text="${movie.id == null ? 'Thêm phim mới' : 'Cập nhật phim'}"></h1>
+    <header class="ui-page-header"><div><p class="eyebrow">MOVIE MANAGEMENT</p><h1 th:text="${movie.id == null ? 'Thêm phim mới' : 'Cập nhật phim'}"></h1></div><a class="btn btn-outline-light" th:href="@{/admin/movies}">Quay lại</a></header>
     <form class="admin-form mt-4" th:action="@{/admin/movies/save}" method="post" enctype="multipart/form-data">
         <input type="hidden" name="id" th:value="${movie.id}">
         <div class="row g-3">
@@ -32,7 +32,7 @@
                 <input class="form-control" name="genre" th:value="${movie.genre}" placeholder="Hành động, Viễn tưởng...">
             </div>
             <div class="col-md-4">
-                <label class="form-label">Độ tuổi (Age Rating)</label>
+                <label class="form-label">Độ tuổi</label>
                 <select class="form-select" name="ageRating">
                     <option th:each="r : ${ageRatings}"
                             th:value="${r.name()}"
@@ -41,7 +41,7 @@
                 </select>
             </div>
             <div class="col-md-4">
-                <label class="form-label">Trạng thái chiếu (Movie Status)</label>
+                <label class="form-label">Trạng thái chiếu</label>
                 <select class="form-select" name="status">
                     <option th:each="s : ${movieStatuses}"
                             th:value="${s.name()}"
@@ -58,11 +58,11 @@
                 <input class="form-control" type="date" name="releaseDate" th:value="${movie.releaseDate}">
             </div>
             <div class="col-md-4">
-                <label class="form-label">Trailer URL</label>
+                <label class="form-label">Địa chỉ trailer (URL)</label>
                 <input class="form-control" name="trailerUrl" th:value="${movie.trailerUrl}" placeholder="https://youtube.com/...">
             </div>
             <div class="col-md-6">
-                <label class="form-label">Poster URL</label>
+                <label class="form-label">Ảnh poster (URL)</label>
                 <input class="form-control" name="posterUrl" th:value="${movie.posterUrl}">
             </div>
             <div class="col-md-6">

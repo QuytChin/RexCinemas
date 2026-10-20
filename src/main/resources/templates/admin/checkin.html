@@ -9,7 +9,7 @@
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container-fluid admin-page-wrap pt-page pb-5">
-    <div class="admin-title"><div><p class="eyebrow">KIỂM SOÁT VÉ</p><h1>Quét mã QR xác nhận vé</h1></div><div th:replace="~{fragments/admin-nav :: adminNav}"></div></div>
+    <div class="admin-title"><div><p class="eyebrow">KIỂM SOÁT VÉ</p><h1>Quét vé QR</h1></div><div th:replace="~{fragments/admin-nav :: adminNav}"></div></div>
 
     <div class="row g-4 mt-2">
         <div class="col-xl-7">
@@ -29,8 +29,8 @@
         </div>
     </div>
 
-    <div th:replace="~{fragments/admin-list :: filters}"></div><section class="mt-5"><div class="d-flex justify-content-between align-items-end mb-3"><div><p class="eyebrow mb-1">RECENT</p><h3>Check-in gần đây</h3></div><span class="text-secondary" th:text="${recentCheckins.size()+' vé'}"></span></div>
-        <div class="table-responsive"><table class="table table-dark table-hover align-middle"><thead><tr><th>Mã vé</th><th>Khách</th><th>Phim</th><th>Rạp / Phòng</th><th>Ghế</th><th>Check-in</th></tr></thead><tbody><tr th:each="b:${recentCheckins}"><td><strong th:text="${b.bookingCode}"></strong></td><td th:text="${b.user.fullName}"></td><td th:text="${b.showtime.movie.title}"></td><td th:text="${b.showtime.auditorium.cinema.name+' / '+b.showtime.auditorium.name}"></td><td><span th:each="s,i:${b.seats}" th:text="${s.seatLabel+(i.last?'':', ')}"></span></td><td><span class="badge text-bg-info" th:text="${#temporals.format(b.checkedInAt,'HH:mm dd/MM')}"></span><div class="small text-secondary" th:text="${b.checkedInBy}"></div></td></tr><tr th:if="${recentCheckins.isEmpty()}"><td colspan="6" class="text-center text-secondary py-4">Chưa có lượt check-in nào.</td></tr></tbody></table></div>
+    <div th:replace="~{fragments/admin-list :: filters}"></div><section class="mt-5"><div class="d-flex justify-content-between align-items-end mb-3"><div><p class="eyebrow mb-1">RECENT</p><h3>Check-in gần đây</h3></div></div>
+        <div class="table-responsive"><table class="table table-dark table-hover align-middle"><thead><tr><th>Mã đặt vé</th><th>Khách hàng</th><th>Phim</th><th>Rạp / Phòng</th><th>Ghế</th><th>Giờ check-in</th></tr></thead><tbody><tr th:each="b:${recentCheckins}"><td><strong th:text="${b.bookingCode}"></strong></td><td th:text="${b.user.fullName}"></td><td th:text="${b.showtime.movie.title}"></td><td th:text="${b.showtime.auditorium.cinema.name+' / '+b.showtime.auditorium.name}"></td><td><span th:each="s,i:${b.seats}" th:text="${s.seatLabel+(i.last?'':', ')}"></span></td><td><span class="badge text-bg-info" th:text="${#temporals.format(b.checkedInAt,'HH:mm dd/MM')}"></span><div class="small text-secondary" th:text="${b.checkedInBy}"></div></td></tr><tr th:if="${recentCheckins.isEmpty()}"><td colspan="6" class="text-center text-secondary py-4">Chưa có lượt check-in nào.</td></tr></tbody></table></div>
     </section>
 <div th:replace="~{fragments/admin-list :: pager}"></div></main>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>

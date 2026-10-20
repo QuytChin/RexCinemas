@@ -1,17 +1,305 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rex Rewards | Quản trị</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" th:href="@{/css/app.css}"></head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rex Rewards | Quản trị</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container-fluid admin-page-wrap pt-page pb-5">
-  <div th:replace="~{fragments/admin-nav :: adminNav}"></div>
-  <header class="ui-page-header"><div><p class="eyebrow">REX REWARDS</p><h1>Khách hàng thân thiết</h1></div></header>
-  <div class="alert alert-success" th:if="${success}" th:text="${success}"></div><div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
-  <section class="rewards-admin-metrics"><article><span>Thành viên</span><strong th:text="${memberCount}"></strong></article><article><span>Điểm khả dụng</span><strong th:text="${availablePoints}"></strong></article><article><span>Điểm đã kiếm</span><strong th:text="${lifetimePoints}"></strong></article><article><span>Điểm đã đổi</span><strong th:text="${redeemedPoints}"></strong></article><article><span>Lượt đổi</span><strong th:text="${redemptionCount}"></strong></article></section>
-  <section class="ui-card rewards-admin-card"><h2>Cấu hình chung</h2><form th:action="@{/admin/rewards/settings}" method="post" class="row g-3"><input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><div class="col-md-3"><label>Số tiền / 1 điểm</label><input class="form-control" type="number" name="amountPerPoint" th:value="${settings.amountPerPoint}" min="1"></div><div class="col-md-3"><label>Điểm tối thiểu đơn dương</label><input class="form-control" type="number" name="minimumPositivePoints" th:value="${settings.minimumPositiveOrderPoints}" min="0"></div><div class="col-md-3 form-check pt-4"><input class="form-check-input" type="checkbox" name="voucherStackingAllowed" th:checked="${settings.voucherStackingAllowed}"><label class="form-check-label">Cộng dồn voucher/hạng</label></div><div class="col-md-3 form-check pt-4"><input class="form-check-input" type="checkbox" name="redemptionEnabled" th:checked="${settings.redemptionEnabled}"><label class="form-check-label">Bật đổi điểm</label></div><div class="col-12"><button class="btn btn-rex">Lưu cấu hình</button></div></form></section>
-  <section class="ui-card rewards-admin-card"><h2>Chính sách hạng</h2><div class="table-responsive"><table class="table table-dark align-middle"><thead><tr><th>Hạng</th><th>Ngưỡng</th><th>Giảm giá vé</th><th>Hệ số điểm</th><th>Hoạt động</th><th></th></tr></thead><tbody><tr th:each="policy : ${tierPolicies}"><td th:text="${policy.tier}"></td><td colspan="5"><form class="row g-2" th:action="@{'/admin/rewards/tiers/'+${policy.tier}}" method="post"><input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><div class="col"><input class="form-control form-control-sm" name="qualifyingThreshold" type="number" min="0" th:value="${policy.qualifyingThreshold}"></div><div class="col"><input class="form-control form-control-sm" name="ticketDiscountPercent" type="number" min="0" max="100" step=".01" th:value="${policy.ticketDiscountPercent}"></div><div class="col"><input class="form-control form-control-sm" name="pointMultiplier" type="number" min="1" max="10" step=".1" th:value="${policy.pointMultiplier}"></div><div class="col form-check pt-1"><input class="form-check-input" name="active" type="checkbox" th:checked="${policy.active}"></div><div class="col"><button class="btn btn-sm btn-rex">Lưu</button></div></form></td></tr></tbody></table></div></section>
-  <section class="row g-4"><div class="col-xl-5"><section class="ui-card rewards-admin-card"><h2>Tạo ưu đãi</h2><form th:action="@{/admin/rewards/rewards/save}" method="post" class="row g-3"><input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><div class="col-12"><label>Tên</label><input class="form-control" name="name" required maxlength="160"></div><div class="col-12"><label>Mô tả</label><textarea class="form-control" name="description" maxlength="600"></textarea></div><div class="col-6"><label>Điểm cần đổi</label><input class="form-control" name="pointsCost" type="number" min="1" required></div><div class="col-6"><label>Voucher</label><input class="form-control" name="voucherAmount" type="number" min="1" required></div><div class="col-6"><label>Đơn tối thiểu</label><input class="form-control" name="voucherMinOrderAmount" type="number" min="0" value="0"></div><div class="col-6"><label>Hạn dùng (ngày)</label><input class="form-control" name="validityDays" type="number" min="1" value="30"></div><div class="col-6"><label>Giới hạn lượt đổi</label><input class="form-control" name="redemptionLimit" type="number" min="1"></div><div class="col-6 form-check pt-4"><input class="form-check-input" name="active" type="checkbox" checked><label class="form-check-label">Hoạt động</label></div><div class="col-12"><button class="btn btn-rex">Lưu ưu đãi</button></div></form></section></div><div class="col-xl-7"><section class="ui-card rewards-admin-card"><h2>Danh mục ưu đãi</h2><form method="get" class="row g-2 mb-2"><div class="col"><input class="form-control" name="rewardQ" placeholder="Tìm ưu đãi" th:value="${param.rewardQ}"></div><div class="col"><select class="form-select" name="rewardStatus"><option value="">Tất cả</option><option value="true" th:selected="${param.rewardStatus!=null and param.rewardStatus[0]=='true'}">Đang bật</option><option value="false" th:selected="${param.rewardStatus!=null and param.rewardStatus[0]=='false'}">Đã tắt</option></select></div><div class="col"><select class="form-select" name="rewardSort"><option value="createdAt" th:selected="${param.rewardSort!=null and param.rewardSort[0]=='createdAt'}">Ngày tạo</option><option value="pointsCost" th:selected="${param.rewardSort!=null and param.rewardSort[0]=='pointsCost'}">Điểm</option><option value="name" th:selected="${param.rewardSort!=null and param.rewardSort[0]=='name'}">Tên</option><option value="id" th:selected="${param.rewardSort!=null and param.rewardSort[0]=='id'}">ID</option></select></div><div class="col"><select class="form-select" name="size"><option value="10" th:selected="${adminPage.size==10}">10</option><option value="20" th:selected="${adminPage.size==20}">20</option><option value="50" th:selected="${adminPage.size==50}">50</option><option value="100" th:selected="${adminPage.size==100}">100</option></select></div><button class="btn btn-outline-light col-auto">Lọc ưu đãi</button></form><div class="table-responsive"><table class="table table-dark"><thead><tr><th>Tên</th><th>Điểm</th><th>Voucher</th><th>Đã đổi</th><th></th></tr></thead><tbody><tr th:each="reward : ${rewards}"><td><strong th:text="${reward.name}"></strong><small class="d-block" th:text="${reward.description}"></small></td><td th:text="${reward.pointsCost}"></td><td th:text="${#numbers.formatDecimal(reward.voucherAmount,0,'COMMA',0,'POINT')+'đ'}"></td><td th:text="${reward.redeemedCount}"></td><td><form th:action="@{'/admin/rewards/rewards/'+${reward.id}+'/toggle'}" method="post"><input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button class="btn btn-sm" th:classappend="${reward.active?' btn-outline-danger':' btn-outline-success'}" th:text="${reward.active?'Tắt':'Bật'}"></button></form></td></tr><tr th:if="${#lists.isEmpty(rewards)}"><td colspan="5" class="text-center">Không tìm thấy ưu đãi.</td></tr></tbody></table></div><div class="d-flex gap-2 align-items-center"><span th:text="${rewardPage.totalElements==0 ? '0 kết quả' : 'Trang '+(rewardPage.number+1)+'/'+rewardPage.totalPages}"></span><a class="btn btn-sm btn-outline-light" th:if="${rewardPage.hasPrevious()}" th:href="${rewardPrev}">Trước</a><a class="btn btn-sm btn-outline-light" th:if="${rewardPage.hasNext()}" th:href="${rewardNext}">Sau</a></div></section></div></section>
-  <section class="row g-4 mt-1"><div class="col-xl-4"><section class="ui-card rewards-admin-card"><h2>Điều chỉnh điểm</h2><form th:action="@{/admin/rewards/adjust}" method="post" class="row g-3"><input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><div class="col-12"><label>Khách hàng</label><input class="form-control" name="userId" type="number" min="1" required placeholder="ID người dùng"><a class="small" href="/admin/users">Tra cứu người dùng</a></div><div class="col-12"><label>Điểm cộng/trừ</label><input class="form-control" name="points" type="number" required></div><div class="col-12"><label>Lý do bắt buộc</label><textarea class="form-control" name="reason" required maxlength="500"></textarea></div><div class="col-12"><button class="btn btn-outline-light">Ghi ledger</button></div></form></section></div><div class="col-xl-8"><section class="ui-card rewards-admin-card"><h2>Lịch sử ledger</h2><div th:replace="~{fragments/admin-list :: filters}"></div><div class="table-responsive"><table class="table table-dark align-middle"><thead><tr><th>Thời gian</th><th>User</th><th>Loại</th><th>Biến động</th><th>Số dư</th><th>Tham chiếu</th></tr></thead><tbody><tr th:each="entry : ${entries}"><td th:text="${#temporals.format(entry.createdAt,'dd/MM/yyyy HH:mm')}"></td><td th:text="${'User #'+entry.user.id}"></td><td th:text="${entry.transactionType}"></td><td th:text="${entry.pointsDelta}"></td><td th:text="${entry.availableAfter}"></td><td th:text="${entry.reference}"></td></tr><tr th:if="${#lists.isEmpty(entries)}"><td colspan="6" class="text-center">Chưa có ledger.</td></tr></tbody></table></div><div th:replace="~{fragments/admin-list :: pager}"></div></section></div></section>
-  <section class="ui-card rewards-admin-card"><h2>Audit thay đổi chính sách</h2><form method="get" class="row g-2 mb-2"><div class="col"><input class="form-control" name="auditQ" th:value="${param.auditQ}" placeholder="Tìm lịch sử chính sách"></div><div class="col"><select class="form-select" name="auditSort"><option value="createdAt">Ngày tạo</option><option value="id">ID</option></select></div><div class="col"><select class="form-select" name="size"><option value="10" th:selected="${adminPage.size==10}">10</option><option value="20" th:selected="${adminPage.size==20}">20</option><option value="50" th:selected="${adminPage.size==50}">50</option><option value="100" th:selected="${adminPage.size==100}">100</option></select></div><button class="btn btn-outline-light col-auto">Lọc lịch sử</button></form><div class="table-responsive"><table class="table table-dark align-middle"><thead><tr><th>Thời gian</th><th>Loại</th><th>Trước</th><th>Sau</th><th>Người thay đổi</th></tr></thead><tbody><tr th:each="audit : ${policyAudits}"><td th:text="${#temporals.format(audit.createdAt,'dd/MM/yyyy HH:mm')}"></td><td th:text="${audit.policyType + ' · ' + audit.policyKey}"></td><td><small th:text="${audit.beforeValue}"></small></td><td><small th:text="${audit.afterValue}"></small></td><td th:text="${audit.actor}"></td></tr><tr th:if="${#lists.isEmpty(policyAudits)}"><td colspan="5" class="text-center">Chưa có thay đổi.</td></tr></tbody></table></div></section>
-<div class="d-flex gap-2 align-items-center"><span th:text="${auditPage.totalElements==0 ? '0 kết quả' : 'Trang '+(auditPage.number+1)+'/'+auditPage.totalPages}"></span><a class="btn btn-sm btn-outline-light" th:if="${auditPage.hasPrevious()}" th:href="${auditPrev}">Trước</a><a class="btn btn-sm btn-outline-light" th:if="${auditPage.hasNext()}" th:href="${auditNext}">Sau</a></div></main>
-</body></html>
+<main class="container-fluid admin-page-wrap rewards-admin-page pt-page pb-5">
+    <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
+    <header class="ui-page-header rewards-admin-header">
+        <div>
+            <p class="eyebrow">REX REWARDS</p>
+            <h1>Khách hàng thân thiết</h1>
+        </div>
+    </header>
+
+    <div class="alert alert-success rewards-admin-alert" role="status" th:if="${success}" th:text="${success}"></div>
+    <div class="alert alert-danger rewards-admin-alert" role="alert" th:if="${error}" th:text="${error}"></div>
+
+    <section class="rewards-admin-metrics" aria-label="Tổng quan Rex Rewards">
+        <article><span>Thành viên</span><strong th:text="${#numbers.formatInteger(memberCount, 1, 'POINT')}"></strong></article>
+        <article><span>Điểm khả dụng</span><strong th:text="${#numbers.formatInteger(availablePoints, 1, 'POINT')}"></strong></article>
+        <article><span>Điểm đã kiếm</span><strong th:text="${#numbers.formatInteger(lifetimePoints, 1, 'POINT')}"></strong></article>
+        <article><span>Điểm đã đổi</span><strong th:text="${#numbers.formatInteger(redeemedPoints, 1, 'POINT')}"></strong></article>
+        <article><span>Lượt đổi</span><strong th:text="${#numbers.formatInteger(redemptionCount, 1, 'POINT')}"></strong></article>
+    </section>
+
+    <section class="ui-card rewards-admin-card rewards-settings-card">
+        <h2>Cấu hình chung</h2>
+        <form th:action="@{/admin/rewards/settings}" method="post" class="rewards-settings-form">
+            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <label class="rewards-setting-field" for="amount-per-point">
+                <span>Số tiền / 1 điểm</span>
+                <span class="input-group">
+                    <input id="amount-per-point" class="form-control" type="number" name="amountPerPoint" min="1" step="0.01" required th:value="${settings.amountPerPoint.stripTrailingZeros().toPlainString()}">
+                    <span class="input-group-text">₫</span>
+                </span>
+            </label>
+            <label class="rewards-setting-field" for="minimum-positive-points">
+                <span>Điểm tối thiểu đơn dương</span>
+                <input id="minimum-positive-points" class="form-control" type="number" name="minimumPositivePoints" min="0" step="1" required th:value="${settings.minimumPositiveOrderPoints}">
+            </label>
+            <label class="rewards-setting-toggle" for="reward-stack">
+                <input class="form-check-input" type="checkbox" id="reward-stack" name="voucherStackingAllowed" th:checked="${settings.voucherStackingAllowed}">
+                <span><strong>Cộng dồn voucher / hạng</strong><small>Cho phép áp dụng đồng thời theo cấu hình hiện tại.</small></span>
+            </label>
+            <label class="rewards-setting-toggle" for="reward-enable">
+                <input class="form-check-input" type="checkbox" id="reward-enable" name="redemptionEnabled" th:checked="${settings.redemptionEnabled}">
+                <span><strong>Bật đổi điểm</strong><small>Cho phép khách đổi điểm lấy ưu đãi.</small></span>
+            </label>
+            <div class="rewards-settings-actions">
+                <button class="btn btn-rex ui-btn ui-btn--primary" type="submit">Lưu cấu hình</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="ui-card rewards-admin-card rewards-policy-card">
+        <div class="rewards-admin-section-heading"><h2>Chính sách hạng</h2></div>
+        <div class="rewards-policy-table-wrap">
+            <table class="table table-dark align-middle rewards-policy-table">
+                <thead>
+                <tr>
+                    <th scope="col">Hạng thành viên</th>
+                    <th scope="col">Ngưỡng điểm</th>
+                    <th scope="col">Giảm giá vé</th>
+                    <th scope="col">Hệ số điểm</th>
+                    <th scope="col">Trạng thái</th>
+                    <th scope="col" class="text-end">Thao tác</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="policy : ${tierPolicies}">
+                    <td>
+                        <form th:id="${'tier-policy-' + policy.tier}" th:action="@{'/admin/rewards/tiers/' + ${policy.tier}}" method="post">
+                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                        </form>
+                        <strong class="rewards-tier-name" th:text="${@uiText.label(policy.tier)}"></strong>
+                    </td>
+                    <td><input class="form-control rewards-policy-number" type="number" min="0" step="1" name="qualifyingThreshold" aria-label="Ngưỡng điểm" th:attr="form=${'tier-policy-' + policy.tier}" th:value="${policy.qualifyingThreshold}"></td>
+                    <td>
+                        <div class="input-group rewards-policy-suffix">
+                            <input class="form-control rewards-policy-number" lang="vi" type="number" min="0" max="100" step=".0001" name="ticketDiscountPercent" aria-label="Giảm giá vé phần trăm" th:attr="form=${'tier-policy-' + policy.tier}" th:value="${policy.ticketDiscountPercent.stripTrailingZeros().toPlainString()}">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="input-group rewards-policy-suffix">
+                            <input class="form-control rewards-policy-number" lang="vi" type="number" min="1" max="10" step=".0001" name="pointMultiplier" aria-label="Hệ số điểm" th:attr="form=${'tier-policy-' + policy.tier}" th:value="${policy.pointMultiplier.stripTrailingZeros().toPlainString()}">
+                            <span class="input-group-text">×</span>
+                        </div>
+                    </td>
+                    <td>
+                        <label class="rewards-policy-status">
+                            <input class="form-check-input" type="checkbox" name="active" aria-label="Bật chính sách hạng" th:checked="${policy.active}" th:attr="form=${'tier-policy-' + policy.tier}">
+                            <span th:text="${policy.active ? 'Đang bật' : 'Đã tắt'}"></span>
+                        </label>
+                    </td>
+                    <td class="text-end"><button class="btn btn-sm btn-rex rewards-policy-save" type="submit" th:attr="form=${'tier-policy-' + policy.tier}">Lưu</button></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(tierPolicies)}"><td colspan="6" class="text-center text-secondary py-4">Chưa có chính sách hạng.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="row g-4 rewards-admin-two-column">
+        <div class="col-xl-5">
+            <section class="ui-card rewards-admin-card rewards-editor-card">
+                <h2>Tạo ưu đãi</h2>
+                <form th:action="@{/admin/rewards/rewards/save}" method="post" class="rewards-editor-form">
+                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <label class="rewards-editor-field">Tên ưu đãi<input class="form-control" name="name" required maxlength="160"></label>
+                    <label class="rewards-editor-field">Mô tả<textarea class="form-control" name="description" maxlength="600" rows="3"></textarea></label>
+                    <label class="rewards-editor-field">Điểm cần đổi<input class="form-control" name="pointsCost" type="number" min="1" step="1" required></label>
+                    <label class="rewards-editor-field">Giá trị voucher<input class="form-control" name="voucherAmount" type="number" min="1" step="1" required><small>Giá trị tiền tệ tính bằng đồng Việt Nam.</small></label>
+                    <label class="rewards-editor-field">Đơn tối thiểu<input class="form-control" name="voucherMinOrderAmount" type="number" min="0" step="1" value="0"></label>
+                    <label class="rewards-editor-field">Hạn dùng (ngày)<input class="form-control" name="validityDays" type="number" min="1" step="1" value="30"></label>
+                    <label class="rewards-editor-field">Giới hạn lượt đổi<input class="form-control" name="redemptionLimit" type="number" min="1" step="1"></label>
+                    <label class="rewards-editor-toggle"><input class="form-check-input" name="active" type="checkbox" checked><span>Hoạt động</span></label>
+                    <button class="btn btn-rex ui-btn ui-btn--primary" type="submit">Lưu ưu đãi</button>
+                </form>
+            </section>
+        </div>
+        <div class="col-xl-7">
+            <section class="ui-card rewards-admin-card rewards-catalog-card">
+                <h2>Danh mục ưu đãi</h2>
+                <form method="get" class="rewards-catalog-filter">
+                    <input class="form-control" name="rewardQ" placeholder="Tìm ưu đãi" th:value="${param.rewardQ}">
+                    <select class="form-select" name="rewardStatus">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="true" th:selected="${param.rewardStatus != null and param.rewardStatus[0] == 'true'}">Đang bật</option>
+                        <option value="false" th:selected="${param.rewardStatus != null and param.rewardStatus[0] == 'false'}">Đã tắt</option>
+                    </select>
+                    <select class="form-select" name="rewardSort">
+                        <option value="createdAt" th:selected="${param.rewardSort == null or param.rewardSort[0] == 'createdAt'}">Ngày tạo</option>
+                        <option value="pointsCost" th:selected="${param.rewardSort != null and param.rewardSort[0] == 'pointsCost'}">Điểm</option>
+                        <option value="name" th:selected="${param.rewardSort != null and param.rewardSort[0] == 'name'}">Tên</option>
+                        <option value="id" th:selected="${param.rewardSort != null and param.rewardSort[0] == 'id'}">Mã</option>
+                    </select>
+                    <select class="form-select" name="size" aria-label="Số ưu đãi mỗi trang">
+                        <option value="10" th:selected="${rewardPage.size == 10}">10 / trang</option>
+                        <option value="20" th:selected="${rewardPage.size == 20}">20 / trang</option>
+                        <option value="50" th:selected="${rewardPage.size == 50}">50 / trang</option>
+                        <option value="100" th:selected="${rewardPage.size == 100}">100 / trang</option>
+                    </select>
+                    <button class="btn btn-outline-light ui-btn ui-btn--secondary" type="submit">Lọc ưu đãi</button>
+                </form>
+                <div class="table-responsive rewards-table-wrap">
+                    <table class="table table-dark table-hover align-middle rewards-data-table">
+                        <thead><tr><th>Tên ưu đãi</th><th>Điểm đổi</th><th>Voucher</th><th>Đã đổi</th><th class="text-end">Thao tác</th></tr></thead>
+                        <tbody>
+                        <tr th:each="reward : ${rewards}">
+                            <td><strong th:text="${reward.name}"></strong><small class="d-block text-secondary" th:text="${reward.description}"></small></td>
+                            <td class="text-nowrap" th:text="${#numbers.formatInteger(reward.pointsCost, 1, 'POINT')}"></td>
+                            <td class="text-nowrap" th:text="${#numbers.formatDecimal(reward.voucherAmount, 1, 'POINT', (reward.voucherAmount.stripTrailingZeros().scale() &lt; 0 ? 0 : reward.voucherAmount.stripTrailingZeros().scale()), 'COMMA') + ' ₫'}"></td>
+                            <td th:text="${#numbers.formatInteger(reward.redeemedCount, 1, 'POINT')}"></td>
+                            <td class="text-end"><form th:action="@{'/admin/rewards/rewards/' + ${reward.id} + '/toggle'}" method="post">
+                                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                                <button class="btn btn-sm" th:classappend="${reward.active ? ' btn-outline-danger' : ' btn-outline-success'}" th:text="${reward.active ? 'Tắt' : 'Bật'}"></button>
+                            </form></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(rewards)}"><td colspan="5" class="text-center text-secondary py-4">Không tìm thấy ưu đãi.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <nav class="rewards-pagination" aria-label="Phân trang ưu đãi">
+                    <span th:text="${rewardPage.totalElements == 0 ? '0 kết quả' : 'Trang ' + (rewardPage.number + 1) + '/' + rewardPage.totalPages}"></span>
+                    <a class="btn btn-sm btn-outline-light" th:if="${rewardPage.hasPrevious()}" th:href="${rewardPrev}">Trước</a>
+                    <a class="btn btn-sm btn-outline-light" th:if="${rewardPage.hasNext()}" th:href="${rewardNext}">Sau</a>
+                </nav>
+            </section>
+        </div>
+    </section>
+
+    <section class="row g-4 rewards-admin-two-column rewards-adjust-ledger-layout">
+        <div class="col-xl-5 rewards-adjust-panel-column">
+            <section class="ui-card rewards-admin-card rewards-editor-card">
+                <h2>Điều chỉnh điểm</h2>
+                <form th:action="@{/admin/rewards/adjust}" method="post" class="rewards-adjust-form">
+                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <label class="rewards-editor-field"><span class="rewards-field-label-row"><span>Mã người dùng</span><a class="small" href="/admin/users">Tra cứu người dùng</a></span><input class="form-control" name="userId" type="number" min="1" step="1" required placeholder="Nhập mã người dùng"></label>
+                    <label class="rewards-editor-field">Điểm cộng / trừ<input class="form-control" name="points" type="number" step="1" required></label>
+                    <label class="rewards-editor-field">Lý do bắt buộc<textarea class="form-control" name="reason" required maxlength="500" rows="3"></textarea></label>
+                    <button class="btn btn-outline-light ui-btn ui-btn--secondary" type="submit">Xác nhận điều chỉnh</button>
+                </form>
+            </section>
+        </div>
+        <div class="col-xl-7 rewards-ledger-panel-column">
+            <section class="ui-card rewards-admin-card rewards-ledger-card">
+                <h2>Lịch sử biến động điểm</h2>
+                <div th:replace="~{fragments/admin-list :: filters}"></div>
+                <div class="table-responsive rewards-table-wrap">
+                    <table class="table table-dark table-hover align-middle rewards-data-table rewards-ledger-table">
+                        <thead><tr><th>Thời gian</th><th>Khách hàng</th><th>Loại biến động</th><th>Biến động</th><th>Số dư</th><th>Tham chiếu</th></tr></thead>
+                        <tbody>
+                        <tr th:each="entry : ${entries}">
+                            <td class="text-nowrap" th:text="${#temporals.format(entry.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
+                            <td th:text="${entry.user.fullName ?: ('Khách #' + entry.user.id)}"></td>
+                            <td th:text="${@uiText.label(entry.transactionType)}"></td>
+                            <td class="text-nowrap" th:text="${#numbers.formatInteger(entry.pointsDelta, 1, 'POINT')}"></td>
+                            <td class="text-nowrap" th:text="${#numbers.formatInteger(entry.availableAfter, 1, 'POINT')}"></td>
+                            <td class="rewards-ledger-reference"><span class="rewards-reference-text" th:text="${entry.reference}" th:attr="title=${entry.reference}"></span></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(entries)}"><td colspan="6" class="text-center text-secondary py-4">Chưa có ledger.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div th:replace="~{fragments/admin-list :: pager}"></div>
+            </section>
+        </div>
+    </section>
+
+    <section class="ui-card rewards-admin-card rewards-audit-card">
+        <h2>Audit thay đổi chính sách</h2>
+        <form method="get" class="rewards-audit-filter">
+            <input class="form-control" name="auditQ" th:value="${param.auditQ}" placeholder="Tìm lịch sử chính sách">
+            <select class="form-select" name="auditSort"><option value="createdAt" th:selected="${param.auditSort == null or param.auditSort[0] == 'createdAt'}">Ngày tạo</option><option value="id" th:selected="${param.auditSort != null and param.auditSort[0] == 'id'}">Mã</option></select>
+            <select class="form-select" name="size" aria-label="Số bản ghi mỗi trang">
+                <option value="10" th:selected="${auditPage.size == 10}">10 / trang</option>
+                <option value="20" th:selected="${auditPage.size == 20}">20 / trang</option>
+                <option value="50" th:selected="${auditPage.size == 50}">50 / trang</option>
+                <option value="100" th:selected="${auditPage.size == 100}">100 / trang</option>
+            </select>
+            <button class="btn btn-outline-light ui-btn ui-btn--secondary" type="submit">Lọc lịch sử</button>
+        </form>
+        <div class="table-responsive rewards-table-wrap">
+            <table class="table table-dark table-hover align-middle rewards-data-table rewards-audit-table">
+                <thead><tr><th>Thời gian</th><th>Nội dung thay đổi</th><th>Giá trị trước</th><th>Giá trị sau</th><th>Người thực hiện</th></tr></thead>
+                <tbody>
+                <tr th:each="audit : ${policyAudits}">
+                    <td class="text-nowrap" th:text="${#temporals.format(audit.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td class="rewards-audit-kind">
+                        <strong th:text="${audit.policyType == 'TIER' ? 'Chính sách hạng' : (audit.policyType == 'SETTINGS' ? 'Cấu hình chung' : @uiText.label(audit.policyType))}"></strong>
+                        <small th:text="${audit.policyKey == 'global' ? 'Toàn hệ thống' : @uiText.label(audit.policyKey)}"></small>
+                    </td>
+                    <td class="rewards-audit-value" th:attr="data-audit-snapshot=${audit.beforeValue}"><div class="rewards-audit-details"></div></td>
+                    <td class="rewards-audit-value" th:attr="data-audit-snapshot=${audit.afterValue}"><div class="rewards-audit-details"></div></td>
+                    <td th:text="${audit.actor}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(policyAudits)}"><td colspan="5" class="text-center text-secondary py-4">Chưa có thay đổi.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <nav class="rewards-pagination" aria-label="Phân trang lịch sử chính sách">
+            <span th:text="${auditPage.totalElements == 0 ? '0 kết quả' : 'Trang ' + (auditPage.number + 1) + '/' + auditPage.totalPages}"></span>
+            <a class="btn btn-sm btn-outline-light" th:if="${auditPage.hasPrevious()}" th:href="${auditPrev}">Trước</a>
+            <a class="btn btn-sm btn-outline-light" th:if="${auditPage.hasNext()}" th:href="${auditNext}">Sau</a>
+        </nav>
+    </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    (() => {
+        const labels = {
+            tier: 'Hạng thành viên',
+            threshold: 'Ngưỡng điểm',
+            ticketDiscount: 'Giảm giá vé',
+            pointMultiplier: 'Hệ số tích điểm',
+            active: 'Trạng thái chính sách',
+            amountPerPoint: 'Số tiền quy đổi mỗi điểm',
+            minimumPositiveOrderPoints: 'Điểm tối thiểu cho đơn dương',
+            voucherStackingAllowed: 'Cộng dồn voucher và hạng',
+            redemptionEnabled: 'Tính năng đổi điểm'
+        };
+        const tiers = { MEMBER: 'Thành viên', SILVER: 'Bạc', GOLD: 'Vàng', DIAMOND: 'Kim cương' };
+        const number = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 4 });
+        const integer = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+        const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 2 });
+
+        document.querySelectorAll('[data-audit-snapshot]').forEach((cell) => {
+            const details = cell.querySelector('.rewards-audit-details');
+            const snapshot = cell.dataset.auditSnapshot || '';
+            snapshot.split(';').filter(Boolean).forEach((part) => {
+                const separator = part.indexOf('=');
+                if (separator < 0) return;
+                const key = part.slice(0, separator);
+                const raw = part.slice(separator + 1);
+                const value = Number(raw);
+                let rendered = raw;
+
+                if (key === 'tier') rendered = tiers[raw] || raw;
+                else if (key === 'threshold' || key === 'minimumPositiveOrderPoints') rendered = integer.format(value) + ' điểm';
+                else if (key === 'ticketDiscount') rendered = number.format(value) + '%';
+                else if (key === 'pointMultiplier') rendered = number.format(value) + '×';
+                else if (key === 'amountPerPoint') rendered = money.format(value);
+                else if (key === 'active' || key === 'voucherStackingAllowed' || key === 'redemptionEnabled') rendered = raw === 'true' ? 'Đang bật' : 'Đang tắt';
+
+                const item = document.createElement('div');
+                item.className = 'rewards-audit-item';
+                const label = document.createElement('span');
+                label.textContent = labels[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+                const valueNode = document.createElement('strong');
+                valueNode.textContent = rendered;
+                item.append(label, valueNode);
+                details.append(item);
+            });
+        });
+    })();
+</script>
+</body>
+</html>

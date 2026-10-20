@@ -21,18 +21,18 @@
                 <input type="hidden" name="id" th:value="${editCombo.id}">
                 <h4 th:text="${editCombo.id!=null?'Sửa combo':'Thêm combo'}"></h4>
                 <label>Tên combo</label>
-                <input name="name" maxlength="120" class="form-control mb-3" th:value="${editCombo.name}" required>
+                <input name="name" maxlength="120" class="form-control" th:value="${editCombo.name}" required>
                 <label>Mô tả</label>
-                <textarea name="description" class="form-control mb-3" rows="3" th:text="${editCombo.description}"></textarea>
-                <label>Giá</label>
-                <input name="price" type="number" min="1000" step="1000" class="form-control mb-3" th:value="${editCombo.price}" required>
+                <textarea name="description" class="form-control" rows="3" th:text="${editCombo.description}"></textarea>
+                <label>Giá bán</label>
+                <input name="price" type="number" min="1000" step="1000" class="form-control" th:value="${editCombo.price}" required>
                 <label>Tồn kho</label>
-                <input name="stockQuantity" type="number" min="0" max="1000000" class="form-control mb-3"
+                <input name="stockQuantity" type="number" min="0" max="1000000" class="form-control"
                        th:value="${editCombo.id!=null?editCombo.stockQuantity:100}" required>
-                <label>URL ảnh</label>
-                <input name="imageUrl" class="form-control mb-3" th:value="${editCombo.imageUrl}">
-                <label>Hoặc upload Cloudinary</label>
-                <input name="imageFile" type="file" accept="image/*" class="form-control mb-3">
+                <label>Ảnh combo (URL)</label>
+                <input name="imageUrl" class="form-control" th:value="${editCombo.imageUrl}">
+                <label>Hoặc tải ảnh lên</label>
+                <input name="imageFile" type="file" accept="image/*" class="form-control">
                 <button class="btn btn-rex w-100" th:text="${editCombo.id!=null?'Lưu thay đổi':'Thêm combo'}"></button>
                 <a th:if="${editCombo.id!=null}" th:href="@{/admin/combos}" class="btn btn-link text-light w-100 mt-2">Hủy sửa</a>
             </form>

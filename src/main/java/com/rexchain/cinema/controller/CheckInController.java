@@ -30,7 +30,9 @@ public class CheckInController {
     String page(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
         var options = new AdminListSupport.Options("bookingCode,user.email", null,
                 new String[]{"checkedInAt", "createdAt", "id"},
-                new String[]{"user", "showtime.movie", "showtime.auditorium.cinema"});
+                new String[]{"user", "showtime.movie", "showtime.auditorium.cinema"})
+                .withLabels("Trạng thái", "Mã booking hoặc email khách")
+                .withoutSortControls();
         var page = lists.query(bookings, params, options, (root, query, cb) -> cb.isNotNull(root.get("checkedInAt")));
         model.addAttribute("recentCheckins", page.getContent());
         lists.present(model, page, params, options, request);
