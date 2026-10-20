@@ -1,6 +1,7 @@
 package com.rexchain.cinema.controller;
 
 import com.rexchain.cinema.entity.*;
+import com.rexchain.cinema.config.CinemaArtwork;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.BookingService;
 import com.rexchain.cinema.service.MembershipService;
@@ -32,11 +33,13 @@ public class CinemaApiController {
     private final BookingRepository bookings;
     private final BookingService bookingService;
     private final MembershipService membership;
+    private final CinemaArtwork cinemaArtwork;
 
     public CinemaApiController(MovieRepository movies, ShowtimeRepository showtimes,
                                ShowtimeSeatRepository showtimeSeats, ComboProductRepository combos,
                                ReviewRepository reviews, UserRepository users,
-                               BookingRepository bookings, BookingService bookingService, MembershipService membership) {
+                               BookingRepository bookings, BookingService bookingService, MembershipService membership,
+                               CinemaArtwork cinemaArtwork) {
         this.movies = movies;
         this.showtimes = showtimes;
         this.showtimeSeats = showtimeSeats;
@@ -46,6 +49,7 @@ public class CinemaApiController {
         this.bookings = bookings;
         this.bookingService = bookingService;
         this.membership = membership;
+        this.cinemaArtwork = cinemaArtwork;
     }
 
     @GetMapping("/movies/now-showing")
@@ -104,7 +108,7 @@ public class CinemaApiController {
             x.put("name", c.getName());
             x.put("description", c.getDescription());
             x.put("price", c.getPrice());
-            x.put("imageUrl", c.getImageUrl());
+            x.put("imageUrl", cinemaArtwork.imageUrl(c.getImageUrl(), "combo"));
             return x;
         }).toList();
     }
@@ -131,7 +135,7 @@ public class CinemaApiController {
         x.put("fullName", user.getFullName());
         x.put("email", user.getEmail());
         x.put("phone", user.getPhone());
-        x.put("avatarUrl", user.getAvatarUrl());
+        x.put("avatarUrl", cinemaArtwork.imageUrl(user.getAvatarUrl(), "avatar"));
         x.put("role", user.getRole().name());
         x.put("loyaltyPoints", user.getLoyaltyPoints());
         x.put("lifetimePoints", user.getLifetimePoints());
@@ -218,7 +222,7 @@ public class CinemaApiController {
         x.put("genre", m.getGenre());
         x.put("language", m.getLanguage());
         x.put("releaseDate", m.getReleaseDate());
-        x.put("posterUrl", m.getPosterUrl());
+        x.put("posterUrl", cinemaArtwork.imageUrl(m.getPosterUrl(), "movie"));
         x.put("trailerUrl", m.getTrailerUrl());
         return x;
     }

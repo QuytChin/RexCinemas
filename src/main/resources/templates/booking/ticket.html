@@ -24,7 +24,7 @@
     <article class="rex-ticket-shell mx-auto">
         <section class="rex-ticket-main">
             <header class="rex-ticket-header">
-                <img th:src="@{/images/rex-chain-cinemas-logo.png}" alt="Rex Chain Cinemas" class="rex-ticket-logo">
+                <img th:src="@{/images/rex-chain-cinemas-logo.webp}" alt="Rex Chain Cinemas" class="rex-ticket-logo">
                 <div class="rex-ticket-header-copy"><span>REX E-TICKET</span><small>VÉ XEM PHIM ĐIỆN TỬ</small></div>
             </header>
 
@@ -74,7 +74,7 @@
         </section>
 
         <aside class="rex-ticket-stub">
-            <img th:src="@{/images/rex-chain-cinemas-logo.png}" alt="Rex Chain Cinemas" class="rex-ticket-stub-logo">
+            <img th:src="@{/images/rex-chain-cinemas-logo.webp}" alt="Rex Chain Cinemas" class="rex-ticket-stub-logo">
             <p class="rex-ticket-stub-tagline">ĐIỆN ẢNH<br>KẾT NỐI NHỮNG<br>CON NGƯỜI</p>
             <div th:if="${booking.status.name()=='CONFIRMED'}" class="rex-ticket-qr-frame">
                 <img th:src="@{'/bookings/'+${booking.id}+'/qr'}" alt="QR check-in" class="rex-ticket-qr-img">

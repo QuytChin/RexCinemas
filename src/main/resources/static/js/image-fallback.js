@@ -3,12 +3,12 @@
     'use strict';
 
     const artwork = {
-        movie: '/images/fallbacks/movie.jpg',
-        article: '/images/fallbacks/article.jpg',
-        event: '/images/fallbacks/event.jpg',
-        combo: '/images/fallbacks/combo.jpg',
-        media: '/images/fallbacks/media.jpg',
-        avatar: '/images/fallbacks/avatar.jpg'
+        movie: '/images/fallbacks/movie.webp',
+        article: '/images/fallbacks/article.webp',
+        event: '/images/fallbacks/event.webp',
+        combo: '/images/fallbacks/combo.webp',
+        media: '/images/fallbacks/media.webp',
+        avatar: '/images/fallbacks/avatar.webp'
     };
 
     function categoryFor(img) {

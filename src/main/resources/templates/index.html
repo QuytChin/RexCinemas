@@ -13,7 +13,7 @@
     <div id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="5500">
         <div class="carousel-inner">
             <div class="carousel-item" th:each="m,stat:${heroMovies}" th:classappend="${stat.first ? ' active' : ''}">
-                <div class="hero-backdrop" th:style="|background-image:linear-gradient(90deg,rgba(3,4,8,.82) 8%,rgba(3,4,8,.28) 52%,rgba(3,4,8,.04)),url('${@cinemaArtwork.heroBackdrop(m.posterUrl)}'),url('/images/fallbacks/movie.jpg');|"></div>
+                <div class="hero-backdrop" th:style="|background-image:linear-gradient(90deg,rgba(3,4,8,.82) 8%,rgba(3,4,8,.28) 52%,rgba(3,4,8,.04)),url('${@cinemaArtwork.heroBackdrop(m.posterUrl)}'),url('/images/fallbacks/movie.webp');|"></div>
                 <div class="container-xl hero-home-content">
                     <div class="hero-copy">
                         <span class="hero-age" th:text="${m.ageRating}">T13</span>
