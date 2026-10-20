@@ -33,6 +33,14 @@ public class AccountExperienceController {
         return ResponseEntity.ok(Map.of("unreadCount", notifications.unreadCount(user.getId())));
     }
 
+    @PostMapping("/api/notifications/read-all")
+    @ResponseBody
+    ResponseEntity<?> markAllNotificationsRead(Authentication authentication) {
+        User user = current(authentication);
+        notifications.markAllRead(user.getId());
+        return ResponseEntity.ok(Map.of("unreadCount", notifications.unreadCount(user.getId())));
+    }
+
     @GetMapping("/notifications")
     String notifications(@RequestParam(defaultValue = "0") int page, Authentication authentication, Model model) {
         User user = current(authentication);

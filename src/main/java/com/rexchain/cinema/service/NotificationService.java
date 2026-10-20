@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Service
 public class NotificationService {
@@ -99,5 +100,9 @@ public class NotificationService {
     @Transactional
     public boolean markRead(Long notificationId, Long userId) {
         return notifications.findByIdAndUserId(notificationId, userId).map(notification -> { notification.markRead(); return true; }).orElse(false);
+    }
+    @Transactional
+    public int markAllRead(Long userId) {
+        return notifications.markAllReadByUserId(userId, LocalDateTime.now());
     }
 }
