@@ -8,12 +8,13 @@
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container-fluid admin-page-wrap pt-page pb-5 payment-settings-page"><div th:replace="~{fragments/admin-list :: filters}"></div>
+<main class="container-fluid admin-page-wrap pt-page pb-5 payment-settings-page">
     <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
     <header class="ui-page-header payment-admin-header">
-        <div><nav class="ui-breadcrumb" aria-label="Điều hướng trang"><span>Quản trị</span><span aria-hidden="true">/</span><strong>Thanh toán</strong></nav><h1>Cài đặt thanh toán</h1><p>Quản lý tài khoản nhận tiền và theo dõi trạng thái thanh toán QR của rạp.</p></div>
+        <div><p class="eyebrow">PAYMENT SETTINGS</p><h1>Cài đặt thanh toán</h1></div>
         <div class="d-flex gap-2 payment-admin-header__actions"><a class="btn btn-outline-light ui-btn ui-btn--secondary" th:href="@{/admin/transactions}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#receipt"></use></svg><span>Giao dịch</span></a><a class="btn btn-outline-light ui-btn ui-btn--secondary" th:href="@{/admin/bookings}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#ticket"></use></svg><span>Xem booking</span></a></div>
     </header>
+    <div th:replace="~{fragments/admin-list :: filters}"></div>
 
     <div class="alert alert-success payment-admin-alert" role="status" th:if="${success}" th:text="${success}"></div>
     <div class="alert alert-danger payment-admin-alert" role="alert" th:if="${error}" th:text="${error}"></div>

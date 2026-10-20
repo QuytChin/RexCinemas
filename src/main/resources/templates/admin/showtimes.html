@@ -2,8 +2,9 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Suất chiếu</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" th:href="@{/css/app.css}"></head>
 <body><div th:replace="~{fragments/header :: header}"></div>
-<main class="container-fluid admin-page-wrap pt-page pb-5"><div th:replace="~{fragments/admin-list :: filters}"></div>
-    <div class="admin-title"><div><p class="eyebrow">LÊN LỊCH</p><h1>Suất chiếu</h1><p class="text-secondary mb-0">Tạo lịch chiếu sẽ tự sinh sơ đồ ghế và mở chức năng đặt vé cho khách.</p></div><div th:replace="~{fragments/admin-nav :: adminNav}"></div></div>
+<main class="container-fluid admin-page-wrap pt-page pb-5">
+    <div class="admin-title"><div><p class="eyebrow">LÊN LỊCH</p><h1>Suất chiếu</h1></div><div th:replace="~{fragments/admin-nav :: adminNav}"></div></div>
+    <div th:replace="~{fragments/admin-list :: filters}"></div>
     <div class="alert alert-success mt-3" th:if="${success}" th:text="${success}"></div><div class="alert alert-danger mt-3" th:if="${error}" th:text="${error}"></div>
     <form class="admin-form mt-4" th:action="@{/admin/showtimes/save}" method="post"><input type="hidden" name="id" th:value="${editShowtime.id}"><div class="row g-3 align-items-end">
         <div class="col-md-3"><label>Phim</label><select class="form-select" name="movieId" th:disabled="${editShowtime.id!=null}"><option th:each="m:${movies}" th:value="${m.id}" th:text="${m.title}" th:selected="${editShowtime.movie!=null and editShowtime.movie.id==m.id}"></option></select><input th:if="${editShowtime.id!=null}" type="hidden" name="movieId" th:value="${editShowtime.movie.id}"></div>

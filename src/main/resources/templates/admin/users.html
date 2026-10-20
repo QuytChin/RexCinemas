@@ -8,11 +8,12 @@
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container-fluid admin-page-wrap pt-page pb-5"><div th:replace="~{fragments/admin-list :: filters}"></div>
+<main class="container-fluid admin-page-wrap pt-page pb-5">
   <div class="admin-title">
     <div><p class="eyebrow">ADMIN ONLY</p><h1>Người dùng &amp; Rex Member</h1></div>
     <div th:replace="~{fragments/admin-nav :: adminNav}"></div>
   </div>
+  <div th:replace="~{fragments/admin-list :: filters}"></div>
   <div class="table-responsive">
     <table class="table table-dark table-hover align-middle">
       <thead><tr><th>ID</th><th>Họ tên</th><th>Email</th><th>Hạng</th><th>Điểm</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>

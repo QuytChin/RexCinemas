@@ -9,11 +9,12 @@
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container-fluid admin-page-wrap pt-page pb-5"><div th:replace="~{fragments/admin-list :: filters}"></div>
+<main class="container-fluid admin-page-wrap pt-page pb-5">
     <div class="admin-title">
         <div><p class="eyebrow">FOOD & DRINK</p><h1>Combo bắp nước</h1></div>
         <div th:replace="~{fragments/admin-nav :: adminNav}"></div>
     </div>
+    <div th:replace="~{fragments/admin-list :: filters}"></div>
     <div class="row g-4">
         <div class="col-lg-4">
             <form th:action="@{/admin/combos/save}" method="post" enctype="multipart/form-data" class="admin-form">
