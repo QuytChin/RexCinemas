@@ -8,7 +8,7 @@
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container-xl pt-page pb-5">
+<main class="schedule-page container-xl pt-page pb-5">
     <div class="schedule-hero">
         <p class="eyebrow">SHOWTIMES & BOOKING</p>
         <h1>LỊCH CHIẾU</h1>
@@ -35,7 +35,7 @@
     <form th:action="@{/schedule}" method="get" class="schedule-filter">
         <div><label>Rạp</label><select class="form-select" name="cinemaId"><option value="">Tất cả rạp</option><option th:each="c:${cinemas}" th:value="${c.id}" th:text="${c.name+' — '+c.city}" th:selected="${selectedCinemaId!=null and selectedCinemaId==c.id}"></option></select></div>
         <div><label>Phim</label><select class="form-select" name="movieId"><option value="">Tất cả phim</option><option th:each="m:${movies}" th:value="${m.id}" th:text="${m.title}" th:selected="${selectedMovieId!=null and selectedMovieId==m.id}"></option></select></div>
-        <div><label>Ngày</label><input type="date" class="form-control" name="date" th:value="${selectedDate}"></div>
+        <div><label for="schedule-filter-date">Ngày</label><div class="schedule-date-control"><span class="schedule-date-value" data-schedule-date-display aria-hidden="true"></span><input id="schedule-filter-date" type="date" class="form-control" name="date" th:value="${selectedDate}" aria-label="Ngày (định dạng dd/MM/yyyy)"></div></div>
         <button class="btn btn-rex">ÁP DỤNG</button>
     </form>
 
@@ -90,5 +90,6 @@
 </main>
 <div th:replace="~{fragments/footer :: footer}"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/schedule-date-display.js" defer></script>
 </body>
 </html>
