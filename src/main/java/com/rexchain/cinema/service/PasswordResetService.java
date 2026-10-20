@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -121,7 +122,7 @@ public class PasswordResetService {
         sendEmail(normalizedEmail, user.getFullName(), otp);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = IllegalArgumentException.class)
     public String verifyOtp(String email, String inputOtp, String clientIp) {
         String normalizedEmail = normalizeEmail(email);
         LocalDateTime now = LocalDateTime.now();

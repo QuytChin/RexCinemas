@@ -17,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -167,7 +168,7 @@ public class OtpService {
         return verifyOtp(email, inputOtp, "unknown");
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = IllegalArgumentException.class)
     public VerifiedRegistration verifyOtp(String email, String inputOtp, String clientIp) {
         return verifyOtpAt(email, inputOtp, clientIp, LocalDateTime.now());
     }
@@ -176,7 +177,7 @@ public class OtpService {
         return verifyOtpAt(email, inputOtp, "unknown", now);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = IllegalArgumentException.class)
     VerifiedRegistration verifyOtpAt(String email, String inputOtp, String clientIp, LocalDateTime now) {
         String normalizedEmail = normalizeEmail(email);
         if (challenges == null) {
