@@ -24,15 +24,18 @@ import java.util.Map;
 @Component
 public class AdminListSupport {
     public record Options(String search, String filter, String[] sorts, String[] fetches,
-                          String filterLabel, String searchPlaceholder) {
+                          String filterLabel, String searchPlaceholder, boolean showSortControls) {
         public Options(String search, String filter, String[] sorts, String[] fetches) {
-            this(search, filter, sorts, fetches, "Trạng thái", "Nhập từ khóa cần tìm");
+            this(search, filter, sorts, fetches, "Trạng thái", "Nhập từ khóa cần tìm", true);
         }
         public Options(String search, String filter, String... sorts) {
             this(search, filter, sorts, new String[0]);
         }
         public Options withLabels(String filterLabel, String searchPlaceholder) {
-            return new Options(search, filter, sorts, fetches, filterLabel, searchPlaceholder);
+            return new Options(search, filter, sorts, fetches, filterLabel, searchPlaceholder, showSortControls);
+        }
+        public Options withoutSortControls() {
+            return new Options(search, filter, sorts, fetches, filterLabel, searchPlaceholder, false);
         }
     }
 
@@ -129,6 +132,7 @@ public class AdminListSupport {
         model.addAttribute("adminStatuses", statusOptions);
         model.addAttribute("adminFilterLabel", filterLabel(options.filter(), options.filterLabel()));
         model.addAttribute("adminSearchPlaceholder", options.searchPlaceholder());
+        model.addAttribute("adminShowSortControls", options.showSortControls());
         model.addAttribute("adminPrev", link(request, "page", page.getNumber() - 1));
         model.addAttribute("adminNext", link(request, "page", page.getNumber() + 1));
         model.addAttribute("adminFirst", link(request, "page", 0));
@@ -153,6 +157,7 @@ public class AdminListSupport {
             case "role" -> "Vai trò";
             case "active" -> "Hiển thị";
             case "type" -> "Loại nội dung";
+            case "city" -> "Thành phố";
             case "transactionType" -> "Loại giao dịch";
             default -> fallback;
         };

@@ -313,8 +313,12 @@ public class AdminController {
 
     @GetMapping("/cinemas")
     String cinemas(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("name,city", "active", "id", "name", "city");
-        display(model, request, params, lists.query(cinemas, params, options), options, "cinemas", "true", "false");
+        var options = new AdminListSupport.Options("name", "city", "id", "name", "city")
+                .withLabels("Thành phố", "Nhập tên rạp")
+                .withoutSortControls();
+        String[] cities = cinemas.findAll().stream().map(Cinema::getCity).filter(java.util.Objects::nonNull)
+                .distinct().sorted().toArray(String[]::new);
+        display(model, request, params, lists.query(cinemas, params, options), options, "cinemas", (Object[]) cities);
         return "admin/cinemas";
     }
 

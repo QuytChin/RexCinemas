@@ -195,6 +195,23 @@ class AdminPaginationIntegrationTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void cinemaListUsesVietnameseNameAndCityFiltersWithoutSortControls() throws Exception {
+        Cinema cinema = new Cinema();
+        cinema.setName("REX_TEST_CITY_FILTER");
+        cinema.setCity("Thành phố thử nghiệm");
+        cinema.setAddress("Địa chỉ thử nghiệm");
+        cinemas.saveAndFlush(cinema);
+
+        var result = mvc.perform(get("/admin/cinemas").param("status", "Thành phố thử nghiệm"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String html = result.getResponse().getContentAsString();
+        assertThat(html).contains("Nhập tên rạp", "Thành phố", "Thành phố thử nghiệm", "REX_TEST_CITY_FILTER")
+                .doesNotContain("Sắp xếp theo", "name=\"sort\"", "name=\"dir\"");
+    }
+
+    @Test
     @WithMockUser(roles = "CUSTOMER")
     void customerCannotAccessAdminLists() throws Exception {
         mvc.perform(get("/admin/movies")).andExpect(status().isForbidden());
