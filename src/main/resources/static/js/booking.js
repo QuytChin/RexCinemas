@@ -18,10 +18,10 @@
  const progressSeat=document.getElementById('progressSeat');
  const progressCombo=document.getElementById('progressCombo');
  const progressPayment=document.getElementById('progressPayment');
- const seatErrorMessage=document.getElementById('seatErrorMessage');
- const seatErrorText=document.getElementById('seatErrorText');
- const sidebarErrorNotice=document.getElementById('sidebarErrorNotice');
- const closeSeatErrorBtn=document.getElementById('closeSeatErrorBtn');
+ const seatToast=document.getElementById('seatToast');
+ const seatToastText=document.getElementById('seatToastText');
+ const closeSeatToastBtn=document.getElementById('closeSeatToastBtn');
+ let toastTimeout=null;
  let held=false;
  let countdownTimer=null;
  let holdDeadlineMs=null;
@@ -39,21 +39,29 @@
  const comboTotal=()=>comboQtys.reduce((a,x)=>a+(Number(x.dataset.price)||0)*(Number(x.value)||0),0);
 
  function showSeatError(msg){
-  if(seatErrorText&&seatErrorMessage){
-   seatErrorText.textContent=msg;
-   seatErrorMessage.classList.remove('d-none');
-   seatErrorMessage.scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(seatToast&&seatToastText){
+   seatToastText.textContent=msg;
+   seatToast.classList.add('show');
+   if(toastTimeout)clearTimeout(toastTimeout);
+   toastTimeout=setTimeout(()=>{
+    clearSeatError();
+   },3500);
   }
-  if(sidebarErrorNotice){
-   sidebarErrorNotice.textContent=msg;
-   sidebarErrorNotice.classList.remove('d-none');
+  if(holdBtn){
+   holdBtn.classList.remove('btn-shake');
+   void holdBtn.offsetWidth;
+   holdBtn.classList.add('btn-shake');
   }
  }
  function clearSeatError(){
-  if(seatErrorMessage)seatErrorMessage.classList.add('d-none');
-  if(sidebarErrorNotice)sidebarErrorNotice.classList.add('d-none');
+  if(toastTimeout){
+   clearTimeout(toastTimeout);
+   toastTimeout=null;
+  }
+  if(seatToast)seatToast.classList.remove('show');
+  if(holdBtn)holdBtn.classList.remove('btn-shake');
  }
- closeSeatErrorBtn?.addEventListener('click',clearSeatError);
+ closeSeatToastBtn?.addEventListener('click',clearSeatError);
 
  function render(){
   labels.textContent=selected.size?[...selected.values()].map(x=>x.label).join(', '):'Chưa chọn';
