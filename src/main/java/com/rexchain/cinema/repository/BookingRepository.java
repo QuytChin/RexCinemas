@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,6 +19,39 @@ import java.util.Collection;
 import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Booking> {
+    interface DashboardSummary {
+        Long getOrders();
+        Long getConfirmed();
+        Long getPending();
+        Long getCancelled();
+        Long getCheckedIn();
+        BigDecimal getRevenue();
+    }
+
+    interface DashboardDailyRow {
+        Integer getYearValue();
+        Integer getMonthValue();
+        Integer getDayValue();
+        Long getOrders();
+        Long getConfirmed();
+        Long getPending();
+        Long getCancelled();
+        BigDecimal getRevenue();
+    }
+
+    interface DashboardTicketDay {
+        Integer getYearValue();
+        Integer getMonthValue();
+        Integer getDayValue();
+        Long getTickets();
+    }
+
+    interface DashboardLeaderboardRow {
+        String getName();
+        BigDecimal getRevenue();
+        Long getBookings();
+    }
+
     @EntityGraph(attributePaths = {"showtime", "showtime.movie", "showtime.auditorium", "showtime.auditorium.cinema", "user"})
     List<Booking> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<Booking> findByStatusOrderByCreatedAtAsc(BookingStatus status);
@@ -52,7 +86,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
     @Query("select distinct b from Booking b left join fetch b.seats where b.id in :ids")
     List<Booking> loadSeatsForPage(@Param("ids") Collection<Long> ids);
 
-    @Query("select b.id from Booking b " +
+    @Query("select count(b) as orders, " +
+            "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED then 1 else 0 end), 0) as confirmed, " +
+            "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.PENDING then 1 else 0 end), 0) as pending, " +
+            "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.CANCELLED then 1 else 0 end), 0) as cancelled, " +
+            "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.checkedInAt is not null then 1 else 0 end), 0) as checkedIn, " +
+            "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED then b.totalAmount else 0 end), 0) as revenue " +
+            "from Booking b " +
             "join b.showtime st " +
             "join st.movie m " +
             "join st.auditorium a " +
@@ -60,13 +100,90 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
             "where b.createdAt >= :from and b.createdAt < :to " +
             "and (:cinemaId is null or c.id = :cinemaId) " +
             "and (:movieId is null or m.id = :movieId) " +
+            "and (:paymentMethod is null or b.paymentMethod = :paymentMethod)")
+    DashboardSummary summarizeDashboardBookings(@Param("from") LocalDateTime from,
+                                                @Param("to") LocalDateTime to,
+                                                @Param("cinemaId") Long cinemaId,
+                                                @Param("movieId") Long movieId,
+                                                @Param("paymentMethod") PaymentMethod paymentMethod);
+
+    @Query("select year(b.createdAt) as yearValue, month(b.createdAt) as monthValue, day(b.createdAt) as dayValue, " +
+            "count(b) as orders, " +
+            "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED then 1 else 0 end), 0) as confirmed, " +
+            "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.PENDING then 1 else 0 end), 0) as pending, " +
+            "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.CANCELLED then 1 else 0 end), 0) as cancelled, " +
+            "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED then b.totalAmount else 0 end), 0) as revenue " +
+            "from Booking b join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
+            "where b.createdAt >= :from and b.createdAt < :to " +
+            "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
             "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
-            "order by b.createdAt desc")
-    List<Long> findDashboardBookingIds(@Param("from") LocalDateTime from,
-                                       @Param("to") LocalDateTime to,
-                                       @Param("cinemaId") Long cinemaId,
-                                       @Param("movieId") Long movieId,
-                                       @Param("paymentMethod") PaymentMethod paymentMethod);
+            "group by year(b.createdAt), month(b.createdAt), day(b.createdAt)")
+    List<DashboardDailyRow> summarizeDashboardBookingsByDay(@Param("from") LocalDateTime from,
+                                                            @Param("to") LocalDateTime to,
+                                                            @Param("cinemaId") Long cinemaId,
+                                                            @Param("movieId") Long movieId,
+                                                            @Param("paymentMethod") PaymentMethod paymentMethod);
+
+    @Query("select year(b.createdAt) as yearValue, month(b.createdAt) as monthValue, day(b.createdAt) as dayValue, count(bs) as tickets " +
+            "from Booking b join b.seats bs join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.createdAt >= :from and b.createdAt < :to " +
+            "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
+            "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
+            "group by year(b.createdAt), month(b.createdAt), day(b.createdAt)")
+    List<DashboardTicketDay> countDashboardTicketsByDay(@Param("from") LocalDateTime from,
+                                                        @Param("to") LocalDateTime to,
+                                                        @Param("cinemaId") Long cinemaId,
+                                                        @Param("movieId") Long movieId,
+                                                        @Param("paymentMethod") PaymentMethod paymentMethod);
+
+    @Query("select count(bs) from BookingSeat bs join bs.booking b join b.showtime st join st.movie m " +
+            "join st.auditorium a join a.cinema c " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.createdAt >= :from and b.createdAt < :to " +
+            "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
+            "and (:paymentMethod is null or b.paymentMethod = :paymentMethod)")
+    long countDashboardTickets(@Param("from") LocalDateTime from,
+                               @Param("to") LocalDateTime to,
+                               @Param("cinemaId") Long cinemaId,
+                               @Param("movieId") Long movieId,
+                               @Param("paymentMethod") PaymentMethod paymentMethod);
+
+    @Query("select m.title as name, coalesce(sum(b.totalAmount), 0) as revenue, count(b) as bookings " +
+            "from Booking b join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.createdAt >= :from and b.createdAt < :to " +
+            "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
+            "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
+            "group by m.id, m.title order by sum(b.totalAmount) desc")
+    List<DashboardLeaderboardRow> findDashboardTopMovies(@Param("from") LocalDateTime from,
+                                                         @Param("to") LocalDateTime to,
+                                                         @Param("cinemaId") Long cinemaId,
+                                                         @Param("movieId") Long movieId,
+                                                         @Param("paymentMethod") PaymentMethod paymentMethod,
+                                                         Pageable pageable);
+
+    @Query("select c.name as name, coalesce(sum(b.totalAmount), 0) as revenue, count(b) as bookings " +
+            "from Booking b join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.createdAt >= :from and b.createdAt < :to " +
+            "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
+            "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
+            "group by c.id, c.name order by sum(b.totalAmount) desc")
+    List<DashboardLeaderboardRow> findDashboardTopCinemas(@Param("from") LocalDateTime from,
+                                                          @Param("to") LocalDateTime to,
+                                                          @Param("cinemaId") Long cinemaId,
+                                                          @Param("movieId") Long movieId,
+                                                          @Param("paymentMethod") PaymentMethod paymentMethod,
+                                                          Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user", "showtime", "showtime.movie", "showtime.auditorium", "showtime.auditorium.cinema"})
+    @Query("select b from Booking b join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
+            "where b.createdAt >= :from and b.createdAt < :to " +
+            "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
+            "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) order by b.createdAt desc")
+    List<Booking> findRecentDashboardBookings(@Param("from") LocalDateTime from,
+                                              @Param("to") LocalDateTime to,
+                                              @Param("cinemaId") Long cinemaId,
+                                              @Param("movieId") Long movieId,
+                                              @Param("paymentMethod") PaymentMethod paymentMethod,
+                                              Pageable pageable);
 
     @EntityGraph(attributePaths = {
             "user", "showtime", "showtime.movie", "showtime.auditorium", "showtime.auditorium.cinema"
