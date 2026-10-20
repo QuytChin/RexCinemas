@@ -9,7 +9,6 @@
     const frame = document.getElementById('trailerModalFrame');
     const title = document.getElementById('trailerModalTitle');
     const message = document.getElementById('trailerModalMessage');
-    const fallback = document.getElementById('trailerModalFallback');
     const closeButton = modal.querySelector('.trailer-modal-close');
     let lastFocusedElement = null;
     let lockedScrollY = 0;
@@ -54,15 +53,12 @@
         title.textContent = trigger.getAttribute('data-trailer-title') || 'Xem Trailer';
         frame.hidden = !videoId;
         message.hidden = Boolean(videoId);
-        fallback.hidden = !videoId;
         if (videoId) {
             const embedUrl = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0&playsinline=1`;
             frame.src = embedUrl;
             frame.title = `${title.textContent} - Trailer`;
-            fallback.href = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
         } else {
             frame.src = 'about:blank';
-            fallback.removeAttribute('href');
         }
         modal.hidden = false;
         modal.setAttribute('aria-hidden', 'false');
@@ -81,7 +77,7 @@
 
     function trapFocus(event) {
         if (modal.hidden || event.key !== 'Tab') return;
-        const focusable = [closeButton, frame, fallback].filter((element) => !element.hidden && !element.disabled);
+        const focusable = [closeButton, frame].filter((element) => !element.hidden && !element.disabled);
         if (!focusable.length) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
