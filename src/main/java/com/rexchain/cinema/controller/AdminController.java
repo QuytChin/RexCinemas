@@ -234,7 +234,8 @@ public class AdminController {
 
     @GetMapping("/movies")
     String movies(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
-        var options = new AdminListSupport.Options("title,genre", "status", "createdAt", "title", "releaseDate", "id");
+        var options = new AdminListSupport.Options("title,genre", "status", "createdAt", "title", "releaseDate", "id")
+                .withLabels("Trạng thái", "Nhập tên phim");
         display(model, request, params, lists.query(movies, params, options), options, "movies", MovieStatus.values());
         return "admin/movies";
     }
