@@ -631,12 +631,13 @@ html[lang="vi"] :is(.auth-visual h1, .auth-panel h2, body.auth-page .auth-panel-
 .seat-row-label{color:#a9aebb;font-weight:800;text-align:center}
 .seat-row-grid{display:grid;grid-template-columns:repeat(var(--seat-columns),minmax(34px,1fr));gap:8px;min-width:0}
 
-/* Password form has its own layout contract, so legacy profile grid rules cannot affect it. */
+/* Password form has an explicit field structure so legacy profile rules cannot affect it. */
 .profile-password-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 24px;align-items:start}
-.profile-password-layout>label{display:grid;grid-template-rows:auto auto minmax(1.05rem,auto);gap:7px;min-width:0;color:#edf2fa;font-size:.8rem;font-weight:700}
-.profile-password-layout>label:first-child{grid-column:1/-1}
-.profile-password-layout .form-control{width:100%;min-width:0;box-sizing:border-box}
-.profile-password-layout small{min-height:1.05rem;color:#91a5be;font-size:.7rem;font-weight:500;line-height:1.35}
+.profile-password-field{display:grid;grid-template-rows:auto auto minmax(1.05rem,auto);gap:7px;min-width:0}
+.profile-password-field-current{grid-column:1/-1}
+.profile-password-field>label{display:block;min-width:0;color:#edf2fa;font-size:.8rem;font-weight:700;line-height:1.25}
+.profile-password-layout .form-control{display:block;width:100%;min-width:0;box-sizing:border-box}
+.profile-password-help{display:block;min-height:1.05rem;margin:0;color:#91a5be;font-size:.7rem;font-weight:500;line-height:1.35}
 .password-input-wrap{position:relative}
 .password-input-wrap .form-control{padding-right:46px}
 .password-toggle{position:absolute;top:50%;right:10px;display:grid;place-items:center;width:30px;height:30px;transform:translateY(-50%);border:0;background:transparent;color:#a9b8cc}
