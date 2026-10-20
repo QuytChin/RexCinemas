@@ -44,7 +44,9 @@ CREATE TABLE IF NOT EXISTS bank_transfer_snapshots (
     PRIMARY KEY (id),
     UNIQUE KEY uk_bank_transfer_snapshot_booking (booking_code),
     UNIQUE KEY uk_bank_transfer_snapshot_reference (payment_reference),
-    KEY ix_bank_transfer_snapshot_expires (expires_at)
+    KEY ix_bank_transfer_snapshot_expires (expires_at),
+    CONSTRAINT fk_bank_transfer_snapshot_booking
+        FOREIGN KEY (booking_code) REFERENCES bookings(booking_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS payment_transactions (

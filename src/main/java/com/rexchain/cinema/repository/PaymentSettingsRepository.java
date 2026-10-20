@@ -11,14 +11,18 @@ import java.util.Optional;
 @Repository
 public class PaymentSettingsRepository {
     private final JdbcTemplate jdbc;
+    private final DatabaseSchemaResolver schemaResolver;
 
-    public PaymentSettingsRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public PaymentSettingsRepository(JdbcTemplate jdbc, DatabaseSchemaResolver schemaResolver) {
+        this.jdbc = jdbc;
+        this.schemaResolver = schemaResolver;
+    }
 
     public boolean isSchemaAvailable() {
         try {
             Integer count = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?", Integer.class,
-                    "payment_settings");
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND LOWER(table_name) = LOWER(?)", Integer.class,
+                    schemaResolver.currentSchema(), "payment_settings");
             return count != null && count > 0;
         } catch (DataAccessException ex) {
             return false;

@@ -5,6 +5,9 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.sql.ResultSet;
 import java.time.LocalDate;
@@ -15,13 +18,18 @@ import java.util.Optional;
 @Repository
 public class PaymentTransactionRepository {
     private final JdbcTemplate jdbc;
+    private final DatabaseSchemaResolver schemaResolver;
 
-    public PaymentTransactionRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public PaymentTransactionRepository(JdbcTemplate jdbc, DatabaseSchemaResolver schemaResolver) {
+        this.jdbc = jdbc;
+        this.schemaResolver = schemaResolver;
+    }
 
     public boolean isSchemaAvailable() {
         try {
-            Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?", Integer.class,
-                    "payment_transactions");
+            Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables " +
+                            "WHERE table_schema = ? AND LOWER(table_name) = LOWER(?)", Integer.class,
+                    schemaResolver.currentSchema(), "payment_transactions");
             return count != null && count > 0;
         } catch (DataAccessException ex) { return false; }
     }
@@ -49,20 +57,31 @@ public class PaymentTransactionRepository {
         return jdbc.query("SELECT * FROM payment_transactions WHERE id=?", this::map, id).stream().findFirst();
     }
 
-    public List<PaymentTransactionDto> search(String status, LocalDate from, LocalDate to, String query) {
-        if (!isSchemaAvailable()) return List.of();
-        StringBuilder sql = new StringBuilder("SELECT * FROM payment_transactions WHERE 1=1");
+    public Page<PaymentTransactionDto> search(String status, LocalDate from, LocalDate to, String query, Pageable page) {
+        if (!isSchemaAvailable()) return Page.empty(page);
+        StringBuilder where = new StringBuilder(" FROM payment_transactions WHERE 1=1");
         java.util.ArrayList<Object> args = new java.util.ArrayList<>();
-        if (status != null && !status.isBlank()) { sql.append(" AND status=?"); args.add(status.trim()); }
-        if (from != null) { sql.append(" AND received_at>=?"); args.add(from.atStartOfDay()); }
-        if (to != null) { sql.append(" AND received_at<?"); args.add(to.plusDays(1).atStartOfDay()); }
+        if (status != null && !status.isBlank()) { where.append(" AND status=?"); args.add(status.trim()); }
+        if (from != null) { where.append(" AND received_at>=?"); args.add(from.atStartOfDay()); }
+        if (to != null) { where.append(" AND received_at<?"); args.add(to.plusDays(1).atStartOfDay()); }
         if (query != null && !query.isBlank()) {
-            sql.append(" AND (provider_transaction_id LIKE ? OR booking_code LIKE ? OR payment_reference LIKE ? OR code LIKE ?)");
-            String value = "%" + query.trim() + "%";
+            where.append(" AND (provider_transaction_id LIKE ? ESCAPE '!' OR booking_code LIKE ? ESCAPE '!' " +
+                    "OR payment_reference LIKE ? ESCAPE '!' OR code LIKE ? ESCAPE '!')");
+            String value = "%" + query.trim().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
             args.add(value); args.add(value); args.add(value); args.add(value);
         }
-        sql.append(" ORDER BY received_at DESC");
-        return jdbc.query(sql.toString(), this::map, args.toArray());
+        Long total = jdbc.queryForObject("SELECT COUNT(*)" + where, Long.class, args.toArray());
+        String field = switch (page.getSort().iterator().next().getProperty()) {
+            case "amount" -> "amount";
+            case "status" -> "status";
+            case "id" -> "id";
+            default -> "received_at";
+        };
+        String direction = page.getSort().iterator().next().isAscending() ? "ASC" : "DESC";
+        String order = " ORDER BY " + field + " " + direction + ("id".equals(field) ? "" : ", id DESC");
+        args.add(page.getPageSize()); args.add(page.getOffset());
+        List<PaymentTransactionDto> rows = jdbc.query("SELECT *" + where + order + " LIMIT ? OFFSET ?", this::map, args.toArray());
+        return new PageImpl<>(rows, page, total == null ? 0 : total);
     }
 
     public void updateStatus(String providerId, String status, String bookingCode, String paymentReference, String reason) {

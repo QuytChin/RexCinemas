@@ -10,13 +10,18 @@ import java.util.Optional;
 @Repository
 public class BankTransferSnapshotRepository {
     private final JdbcTemplate jdbc;
+    private final DatabaseSchemaResolver schemaResolver;
 
-    public BankTransferSnapshotRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public BankTransferSnapshotRepository(JdbcTemplate jdbc, DatabaseSchemaResolver schemaResolver) {
+        this.jdbc = jdbc;
+        this.schemaResolver = schemaResolver;
+    }
 
     public boolean isSchemaAvailable() {
         try {
-            Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?", Integer.class,
-                    "bank_transfer_snapshots");
+            Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables " +
+                            "WHERE table_schema = ? AND LOWER(table_name) = LOWER(?)", Integer.class,
+                    schemaResolver.currentSchema(), "bank_transfer_snapshots");
             return count != null && count > 0;
         } catch (DataAccessException ex) { return false; }
     }
