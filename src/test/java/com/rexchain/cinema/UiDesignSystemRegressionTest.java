@@ -101,7 +101,7 @@ class UiDesignSystemRegressionTest {
         assertThat(sidebar).contains("data-admin-route=\"/admin/payments\"", "icons.svg#credit-card");
         assertThat(css).contains(".payment-admin-grid", ".payment-status-item", ".rex-carousel-control");
         assertThat(icons).contains("id=\"chevron-left\"", "id=\"chevron-right\"", "id=\"credit-card\"");
-        assertThat(Files.readString(Path.of("src/main/resources/db/migration/sqlserver/V11__payment_settings.sql"), StandardCharsets.UTF_8))
+        assertThat(Files.readString(Path.of("database/mysql/schema.sql"), StandardCharsets.UTF_8))
                 .contains("payment_settings", "payment_settings_audit", "CREATE TABLE")
                 .doesNotContain("SEPAY_API_KEY");
     }

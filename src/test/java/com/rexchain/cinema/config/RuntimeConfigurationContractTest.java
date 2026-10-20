@@ -19,7 +19,6 @@ class RuntimeConfigurationContractTest {
     void requiredRuntimeCredentialsComeFromEnvironmentWithoutFallbacks() throws IOException {
         Properties base = properties("application.properties");
         Properties mysql = properties("application-mysql.properties");
-        Properties sqlserver = properties("application-sqlserver.properties");
 
         assertThat(base.getProperty("app.jwt.secret")).isEqualTo("${JWT_SECRET:}");
         assertEnvironmentOnly(base, "spring.mail.username", "MAIL_USERNAME", true);
@@ -28,11 +27,10 @@ class RuntimeConfigurationContractTest {
         assertEnvironmentOnly(mysql, "spring.datasource.password", "DB_PASSWORD", true);
         assertBlankEnvironmentPlaceholder(base, "app.seed.admin-password");
         assertBlankEnvironmentPlaceholder(base, "app.seed.demo-customer-password");
-        assertBlankEnvironmentPlaceholder(base, "app.seed.demo-manager-password");
         assertThat(mysql.getProperty("spring.sql.init.mode")).isEqualTo("never");
-        assertThat(sqlserver.getProperty("spring.sql.init.mode")).isEqualTo("never");
-        assertThat(sqlserver.getProperty("spring.flyway.enabled")).isEqualTo("${FLYWAY_ENABLED:false}");
-        assertThat(sqlserver.getProperty("spring.flyway.baseline-on-migrate")).isEqualTo("false");
+        assertThat(Files.exists(Path.of("src/main/resources/application-postgres.properties"))).isFalse();
+        assertThat(Files.exists(Path.of("src/main/resources/application-sqlserver.properties"))).isFalse();
+        assertThat(base.stringPropertyNames()).noneMatch(name -> name.startsWith("spring.flyway."));
     }
 
     @Test
@@ -61,7 +59,7 @@ class RuntimeConfigurationContractTest {
         assertThat(dev.getProperty("app.cookie.secure")).isEqualTo("${COOKIE_SECURE:false}");
         assertThat(prod.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");
         assertThat(prod.getProperty("spring.sql.init.mode")).isEqualTo("never");
-        assertThat(prod.getProperty("spring.flyway.baseline-on-migrate")).isEqualTo("false");
+        assertThat(prod.stringPropertyNames()).noneMatch(name -> name.startsWith("spring.flyway."));
         assertThat(prod.getProperty("app.seed.enabled")).isEqualTo("false");
         assertThat(prod.getProperty("app.cookie.secure")).isEqualTo("true");
         assertThat(properties("application.properties").getProperty("server.forward-headers-strategy"))

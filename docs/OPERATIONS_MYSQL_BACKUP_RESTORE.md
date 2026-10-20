@@ -23,7 +23,7 @@ For Windows Task Scheduler, run `powershell.exe -NoProfile -ExecutionPolicy Bypa
 ## Production deployment and rollback checklist
 
 1. Load production secrets from the deployment secret store and set `SPRING_PROFILES_ACTIVE=mysql,prod`.
-2. Take and verify a backup before any migration. Review the migration SQL separately.
-3. Keep `spring.jpa.hibernate.ddl-auto=validate`, `spring.sql.init.mode=never`, and `app.seed.enabled=false` in production. Run schema changes through the approved migration process.
+2. Take and verify a backup before any approved schema change. New installations use `database/mysql/schema.sql` and `database/mysql/initial-data.sql`; do not re-import them into a database with business data.
+3. Keep `spring.jpa.hibernate.ddl-auto=validate`, `spring.sql.init.mode=never`, and `app.seed.enabled=false` in production. Review and test schema upgrades separately before production use.
 4. Check `/actuator/health`, login, and a non-writing booking page after startup. Do not use real payment, mail, webhook, or Cloudinary calls for smoke tests.
 5. Watch application and database errors. Roll back the application artifact first if the release is faulty; restore the database only through the separately reviewed test-and-approval procedure.

@@ -10,14 +10,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SchemaMigrationContractTest {
     @Test
-    void timeoutMigrationsAreAdditiveAndNotAutoRegistered() throws IOException {
-        String mysql = read("src/main/resources/db/mysql-v10-timeout-late-payment.sql");
-        String postgres = read("src/main/resources/db/postgres-v10-timeout-late-payment.sql");
-        String sqlServer = read("src/main/resources/db/migration/sqlserver/V16__timeout_late_payment.sql");
+    void mysqlReleaseSchemaIsCompleteAndContainsNoBusinessData() throws IOException {
+        String schema = read("database/mysql/schema.sql");
 
-        assertThat(mysql).contains("CREATE TABLE IF NOT EXISTS").doesNotContainPattern("(?i)\\b(drop|truncate|delete)\\b");
-        assertThat(postgres).contains("CREATE TABLE IF NOT EXISTS").doesNotContainPattern("(?i)\\b(drop|truncate|delete)\\b");
-        assertThat(sqlServer).contains("IF OBJECT_ID").doesNotContainPattern("(?i)\\b(drop|truncate|delete)\\b");
+        assertThat(schema).contains("CHARACTER SET utf8mb4", "CREATE TABLE `bookings`", "CREATE TABLE `payment_transactions`",
+                        "CREATE TABLE `otp_challenges`", "CREATE TABLE `membership_tier_policies`")
+                .contains("CONSTRAINT")
+                .doesNotContainPattern("(?im)^\\s*(INSERT|DROP|TRUNCATE|DELETE)\\b");
+        assertThat(schema.split("CREATE TABLE `", -1)).hasSize(36);
+    }
+
+    @Test
+    void initialDataContainsOnlyRequiredNeutralRewardDefaults() throws IOException {
+        String initialData = read("database/mysql/initial-data.sql");
+
+        assertThat(initialData).contains("loyalty_settings", "membership_tier_policies")
+                .doesNotContain("INSERT INTO `app_users`")
+                .doesNotContain("INSERT INTO `bookings`");
     }
 
     private String read(String path) throws IOException {
