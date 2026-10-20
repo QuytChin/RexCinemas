@@ -105,4 +105,15 @@ class UiDesignSystemRegressionTest {
                 .contains("payment_settings", "payment_settings_audit", "CREATE TABLE")
                 .doesNotContain("SEPAY_API_KEY");
     }
+
+    @Test
+    void bankQrCountdownUsesServerDeadlineAndRemovesPaymentDataAfterExpiry() throws IOException {
+        String page = Files.readString(TEMPLATES.resolve("booking/bank-qr-waiting.html"), StandardCharsets.UTF_8);
+        String script = Files.readString(Path.of("src/main/resources/static/js/bank-qr-payment.js"), StandardCharsets.UTF_8);
+
+        assertThat(page).contains("data-expires-at-epoch", "data-server-now-epoch", "data-seat-map-url")
+                .doesNotContain(">05:00<");
+        assertThat(script).contains("estimatedServerNow", "expiresAtEpochMillis", "paymentAllowed",
+                "hidePaymentInstructions", "A network error must never declare a booking expired");
+    }
 }

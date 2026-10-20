@@ -6,6 +6,8 @@ import com.rexchain.cinema.dto.PaymentSettingsUpdateRequest;
 import com.rexchain.cinema.dto.ManualRefundConfirmation;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.*;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -20,6 +22,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/admin")
@@ -28,6 +31,7 @@ public class AdminController {
     private final CinemaRepository cinemas;
     private final AuditoriumRepository auditoriums;
     private final ShowtimeRepository showtimes;
+    private final ShowtimeSeatRepository showSeats;
     private final BookingRepository bookings;
     private final UserRepository users;
     private final CinemaSetupService setup;
@@ -43,19 +47,23 @@ public class AdminController {
     private final PaymentSettingsService paymentSettingsService;
     private final PaymentTransactionRepository paymentTransactions;
     private final LatePaymentCaseService latePaymentCases;
+    private final MembershipService membershipService;
+    private final AdminListSupport lists;
 
     public AdminController(MovieRepository movies, CinemaRepository cinemas, AuditoriumRepository auditoriums,
-            ShowtimeRepository showtimes, BookingRepository bookings, UserRepository users,
+            ShowtimeRepository showtimes, ShowtimeSeatRepository showSeats, BookingRepository bookings, UserRepository users,
             CinemaSetupService setup, CloudinaryService cloudinary, ComboProductRepository combos,
             VoucherRepository vouchers, ReviewRepository reviews,
             DashboardService dashboardService, BookingService bookingService,
             ShowtimeService showtimeService, SePayPaymentService sepayPaymentService,
             SePayProperties sepayProperties, PaymentSettingsService paymentSettingsService,
-            PaymentTransactionRepository paymentTransactions, LatePaymentCaseService latePaymentCases) {
+            PaymentTransactionRepository paymentTransactions, LatePaymentCaseService latePaymentCases,
+            MembershipService membershipService, AdminListSupport lists) {
         this.movies = movies;
         this.cinemas = cinemas;
         this.auditoriums = auditoriums;
         this.showtimes = showtimes;
+        this.showSeats = showSeats;
         this.bookings = bookings;
         this.users = users;
         this.setup = setup;
@@ -71,6 +79,8 @@ public class AdminController {
         this.paymentSettingsService = paymentSettingsService;
         this.paymentTransactions = paymentTransactions;
         this.latePaymentCases = latePaymentCases;
+        this.membershipService = membershipService;
+        this.lists = lists;
     }
 
     @GetMapping
@@ -85,7 +95,8 @@ public class AdminController {
     }
 
     @GetMapping("/payments")
-    String paymentSettings(Model model) {
+    @Transactional(readOnly = true)
+    String paymentSettings(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
         var savedSettings = paymentSettingsService.current();
         boolean accountConfigured = hasText(savedSettings.getBankCode()) && hasText(savedSettings.getBankAccount());
         boolean bankQrAvailable = savedSettings.isEnabled() && accountConfigured
@@ -95,7 +106,10 @@ public class AdminController {
         String bankAccount = hasText(savedSettings.getBankAccount()) ? savedSettings.getBankAccount() : sepayProperties.getBankAccount();
         String paymentPrefix = hasText(savedSettings.getPaymentPrefix()) ? savedSettings.getPaymentPrefix() : sepayProperties.getPaymentPrefix();
         model.addAttribute("paymentMethods", List.of(PaymentMethod.BANK_QR));
-        model.addAttribute("transactions", bookings.findAllDetailed());
+        var options = new AdminListSupport.Options("bookingCode,user.email", "status",
+                new String[]{"createdAt", "totalAmount", "status", "id"}, new String[]{"user", "showtime.movie", "showtime.auditorium.cinema"});
+        Page<Booking> page = bookingPage(params, options);
+        display(model, request, params, page, options, "transactions", BookingStatus.values());
         model.addAttribute("accountConfigured", accountConfigured);
         model.addAttribute("bankQrAvailable", bankQrAvailable);
         model.addAttribute("sepayEnabled", sepayProperties.isEnabled());
@@ -126,8 +140,11 @@ public class AdminController {
     String transactions(@RequestParam(required = false) String status,
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-                        @RequestParam(required = false) String q, Model model) {
-        model.addAttribute("transactions", paymentTransactions.search(status, from, to, q));
+                        @RequestParam(required = false) String q, @RequestParam Map<String, String> params,
+                        HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("", "status", "receivedAt", "amount", "status", "id");
+        var page = paymentTransactions.search(status, from, to, q, lists.pageable(params, options.sorts()));
+        display(model, request, params, page, options, "transactions", "RECEIVED", "VERIFIED", "SETTLED", "NEEDS_REVIEW", "REFUND_PENDING", "LATE_PAYMENT_REFUND_PENDING", "DUPLICATE");
         model.addAttribute("filterStatus", status);
         model.addAttribute("filterFrom", from);
         model.addAttribute("filterTo", to);
@@ -139,8 +156,11 @@ public class AdminController {
 
     @GetMapping("/late-payments")
     String latePayments(@RequestParam(required = false) LatePaymentCaseStatus status,
-                        @RequestParam(required = false, name = "q") String query, Model model) {
-        model.addAttribute("cases", latePaymentCases.search(status, query));
+                        @RequestParam(required = false, name = "q") String query,
+                        @RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("", "status", "createdAt", "amount", "status", "id");
+        var page = latePaymentCases.search(status, query, lists.pageable(params, options.sorts()));
+        display(model, request, params, page, options, "cases", LatePaymentCaseStatus.values());
         model.addAttribute("filterStatus", status);
         model.addAttribute("filterQuery", query);
         model.addAttribute("caseStatuses", LatePaymentCaseStatus.values());
@@ -213,8 +233,9 @@ public class AdminController {
     }
 
     @GetMapping("/movies")
-    String movies(Model model) {
-        model.addAttribute("movies", movies.findAll());
+    String movies(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("title,genre", "status", "createdAt", "title", "releaseDate", "id");
+        display(model, request, params, lists.query(movies, params, options), options, "movies", MovieStatus.values());
         return "admin/movies";
     }
 
@@ -290,8 +311,9 @@ public class AdminController {
     }
 
     @GetMapping("/cinemas")
-    String cinemas(Model model) {
-        model.addAttribute("cinemas", cinemas.findAll());
+    String cinemas(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("name,city", "active", "id", "name", "city");
+        display(model, request, params, lists.query(cinemas, params, options), options, "cinemas", "true", "false");
         return "admin/cinemas";
     }
 
@@ -346,8 +368,10 @@ public class AdminController {
     }
 
     @GetMapping("/auditoriums")
-    String auditoriums(Model model) {
-        model.addAttribute("auditoriums", auditoriums.findAll());
+    String auditoriums(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("name,cinema.name", "active",
+                new String[]{"id", "name"}, new String[]{"cinema"});
+        display(model, request, params, lists.query(auditoriums, params, options), options, "auditoriums", "true", "false");
         model.addAttribute("cinemas", cinemas.findByActiveTrueOrderByCityAscNameAsc());
         return "admin/auditoriums";
     }
@@ -365,8 +389,11 @@ public class AdminController {
     }
 
     @GetMapping("/showtimes")
-    String showtimes(@RequestParam(required = false) Long edit, Model model) {
-        model.addAttribute("showtimes", showtimes.findAll());
+    String showtimes(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
+                     HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("movie.title,auditorium.name", "active",
+                new String[]{"startTime", "basePrice", "id"}, new String[]{"movie", "auditorium.cinema"});
+        display(model, request, params, lists.query(showtimes, params, options), options, "showtimes", "true", "false");
         model.addAttribute("movies", movies.findAll());
         model.addAttribute("auditoriums", auditoriums.findAll());
         model.addAttribute("editShowtime",
@@ -422,24 +449,44 @@ public class AdminController {
     }
 
     @PostMapping("/showtimes/{id}/delete")
-    String showtimeDelete(@PathVariable Long id) {
+    String showtimeDelete(@PathVariable Long id, RedirectAttributes redirect) {
         Showtime showtime = showtimes.findById(id).orElseThrow();
+        if (!canHideShowtime(showtime)) {
+            redirect.addFlashAttribute("error", "Không thể ẩn suất chiếu đang có vé hợp lệ, booking chờ thanh toán hoặc ghế đang được giữ.");
+            return "redirect:/admin/showtimes";
+        }
         showtime.setActive(false);
         showtimes.save(showtime);
         return "redirect:/admin/showtimes";
     }
 
     @PostMapping("/showtimes/{id}/toggle")
-    String showtimeToggle(@PathVariable Long id) {
+    String showtimeToggle(@PathVariable Long id, RedirectAttributes redirect) {
         Showtime showtime = showtimes.findById(id).orElseThrow();
+        if (showtime.isActive() && !canHideShowtime(showtime)) {
+            redirect.addFlashAttribute("error", "Không thể ẩn suất chiếu đang có vé hợp lệ, booking chờ thanh toán hoặc ghế đang được giữ.");
+            return "redirect:/admin/showtimes";
+        }
         showtime.setActive(!showtime.isActive());
         showtimes.save(showtime);
         return "redirect:/admin/showtimes";
     }
 
+    private boolean canHideShowtime(Showtime showtime) {
+        if (!showtime.getStartTime().isAfter(LocalDateTime.now())) return true;
+        boolean protectedBooking = bookings.existsByShowtimeIdAndStatusIn(showtime.getId(),
+                List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.REFUND_PENDING));
+        boolean activeHold = showSeats.existsByShowtimeIdAndStatusAndHoldUntilAfter(
+                showtime.getId(), SeatStatus.HELD, LocalDateTime.now());
+        return !protectedBooking && !activeHold;
+    }
+
     @GetMapping("/bookings")
-    String bookings(Model model) {
-        model.addAttribute("bookings", bookings.findAllDetailed());
+    @Transactional(readOnly = true)
+    String bookings(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("bookingCode,user.email,user.fullName,showtime.movie.title", "status",
+                new String[]{"createdAt", "totalAmount", "status", "id"}, new String[]{"user", "showtime.movie", "showtime.auditorium.cinema"});
+        display(model, request, params, bookingPage(params, options), options, "bookings", BookingStatus.values());
         return "admin/bookings";
     }
 
@@ -475,8 +522,18 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    String users(Model model) {
-        model.addAttribute("users", users.findAll());
+    @Transactional(readOnly = true)
+    String users(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("fullName,email,username,phone", "role", "createdAt", "email", "fullName", "id");
+        Page<User> page = lists.query(users, params, options);
+        display(model, request, params, page, options, "users", Role.values());
+        java.util.Map<Long, MembershipTier> memberTiers = new java.util.HashMap<>();
+        var policies = membershipService.tierPolicies();
+        page.forEach(user -> memberTiers.put(user.getId(), policies.stream()
+                .filter(policy -> policy.isActive() && policy.getQualifyingThreshold() <= user.getTierQualifyingPoints())
+                .max(java.util.Comparator.comparingInt(policy -> policy.getTier().ordinal()))
+                .orElseThrow().getTier()));
+        model.addAttribute("memberTiers", memberTiers);
         model.addAttribute("roles", Role.values());
         return "admin/users";
     }
@@ -498,8 +555,10 @@ public class AdminController {
     }
 
     @GetMapping("/combos")
-    String combos(@RequestParam(required = false) Long edit, Model model) {
-        model.addAttribute("combos", combos.findAll());
+    String combos(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
+                  HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("name", "active", "createdAt", "name", "price", "id");
+        display(model, request, params, lists.query(combos, params, options), options, "combos", "true", "false");
         model.addAttribute("editCombo",
                 edit == null ? new ComboProduct() : combos.findById(edit).orElse(new ComboProduct()));
         return "admin/combos";
@@ -540,8 +599,10 @@ public class AdminController {
     }
 
     @GetMapping("/vouchers")
-    String vouchers(@RequestParam(required = false) Long edit, Model model) {
-        model.addAttribute("vouchers", vouchers.findAll());
+    String vouchers(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
+                    HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("code,name", "active", "id", "code", "name", "validUntil");
+        display(model, request, params, lists.query(vouchers, params, options), options, "vouchers", "true", "false");
         model.addAttribute("discountTypes", DiscountType.values());
         model.addAttribute("editVoucher", edit == null ? new Voucher() : vouchers.findById(edit).orElse(new Voucher()));
         return "admin/vouchers";
@@ -596,9 +657,24 @@ public class AdminController {
     }
 
     @GetMapping("/reviews")
-    String reviews(Model model) {
-        model.addAttribute("reviews", reviews.findAll());
+    String reviews(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("movie.title,user.email", null,
+                new String[]{"createdAt", "rating", "id"}, new String[]{"movie", "user"});
+        display(model, request, params, lists.query(reviews, params, options), options, "reviews");
         return "admin/reviews";
+    }
+
+    private Page<Booking> bookingPage(Map<String, String> params, AdminListSupport.Options options) {
+        Page<Booking> page = lists.query(bookings, params, options);
+        if (page.hasContent()) bookings.loadSeatsForPage(page.getContent().stream().map(Booking::getId).toList());
+        return page;
+    }
+
+    private void display(Model model, HttpServletRequest request, Map<String, String> params,
+                         Page<?> page, AdminListSupport.Options options, String attribute, Object... statuses) {
+        model.addAttribute(attribute, page.getContent());
+        lists.present(model, page, params, options, request,
+                java.util.Arrays.stream(statuses).map(Object::toString).toArray(String[]::new));
     }
 
     @PostMapping("/reviews/{id}/delete")

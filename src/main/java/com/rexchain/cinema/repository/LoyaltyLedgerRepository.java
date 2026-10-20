@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-public interface LoyaltyLedgerRepository extends JpaRepository<LoyaltyLedgerEntry, Long> {
+public interface LoyaltyLedgerRepository extends JpaRepository<LoyaltyLedgerEntry, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<LoyaltyLedgerEntry> {
     boolean existsByReference(String reference);
     Optional<LoyaltyLedgerEntry> findByReference(String reference);
     Page<LoyaltyLedgerEntry> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);

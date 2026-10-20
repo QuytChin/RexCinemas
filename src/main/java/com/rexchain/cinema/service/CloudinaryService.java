@@ -5,38 +5,77 @@ import com.cloudinary.utils.ObjectUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.io.IOException;
-import java.util.Locale;
 import java.util.Map;
 
 @Service
 public class CloudinaryService {
     private final Cloudinary cloudinary;
     private final String cloudName;
+    private final String apiKey;
+    private final String apiSecret;
+    private final ImageUploadValidator imageUploadValidator;
 
-    public CloudinaryService(Cloudinary cloudinary, @Value("${cloudinary.cloud-name:}") String cloudName) {
-        this.cloudinary = cloudinary; this.cloudName = cloudName;
+    public CloudinaryService(Cloudinary cloudinary, @Value("${cloudinary.cloud-name:}") String cloudName,
+                             @Value("${cloudinary.api-key:}") String apiKey,
+                             @Value("${cloudinary.api-secret:}") String apiSecret,
+                             ImageUploadValidator imageUploadValidator) {
+        this.cloudinary = cloudinary;
+        this.cloudName = cloudName;
+        this.apiKey = apiKey;
+        this.apiSecret = apiSecret;
+        this.imageUploadValidator = imageUploadValidator;
     }
-    public boolean configured() { return cloudName != null && !cloudName.isBlank(); }
-    public String uploadMoviePoster(MultipartFile file) throws IOException { return upload(file, "rex-chain/movies"); }
-    public String uploadAvatar(MultipartFile file) throws IOException { validateAvatar(file); return upload(file, "rex-chain/avatars"); }
-    public String uploadComboImage(MultipartFile file) throws IOException { return upload(file, "rex-chain/combos"); }
-    public String uploadContentImage(MultipartFile file) throws IOException { return upload(file, "rex-chain/content"); }
+
+    public boolean configured() {
+        return cloudName != null && !cloudName.isBlank()
+                && apiKey != null && !apiKey.isBlank()
+                && apiSecret != null && !apiSecret.isBlank();
+    }
+
+    public String uploadMoviePoster(MultipartFile file) throws IOException {
+        return upload(file, "rex-chain/movies");
+    }
+
+    public String uploadAvatar(MultipartFile file) throws IOException {
+        return upload(file, "rex-chain/avatars");
+    }
+
+    public String uploadComboImage(MultipartFile file) throws IOException {
+        return upload(file, "rex-chain/combos");
+    }
+
+    public String uploadContentImage(MultipartFile file) throws IOException {
+        return upload(file, "rex-chain/content");
+    }
+
     private String upload(MultipartFile file, String folder) throws IOException {
-        if (!configured()) throw new IllegalStateException("Chưa cấu hình Cloudinary");
-        Map<?, ?> result = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("folder", folder, "resource_type", "image"));
-        return String.valueOf(result.get("secure_url"));
-    }
-    private void validateAvatar(MultipartFile file) throws IOException {
-        if (file == null || file.isEmpty()) throw new IllegalArgumentException("Hãy chọn ảnh đại diện");
-        if (file.getSize() > 5L * 1024 * 1024) throw new IllegalArgumentException("Ảnh đại diện tối đa 5 MB");
-        String type = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
-        byte[] content = file.getBytes();
-        boolean jpg = content.length >= 3 && (content[0] & 0xff) == 0xff && (content[1] & 0xff) == 0xd8 && (content[2] & 0xff) == 0xff;
-        boolean png = content.length >= 8 && (content[0] & 0xff) == 0x89 && content[1] == 0x50 && content[2] == 0x4e && content[3] == 0x47;
-        boolean webp = content.length >= 12 && content[0] == 'R' && content[1] == 'I' && content[2] == 'F' && content[3] == 'F' && content[8] == 'W' && content[9] == 'E' && content[10] == 'B' && content[11] == 'P';
-        boolean acceptedType = type.equals("image/jpeg") || type.equals("image/png") || type.equals("image/webp");
-        if (!acceptedType || !(jpg || png || webp)) throw new IllegalArgumentException("Chỉ hỗ trợ ảnh JPG, PNG hoặc WebP hợp lệ");
-        if (!configured()) throw new IllegalStateException("Chưa cấu hình Cloudinary để tải ảnh đại diện");
+        ImageUploadValidator.ValidatedImage image;
+        try {
+            image = imageUploadValidator.validate(file);
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("Không thể giải mã dữ liệu ảnh");
+        }
+        if (!configured()) {
+            throw new IllegalStateException("Chưa cấu hình Cloudinary để tải ảnh");
+        }
+        try {
+            Map<?, ?> result = cloudinary.uploader().upload(image.bytes(), ObjectUtils.asMap(
+                    "folder", folder,
+                    "resource_type", "image",
+                    "use_filename", false,
+                    "unique_filename", true,
+                    "overwrite", false));
+            Object value = result.get("secure_url");
+            if (!(value instanceof String url) || url.isBlank() || !url.startsWith("https://")) {
+                throw new IllegalStateException("Cloudinary không trả về URL ảnh hợp lệ");
+            }
+            return url;
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalStateException("Không thể tải ảnh lên Cloudinary. Vui lòng thử lại.", ex);
+        }
     }
 }

@@ -3,6 +3,8 @@ package com.rexchain.cinema.controller;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.CloudinaryService;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -18,18 +20,24 @@ public class AdminContentController {
     private final ArticleRepository articles;
     private final MediaItemRepository mediaItems;
     private final CloudinaryService cloudinary;
+    private final AdminListSupport lists;
 
     public AdminContentController(EventRepository events, ArticleRepository articles,
-                                  MediaItemRepository mediaItems, CloudinaryService cloudinary) {
+                                  MediaItemRepository mediaItems, CloudinaryService cloudinary, AdminListSupport lists) {
         this.events = events;
         this.articles = articles;
         this.mediaItems = mediaItems;
         this.cloudinary = cloudinary;
+        this.lists = lists;
     }
 
     @GetMapping("/events")
-    String events(@RequestParam(required = false) Long edit, Model model) {
-        model.addAttribute("events", events.findAll());
+    String events(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
+                  HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("title,label", "active", "sortOrder", "createdAt", "title", "id");
+        var page = lists.query(events, params, options);
+        model.addAttribute("events", page.getContent());
+        lists.present(model, page, params, options, request, "true", "false");
         model.addAttribute("editEvent", edit == null ? new Event() : events.findById(edit).orElse(new Event()));
         return "admin/events";
     }
@@ -70,8 +78,12 @@ public class AdminContentController {
     }
 
     @GetMapping("/articles")
-    String articles(@RequestParam(required = false) Long edit, Model model) {
-        model.addAttribute("articles", articles.findAll());
+    String articles(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
+                    HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("title,category", "active", "createdAt", "publishDate", "title", "id");
+        var page = lists.query(articles, params, options);
+        model.addAttribute("articles", page.getContent());
+        lists.present(model, page, params, options, request, "true", "false");
         model.addAttribute("editArticle", edit == null ? new Article() : articles.findById(edit).orElse(new Article()));
         return "admin/articles";
     }
@@ -116,8 +128,12 @@ public class AdminContentController {
     }
 
     @GetMapping("/media")
-    String media(@RequestParam(required = false) Long edit, Model model) {
-        model.addAttribute("mediaItems", mediaItems.findAll());
+    String media(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
+                 HttpServletRequest request, Model model) {
+        var options = new AdminListSupport.Options("title", "type", "sortOrder", "createdAt", "title", "id");
+        var page = lists.query(mediaItems, params, options);
+        model.addAttribute("mediaItems", page.getContent());
+        lists.present(model, page, params, options, request, MediaType.values()[0].name(), MediaType.values()[1].name());
         model.addAttribute("mediaTypes", MediaType.values());
         model.addAttribute("editMedia", edit == null ? new MediaItem() : mediaItems.findById(edit).orElse(new MediaItem()));
         return "admin/media";

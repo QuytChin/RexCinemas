@@ -5,6 +5,7 @@ import com.rexchain.cinema.entity.User;
 import com.rexchain.cinema.repository.CinemaRepository;
 import com.rexchain.cinema.repository.UserRepository;
 import com.rexchain.cinema.service.NotificationService;
+import com.rexchain.cinema.service.MembershipService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.core.Authentication;
@@ -17,7 +18,11 @@ import java.util.List;
 @ControllerAdvice(annotations = Controller.class)
 public class HeaderModelAdvice {
     private final ObjectProvider<UserRepository> users; private final ObjectProvider<CinemaRepository> cinemas; private final ObjectProvider<NotificationService> notifications;
-    public HeaderModelAdvice(ObjectProvider<UserRepository> users, ObjectProvider<CinemaRepository> cinemas, ObjectProvider<NotificationService> notifications) { this.users = users; this.cinemas = cinemas; this.notifications = notifications; }
+    private final ObjectProvider<MembershipService> memberships;
+    public HeaderModelAdvice(ObjectProvider<UserRepository> users, ObjectProvider<CinemaRepository> cinemas,
+                             ObjectProvider<NotificationService> notifications, ObjectProvider<MembershipService> memberships) {
+        this.users = users; this.cinemas = cinemas; this.notifications = notifications; this.memberships = memberships;
+    }
 
     @ModelAttribute
     public void header(Model model, Authentication authentication, HttpSession session) {
@@ -36,6 +41,8 @@ public class HeaderModelAdvice {
         User user = userRepository.findByEmailIgnoreCase(authentication.getName()).orElse(null);
         if (user == null) return;
         model.addAttribute("headerUser", user);
+        MembershipService membership = memberships.getIfAvailable();
+        if (membership != null) model.addAttribute("headerMembership", membership.statusFor(user.getTierQualifyingPoints()));
         model.addAttribute("headerNotifications", notificationService.latest(user.getId(), 6));
         model.addAttribute("headerUnreadCount", notificationService.unreadCount(user.getId()));
     }

@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
+public interface ShowtimeRepository extends JpaRepository<Showtime, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Showtime> {
     @Query("select s from Showtime s join fetch s.movie m join fetch s.auditorium a join fetch a.cinema c " +
            "where s.active=true and m.active=true and c.active=true " +
            "and s.movie.id = :movieId and s.startTime > :after " +

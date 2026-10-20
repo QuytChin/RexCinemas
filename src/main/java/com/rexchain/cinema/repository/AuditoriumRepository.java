@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
-public interface AuditoriumRepository extends JpaRepository<Auditorium,Long>{
+public interface AuditoriumRepository extends JpaRepository<Auditorium,Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Auditorium>{
     List<Auditorium> findByCinemaIdOrderByNameAsc(Long cinemaId);
     boolean existsByCinemaIdAndNameIgnoreCase(Long cinemaId, String name);
 

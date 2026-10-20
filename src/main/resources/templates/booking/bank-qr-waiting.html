@@ -9,25 +9,30 @@
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main id="bankQrPayment" class="container-xl bank-qr-page"
-      th:attr="data-status-url=@{'/api/payment-status/' + ${booking.bookingCode}},data-ticket-url=@{'/bookings/' + ${booking.id}},data-expires-at=${booking.expiresAt}">
+      th:attr="data-status-url=@{'/api/payment-status/' + ${booking.bookingCode}},data-ticket-url=@{'/bookings/' + ${booking.id}},data-seat-map-url=${seatMapUrl},data-expires-at-epoch=${expiresAtEpochMillis},data-server-now-epoch=${serverNowEpochMillis}">
     <div class="bank-qr-card">
         <div class="bank-qr-copy">
             <p class="eyebrow">BANK QR PAYMENT</p>
             <h1>Đang chờ thanh toán</h1>
             <p class="bank-qr-lead">Mở ứng dụng ngân hàng, quét mã QR và nhập đúng nội dung chuyển khoản bên dưới.</p>
             <div class="bank-qr-status"><span class="bank-qr-status-dot"></span><strong id="paymentStatusText">Đang chờ thanh toán</strong></div>
-            <dl class="bank-qr-details">
+            <dl class="bank-qr-details" data-payment-details>
                 <div><dt>Mã đặt vé</dt><dd th:text="${booking.bookingCode}"></dd></div>
                 <div><dt>Ngân hàng</dt><dd th:text="${bankName ?: 'Ngân hàng nhận tiền'}"></dd></div>
                 <div><dt>Số tiền</dt><dd class="bank-qr-amount" th:text="${#numbers.formatDecimal(bankSnapshot.amount,0,'COMMA',0,'POINT') + 'đ'}"></dd></div>
                 <div><dt>Số tài khoản</dt><dd class="bank-qr-account" th:text="${bankAccount}"></dd><button type="button" class="bank-qr-copy-btn" th:attr="data-copy-value=${bankAccount}">Sao chép</button></div>
                 <div><dt>Chủ tài khoản</dt><dd th:text="${accountHolder ?: '—'}"></dd></div>
                 <div><dt>Nội dung chuyển khoản</dt><dd class="bank-qr-reference" th:text="${booking.paymentReference}"></dd><button type="button" class="bank-qr-copy-btn" th:attr="data-copy-value=${booking.paymentReference}">Sao chép</button></div>
-                <div><dt>Thời gian giữ ghế</dt><dd id="bankQrCountdown">05:00</dd></div>
+                <div><dt>Thời gian giữ ghế</dt><dd id="bankQrCountdown" aria-live="polite">--:--</dd></div>
             </dl>
-            <p class="bank-qr-hint">Trang sẽ tự cập nhật khi hệ thống ghi nhận thanh toán.</p>
+            <p class="bank-qr-hint" id="bankQrHint">Trang sẽ tự cập nhật khi hệ thống ghi nhận thanh toán.</p>
+            <div id="bankQrExpired" class="bank-qr-expired" hidden>
+                <h2>Hết thời gian giữ ghế</h2>
+                <p>Thời gian đặt vé đã kết thúc. Vui lòng chọn ghế và đặt vé lại.</p>
+                <a id="bankQrRebook" class="btn btn-rex" th:href="@{'/booking/' + ${booking.showtime.id}}">Đặt vé lại</a>
+            </div>
         </div>
-        <div class="bank-qr-image-wrap">
+        <div class="bank-qr-image-wrap" data-payment-qr>
             <img class="bank-qr-image" th:src="${qrImageUrl}" alt="Mã QR thanh toán ngân hàng">
             <span>Quét để thanh toán</span>
         </div>

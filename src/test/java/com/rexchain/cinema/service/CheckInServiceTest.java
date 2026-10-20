@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -72,6 +73,19 @@ class CheckInServiceTest {
         assertThat(result.status()).isEqualTo("PENDING");
         verify(bookings, never()).atomicCheckIn(anyLong(), any(), anyString());
         verify(bookingSeats, never()).atomicCheckInAllSeats(anyLong(), any(), anyString());
+    }
+
+    @Test
+    void pendingBookingCannotIssueTicketQrPayload() {
+        Booking booking = confirmedBooking();
+        booking.setStatus(BookingStatus.PENDING);
+        when(bookings.findById(30L)).thenReturn(Optional.of(booking));
+
+        assertThatThrownBy(() -> new CheckInService(bookings, bookingSeats).qrPayloadFor(30L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("xác nhận");
+
+        verify(bookings, never()).save(any(Booking.class));
     }
 
     private BookingSeat seat(Booking booking, String label, String ticketCode) {

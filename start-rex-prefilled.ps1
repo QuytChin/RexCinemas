@@ -4,7 +4,7 @@ RexCinemas startup (Windows PowerShell 5.1+ / PowerShell 7)
 First run: prompts for settings, encrypts secrets with Windows DPAPI for current user.
 Next runs: reuse saved settings. Use -Reconfigure to update values.
 Run inside the RexCinemas project folder (where pom.xml is located).
-IMPORTANT: This launches a local DEV profile and may update the local MySQL schema.
+IMPORTANT: This launches a local DEV profile with Hibernate schema validation only.
 #>
 [CmdletBinding()]
 param(
@@ -129,6 +129,7 @@ Require-Setting 'MAIL_USERNAME' $cfg.MAIL_USERNAME
 $env:SPRING_PROFILES_ACTIVE = 'dev,mysql'
 $env:PORT = '8080'
 $env:COOKIE_SECURE = 'false' # Set true when exclusively serving HTTPS behind a trusted reverse proxy.
+$env:HIBERNATE_DDL_AUTO = 'validate'
 $env:DB_URL = [string]$cfg.DB_URL
 $env:DB_USERNAME = [string]$cfg.DB_USERNAME
 $env:DB_PASSWORD = Get-PlainSecret 'DB_PASSWORD' $StateDir
@@ -156,7 +157,7 @@ if ([System.Text.Encoding]::UTF8.GetByteCount($env:JWT_SECRET) -lt 32) { throw '
 
 Write-Host '=== RexCinemas environment loaded ===' -ForegroundColor Green
 Write-Host ('Profile: {0} | SePay: {1} | Payment base URL: {2}' -f $env:SPRING_PROFILES_ACTIVE,$env:SEPAY_ENABLED,$env:PAYMENT_BASE_URL)
-Write-Warning 'DEV profile may run Hibernate schema update and SQL init on your local MySQL. Back up important data.'
+Write-Host 'Hibernate schema mode: validate (no implicit DDL).' -ForegroundColor Green
 if ($NoStart) { Write-Host 'NoStart selected; server not started.'; exit 0 }
 
 Set-Location -LiteralPath $ProjectDir

@@ -1,11 +1,13 @@
 package com.rexchain.cinema.controller;
 
 import com.rexchain.cinema.entity.User;
+import com.rexchain.cinema.service.MembershipService;
 import com.rexchain.cinema.repository.UserRepository;
 import com.rexchain.cinema.service.CloudinaryService;
 import com.rexchain.cinema.service.ProfileService;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,14 +17,19 @@ public class ProfileController {
     private final UserRepository users;
     private final ProfileService profiles;
     private final CloudinaryService cloudinary;
+    private final MembershipService membership;
 
-    public ProfileController(UserRepository users, ProfileService profiles, CloudinaryService cloudinary) {
-        this.users = users; this.profiles = profiles; this.cloudinary = cloudinary;
+    public ProfileController(UserRepository users, ProfileService profiles, CloudinaryService cloudinary,
+                             MembershipService membership) {
+        this.users = users; this.profiles = profiles; this.cloudinary = cloudinary; this.membership = membership;
     }
 
     @GetMapping("/profile")
+    @Transactional(readOnly = true)
     String profile(Authentication authentication, Model model) {
-        model.addAttribute("user", current(authentication));
+        User user = current(authentication);
+        model.addAttribute("user", user);
+        model.addAttribute("membershipStatus", membership.statusFor(user.getTierQualifyingPoints()));
         model.addAttribute("cloudinaryConfigured", cloudinary.configured());
         return "profile";
     }
@@ -49,7 +56,9 @@ public class ProfileController {
             profiles.changePassword(current(authentication), currentPassword, newPassword, confirmPassword);
             return "redirect:/profile?passwordUpdated";
         } catch (IllegalArgumentException ex) {
-            model.addAttribute("user", current(authentication));
+            User user = current(authentication);
+            model.addAttribute("user", user);
+            model.addAttribute("membershipStatus", membership.statusFor(user.getTierQualifyingPoints()));
             model.addAttribute("cloudinaryConfigured", cloudinary.configured());
             model.addAttribute("passwordError", ex.getMessage());
             return "profile";

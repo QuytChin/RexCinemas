@@ -1,0 +1,21 @@
+<!doctype html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><body>
+<div th:fragment="filters" class="ui-card p-3 mb-3">
+  <form method="get" th:action="${adminBase}" class="row g-2 align-items-end">
+    <div class="col-12 col-md-4"><label class="form-label" for="admin-q">Tìm kiếm</label><input id="admin-q" class="form-control" type="search" name="q" th:value="${adminQuery}" placeholder="Tên, mã hoặc email"></div>
+    <div class="col-6 col-md-2" th:if="${adminStatuses.length > 0}"><label class="form-label" for="admin-status">Lọc</label><select id="admin-status" name="status" class="form-select"><option value="">Tất cả</option><option th:each="value : ${adminStatuses}" th:value="${value}" th:text="${value}" th:selected="${value == adminStatus}"></option></select></div>
+    <div class="col-6 col-md-2"><label class="form-label" for="admin-sort">Sắp xếp</label><select id="admin-sort" name="sort" class="form-select"><option th:each="value : ${adminSorts}" th:value="${value}" th:text="${value}" th:selected="${value == adminSort}"></option></select></div>
+    <div class="col-6 col-md-1"><label class="form-label" for="admin-dir">Chiều</label><select id="admin-dir" name="dir" class="form-select"><option value="desc" th:selected="${adminDir == 'desc'}">Giảm</option><option value="asc" th:selected="${adminDir == 'asc'}">Tăng</option></select></div>
+    <div class="col-6 col-md-1"><label class="form-label" for="admin-size">Mỗi trang</label><select id="admin-size" name="size" class="form-select"><option value="10" th:selected="${adminPage.size == 10}">10</option><option value="20" th:selected="${adminPage.size == 20}">20</option><option value="50" th:selected="${adminPage.size == 50}">50</option><option value="100" th:selected="${adminPage.size == 100}">100</option></select></div>
+    <div class="col-12 col-md-2 d-flex gap-2"><button class="btn btn-rex flex-fill">Áp dụng</button><a class="btn btn-outline-light" th:href="${adminBase}">Xóa</a></div>
+  </form>
+</div>
+<div th:fragment="pager" class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 mb-4">
+  <p class="small text-secondary mb-0" th:text="${adminPage.totalElements == 0 ? 'Không tìm thấy dữ liệu phù hợp.' : 'Trang ' + (adminPage.number + 1) + '/' + adminPage.totalPages + ' · ' + adminPage.totalElements + ' bản ghi'}"></p>
+  <nav aria-label="Phân trang Admin" class="d-flex flex-wrap gap-2" th:if="${adminPage.totalPages > 1}">
+    <a class="btn btn-sm btn-outline-light" th:if="${adminPage.hasPrevious()}" th:href="${adminFirst}">Đầu</a>
+    <a class="btn btn-sm btn-outline-light" th:if="${adminPage.hasPrevious()}" th:href="${adminPrev}">Trước</a>
+    <a class="btn btn-sm btn-outline-light" th:if="${adminPage.hasNext()}" th:href="${adminNext}">Sau</a>
+    <a class="btn btn-sm btn-outline-light" th:if="${adminPage.hasNext()}" th:href="${adminLast}">Cuối</a>
+  </nav>
+</div>
+</body></html>

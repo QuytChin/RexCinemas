@@ -96,6 +96,11 @@ public class BookingService {
         seatReservationService.releaseOwnHolds(userId, showtimeId, ids);
     }
 
+    @Transactional(readOnly = true)
+    public boolean isHoldActive(Long userId, Long showtimeId, List<Long> ids, long deadlineEpochMillis) {
+        return seatReservationService.isHoldActive(userId, showtimeId, ids, deadlineEpochMillis);
+    }
+
     /** Server-side preview used by the payment step; confirmation recalculates under locks. */
     @Transactional(readOnly = true)
     public BookingQuote quote(Long userId, Long showtimeId, List<Long> ids, String voucherCode,
@@ -169,7 +174,7 @@ public class BookingService {
         Voucher voucher = resolveVoucher(voucherCode, beforeDiscount, now, user);
         BigDecimal voucherDiscount = voucher == null ? BigDecimal.ZERO : calculateDiscount(voucher, beforeDiscount);
         MembershipBenefitQuote benefit = membershipService == null
-                ? new MembershipBenefitQuote(user.getMembershipTier(), BigDecimal.ZERO, BigDecimal.ZERO,
+                ? new MembershipBenefitQuote(MembershipTier.MEMBER, BigDecimal.ZERO, BigDecimal.ZERO,
                 voucherDiscount, voucherDiscount, BigDecimal.ONE, voucher != null, false)
                 : membershipService.quote(user, seatAmount, voucherDiscount);
         if (!benefit.voucherApplied()) voucher = null;
@@ -179,7 +184,6 @@ public class BookingService {
 
         Booking booking = new Booking();
         booking.setBookingCode("REX" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase());
-        booking.setQrToken(checkInService.newQrToken());
         booking.setUser(user);
         booking.setShowtime(showtime);
         booking.setPaymentMethod(method);
@@ -235,8 +239,6 @@ public class BookingService {
             bookingSeat.setShowtimeSeat(seat);
             bookingSeat.setSeatLabel(seat.getSeat().getLabel());
             bookingSeat.setPrice(seat.getPrice());
-            bookingSeat.setTicketCode("TKT-" + booking.getBookingCode() + "-" + seat.getSeat().getLabel());
-            bookingSeat.setQrToken(checkInService.newQrToken());
             bookingSeat.setCheckedIn(false);
             booking.getSeats().add(bookingSeat);
         }
@@ -303,9 +305,12 @@ public class BookingService {
         if (booking.isCheckedIn())
             throw new IllegalStateException("Vé đã check-in nên không thể hủy");
         boolean wasConfirmed = booking.getStatus() == BookingStatus.CONFIRMED;
+        if (!wasConfirmed)
+            seatReservationService.finishCheckout(booking.getUser().getId(), booking.getShowtime().getId(),
+                    booking.getExpiresAt());
         booking.setStatus(wasConfirmed ? BookingStatus.REFUND_PENDING : BookingStatus.CANCELLED);
-        booking.setExpiresAt(null);
         if (!wasConfirmed) seatReservationService.releaseBookingSeats(booking);
+        booking.setExpiresAt(null);
         // A paid booking remains allocated while manual refund is pending. Resources and points
         // are returned atomically only after a verified manual transfer.
         Booking saved = bookings.save(booking);

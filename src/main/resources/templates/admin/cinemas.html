@@ -9,7 +9,7 @@
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container-fluid admin-page-wrap pt-page pb-5 admin-cinema-page">
+<main class="container-fluid admin-page-wrap pt-page pb-5 admin-cinema-page"><div th:replace="~{fragments/admin-list :: filters}"></div>
     <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
     <header class="ui-page-header admin-cinema-page-header">
         <div>
@@ -40,7 +40,7 @@
         </div>
         <div class="col-12" th:if="${#lists.isEmpty(cinemas)}"><div class="ui-empty-state"><svg class="ui-icon ui-empty-state__icon" aria-hidden="true"><use href="/images/icons.svg#building-2"></use></svg><h2>Chưa có rạp nào</h2><p>Thêm rạp đầu tiên để bắt đầu cấu hình phòng chiếu và lịch chiếu.</p><a class="btn btn-rex ui-btn ui-btn--primary" th:href="@{/admin/cinemas/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm rạp</span></a></div></div>
     </section>
-</main>
+<div th:replace="~{fragments/admin-list :: pager}"></div></main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

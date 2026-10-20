@@ -17,6 +17,7 @@ public interface ShowtimeSeatRepository extends JpaRepository<ShowtimeSeat, Long
     List<ShowtimeSeat> findByStatusAndHoldUntilBefore(SeatStatus status, LocalDateTime now);
     long countByShowtimeIdAndStatus(Long showtimeId, SeatStatus status);
     long countByShowtimeId(Long showtimeId);
+    boolean existsByShowtimeIdAndStatusAndHoldUntilAfter(Long showtimeId, SeatStatus status, LocalDateTime now);
 
     @Query("select ss.showtime.id, count(ss), " +
            "sum(case when ss.status = com.rexchain.cinema.entity.SeatStatus.AVAILABLE then 1 else 0 end) " +

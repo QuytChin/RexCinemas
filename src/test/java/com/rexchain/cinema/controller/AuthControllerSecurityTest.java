@@ -130,10 +130,9 @@ class AuthControllerSecurityTest {
     }
 
     @Test
-    void protectedPageRedirectsToCustomLoginInsteadOfBasicAuthentication() throws Exception {
-        mockMvc.perform(get("/admin"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/login?returnUrl=%2Fadmin"))
+    void unknownPageReturnsNotFoundInsteadOfLoginRedirect() throws Exception {
+        mockMvc.perform(get("/no-such-route"))
+                .andExpect(status().isNotFound())
                 .andExpect(header().doesNotExist("WWW-Authenticate"));
     }
 

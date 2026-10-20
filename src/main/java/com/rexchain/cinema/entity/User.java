@@ -101,33 +101,4 @@ public class User {
     public LocalDateTime getCreatedAt(){ return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt){ this.createdAt = createdAt; }
 
-    @Transient
-    public MembershipTier getMembershipTier(){
-        int points = tierQualifyingPoints > 0 ? tierQualifyingPoints : lifetimePoints;
-        if (points >= 1200) return MembershipTier.DIAMOND;
-        if (points >= 600) return MembershipTier.GOLD;
-        if (points >= 250) return MembershipTier.SILVER;
-        return MembershipTier.MEMBER;
-    }
-
-    @Transient
-    public int getNextTierTarget(){
-        int points = tierQualifyingPoints > 0 ? tierQualifyingPoints : lifetimePoints;
-        if (points < 250) return 250;
-        if (points < 600) return 600;
-        if (points < 1200) return 1200;
-        return 1200;
-    }
-
-    @Transient
-    public int getTierProgressPercent(){
-        int start;
-        int target;
-        int points = tierQualifyingPoints > 0 ? tierQualifyingPoints : lifetimePoints;
-        if (points < 250) { start = 0; target = 250; }
-        else if (points < 600) { start = 250; target = 600; }
-        else if (points < 1200) { start = 600; target = 1200; }
-        else return 100;
-        return Math.min(100, Math.max(0, (int)Math.round((points - start) * 100.0 / (target - start))));
-    }
 }

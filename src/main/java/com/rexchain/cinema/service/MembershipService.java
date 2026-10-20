@@ -1,9 +1,10 @@
 package com.rexchain.cinema.service;
 
 import com.rexchain.cinema.dto.MembershipBenefitQuote;
+import com.rexchain.cinema.dto.MembershipStatus;
 import com.rexchain.cinema.entity.*;
-import com.rexchain.cinema.repository.LoyaltySettingsRepository;
 import com.rexchain.cinema.repository.LoyaltyPolicyAuditRepository;
+import com.rexchain.cinema.repository.LoyaltySettingsRepository;
 import com.rexchain.cinema.repository.MembershipTierPolicyRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,45 +35,52 @@ public class MembershipService {
     @Transactional(readOnly = true)
     public List<MembershipTierPolicy> tierPolicies() {
         List<MembershipTierPolicy> configured = policies.findAllByOrderByQualifyingThresholdAsc();
-        return configured.size() == MembershipTier.values().length ? configured : defaults();
+        validatePolicies(configured);
+        return configured;
     }
 
     @Transactional(readOnly = true)
     public MembershipTierPolicy policyFor(MembershipTier tier) {
-        return tierPolicies().stream().filter(value -> value.getTier() == tier).findFirst()
-                .orElseThrow(() -> new IllegalStateException("Thiếu cấu hình hạng " + tier));
+        return tierPolicies().stream().filter(value -> value.getTier() == tier && value.isActive()).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Chính sách hạng " + tier + " đang thiếu hoặc bị tắt"));
     }
 
     @Transactional(readOnly = true)
     public MembershipTier tierFor(int qualifyingPoints) {
-        MembershipTier result = MembershipTier.MEMBER;
-        for (MembershipTierPolicy policy : tierPolicies()) {
-            if (policy.isActive() && qualifyingPoints >= policy.getQualifyingThreshold()) result = policy.getTier();
-        }
-        return result;
+        return statusFor(qualifyingPoints).tier();
     }
 
     @Transactional(readOnly = true)
     public int nextThreshold(int qualifyingPoints) {
-        return tierPolicies().stream().filter(policy -> policy.isActive() && policy.getQualifyingThreshold() > qualifyingPoints)
-                .mapToInt(MembershipTierPolicy::getQualifyingThreshold).min().orElse(qualifyingPoints);
+        MembershipStatus status = statusFor(qualifyingPoints);
+        return status.nextThreshold() == null ? qualifyingPoints : status.nextThreshold();
     }
 
     @Transactional(readOnly = true)
     public int progressPercent(int qualifyingPoints) {
-        List<MembershipTierPolicy> values = tierPolicies();
-        int start = 0;
-        int target = 0;
-        for (MembershipTierPolicy policy : values) {
-            if (!policy.isActive()) continue;
-            if (qualifyingPoints < policy.getQualifyingThreshold()) {
-                target = policy.getQualifyingThreshold();
-                break;
-            }
-            start = policy.getQualifyingThreshold();
+        return statusFor(qualifyingPoints).progressPercent();
+    }
+
+    @Transactional(readOnly = true)
+    public MembershipStatus statusFor(int qualifyingPoints) {
+        List<MembershipTierPolicy> active = tierPolicies().stream().filter(MembershipTierPolicy::isActive)
+                .sorted(Comparator.comparingInt(policy -> policy.getTier().ordinal())).toList();
+        MembershipTierPolicy current = active.stream()
+                .filter(policy -> policy.getQualifyingThreshold() <= qualifyingPoints)
+                .max(Comparator.comparingInt(policy -> policy.getTier().ordinal()))
+                .orElseThrow(() -> new IllegalStateException("Không tìm thấy hạng áp dụng cho số điểm xét hạng"));
+        MembershipTierPolicy next = active.stream()
+                .filter(policy -> policy.getTier().ordinal() > current.getTier().ordinal()).findFirst().orElse(null);
+        if (next == null) {
+            return new MembershipStatus(current.getTier(), current, qualifyingPoints, null, null, 0, 100);
         }
-        if (target == 0) return 100;
-        return Math.min(100, Math.max(0, (int) Math.round((qualifyingPoints - start) * 100.0 / (target - start))));
+        int start = current.getQualifyingThreshold();
+        int target = next.getQualifyingThreshold();
+        int progress = target <= start ? 0 : (int) Math.floor(
+                Math.max(0L, (long) qualifyingPoints - start) * 100.0 / (target - start));
+        progress = Math.min(99, Math.max(0, progress));
+        return new MembershipStatus(current.getTier(), current, qualifyingPoints, next.getTier(), target,
+                Math.max(0, target - qualifyingPoints), progress);
     }
 
     @Transactional(readOnly = true)
@@ -93,8 +101,10 @@ public class MembershipService {
     }
 
     @Transactional
-    public void saveSettings(BigDecimal amountPerPoint, int minimumPositivePoints, boolean stacking, boolean redemptionEnabled, String actor) {
-        if (amountPerPoint == null || amountPerPoint.compareTo(BigDecimal.ONE) < 0 || amountPerPoint.compareTo(BigDecimal.valueOf(10_000_000)) > 0)
+    public void saveSettings(BigDecimal amountPerPoint, int minimumPositivePoints, boolean stacking,
+                             boolean redemptionEnabled, String actor) {
+        if (amountPerPoint == null || amountPerPoint.compareTo(BigDecimal.ONE) < 0
+                || amountPerPoint.compareTo(BigDecimal.valueOf(10_000_000)) > 0)
             throw new IllegalArgumentException("Số tiền quy đổi điểm không hợp lệ");
         if (minimumPositivePoints < 0 || minimumPositivePoints > 100)
             throw new IllegalArgumentException("Điểm tối thiểu không hợp lệ");
@@ -113,9 +123,11 @@ public class MembershipService {
     public void saveTierPolicy(MembershipTier tier, int threshold, BigDecimal ticketDiscountPercent,
                                BigDecimal pointMultiplier, boolean active, String actor) {
         if (threshold < 0) throw new IllegalArgumentException("Ngưỡng điểm không hợp lệ");
-        if (ticketDiscountPercent == null || ticketDiscountPercent.compareTo(BigDecimal.ZERO) < 0 || ticketDiscountPercent.compareTo(BigDecimal.valueOf(100)) > 0)
+        if (ticketDiscountPercent == null || ticketDiscountPercent.compareTo(BigDecimal.ZERO) < 0
+                || ticketDiscountPercent.compareTo(BigDecimal.valueOf(100)) > 0)
             throw new IllegalArgumentException("Giảm giá phải từ 0 đến 100%");
-        if (pointMultiplier == null || pointMultiplier.compareTo(BigDecimal.ONE) < 0 || pointMultiplier.compareTo(BigDecimal.TEN) > 0)
+        if (pointMultiplier == null || pointMultiplier.compareTo(BigDecimal.ONE) < 0
+                || pointMultiplier.compareTo(BigDecimal.TEN) > 0)
             throw new IllegalArgumentException("Hệ số điểm phải từ 1 đến 10");
         MembershipTierPolicy value = policies.findByTier(tier).orElseGet(MembershipTierPolicy::new);
         String before = policySnapshot(value);
@@ -129,16 +141,31 @@ public class MembershipService {
     }
 
     private void validateTierOrder() {
-        List<MembershipTierPolicy> values = policies.findAllByOrderByQualifyingThresholdAsc();
-        if (values.size() != MembershipTier.values().length) return;
+        validatePolicies(policies.findAllByOrderByQualifyingThresholdAsc());
+    }
+
+    private void validatePolicies(List<MembershipTierPolicy> values) {
+        if (values.size() != MembershipTier.values().length
+                || values.stream().map(MembershipTierPolicy::getTier).filter(Objects::nonNull).distinct().count()
+                != MembershipTier.values().length) {
+            throw new IllegalStateException("Cấu hình hạng thành viên trong database đang thiếu hoặc trùng");
+        }
+        List<MembershipTierPolicy> byRank = values.stream()
+                .sorted(Comparator.comparingInt(value -> value.getTier().ordinal())).toList();
+        MembershipTierPolicy member = byRank.getFirst();
+        if (member.getTier() != MembershipTier.MEMBER || !member.isActive() || member.getQualifyingThreshold() != 0) {
+            throw new IllegalStateException("Chính sách MEMBER phải hoạt động và có ngưỡng 0 điểm");
+        }
         int previous = -1;
-        for (MembershipTierPolicy policy : values) {
-            if (policy.getQualifyingThreshold() <= previous)
-                throw new IllegalArgumentException("Ngưỡng các hạng phải tăng dần và không trùng nhau");
+        for (MembershipTierPolicy policy : byRank) {
+            if (policy.getQualifyingThreshold() < 0 || policy.getQualifyingThreshold() <= previous)
+                throw new IllegalStateException("Ngưỡng hạng thành viên phải tăng dần và không trùng nhau");
+            if (policy.getTicketDiscountPercent() == null || policy.getTicketDiscountPercent().signum() < 0
+                    || policy.getTicketDiscountPercent().compareTo(BigDecimal.valueOf(100)) > 0
+                    || policy.getPointMultiplier() == null || policy.getPointMultiplier().signum() <= 0)
+                throw new IllegalStateException("Quyền lợi trong chính sách hạng thành viên không hợp lệ");
             previous = policy.getQualifyingThreshold();
         }
-        if (values.getFirst().getTier() != MembershipTier.MEMBER || values.getFirst().getQualifyingThreshold() != 0)
-            throw new IllegalArgumentException("Hạng MEMBER phải bắt đầu từ 0 điểm");
     }
 
     private LoyaltySettings defaultSettings() {
@@ -146,18 +173,6 @@ public class MembershipService {
         value.setId(1L); value.setAmountPerPoint(BigDecimal.valueOf(10_000));
         value.setMinimumPositiveOrderPoints(1); value.setVoucherStackingAllowed(false); value.setRedemptionEnabled(true);
         return value;
-    }
-
-    private List<MembershipTierPolicy> defaults() {
-        return List.of(policy(MembershipTier.MEMBER, 0, "0", "1.0"), policy(MembershipTier.SILVER, 250, "3", "1.1"),
-                policy(MembershipTier.GOLD, 600, "5", "1.2"), policy(MembershipTier.DIAMOND, 1200, "8", "1.5"));
-    }
-
-    private MembershipTierPolicy policy(MembershipTier tier, int threshold, String discount, String multiplier) {
-        MembershipTierPolicy value = new MembershipTierPolicy();
-        value.setTier(tier); value.setQualifyingThreshold(threshold);
-        value.setTicketDiscountPercent(new BigDecimal(discount)); value.setPointMultiplier(new BigDecimal(multiplier));
-        value.setActive(true); return value;
     }
 
     private void audit(String type, String key, String before, String after, String actor) {
@@ -168,14 +183,18 @@ public class MembershipService {
     }
 
     private String settingsSnapshot(LoyaltySettings value) {
-        return "amountPerPoint=" + value.getAmountPerPoint() + ";minimumPositiveOrderPoints=" + value.getMinimumPositiveOrderPoints()
-                + ";voucherStackingAllowed=" + value.isVoucherStackingAllowed() + ";redemptionEnabled=" + value.isRedemptionEnabled();
+        return "amountPerPoint=" + value.getAmountPerPoint() + ";minimumPositiveOrderPoints="
+                + value.getMinimumPositiveOrderPoints() + ";voucherStackingAllowed=" + value.isVoucherStackingAllowed()
+                + ";redemptionEnabled=" + value.isRedemptionEnabled();
     }
 
     private String policySnapshot(MembershipTierPolicy value) {
         return "tier=" + value.getTier() + ";threshold=" + value.getQualifyingThreshold() + ";ticketDiscount="
-                + value.getTicketDiscountPercent() + ";pointMultiplier=" + value.getPointMultiplier() + ";active=" + value.isActive();
+                + value.getTicketDiscountPercent() + ";pointMultiplier=" + value.getPointMultiplier() + ";active="
+                + value.isActive();
     }
 
-    private BigDecimal positive(BigDecimal value) { return value == null || value.signum() < 0 ? BigDecimal.ZERO : value; }
+    private BigDecimal positive(BigDecimal value) {
+        return value == null || value.signum() < 0 ? BigDecimal.ZERO : value;
+    }
 }

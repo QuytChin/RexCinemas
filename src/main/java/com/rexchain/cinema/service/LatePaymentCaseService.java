@@ -8,6 +8,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -47,6 +49,12 @@ public class LatePaymentCaseService {
     public List<LatePaymentCase> search(LatePaymentCaseStatus status, String query) {
         String normalized = query == null || query.isBlank() ? null : query.trim();
         return cases.search(status, normalized);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LatePaymentCase> search(LatePaymentCaseStatus status, String query, Pageable pageable) {
+        String normalized = query == null || query.isBlank() ? null : query.trim();
+        return cases.searchPage(status, normalized, pageable);
     }
 
     @Transactional(readOnly = true)

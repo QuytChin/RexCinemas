@@ -83,7 +83,7 @@ public class AuthController {
         } catch (OtpRateLimitException ex) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            return errorResponse(ex, "Không thể xử lý yêu cầu lúc này. Vui lòng thử lại sau.");
         }
     }
 
@@ -105,7 +105,7 @@ public class AuthController {
         } catch (OtpRateLimitException ex) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            return errorResponse(ex, "Không thể xử lý yêu cầu lúc này. Vui lòng thử lại sau.");
         }
     }
 
@@ -125,7 +125,7 @@ public class AuthController {
         } catch (OtpRateLimitException ex) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            return errorResponse(ex, "Không thể xử lý yêu cầu lúc này. Vui lòng thử lại sau.");
         }
     }
 
@@ -143,7 +143,7 @@ public class AuthController {
             auth.register(request);
             return ResponseEntity.ok(Map.of("message", "Đăng ký thành công"));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            return errorResponse(ex, "Không thể đăng ký tài khoản lúc này. Vui lòng thử lại sau.");
         }
     }
 
@@ -241,7 +241,7 @@ public class AuthController {
         } catch (OtpRateLimitException ex) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            return errorResponse(ex, "Không thể xử lý yêu cầu lúc này. Vui lòng thử lại sau.");
         }
     }
 
@@ -256,7 +256,7 @@ public class AuthController {
             passwordReset.resetPassword(request.email(), request.resetToken(), request.newPassword(), request.confirmPassword());
             return ResponseEntity.ok(Map.of("success", true, "redirectUrl", "/login?reset=success"));
         } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+            return errorResponse(ex, "Không thể xử lý yêu cầu lúc này. Vui lòng thử lại sau.");
         }
     }
 
@@ -265,6 +265,13 @@ public class AuthController {
                 .httpOnly(true).secure(secureCookie || requestIsSecure).sameSite("Lax").path("/")
                 .maxAge(Duration.ofMillis(jwt.expirationMs(remember))).build();
         response.addHeader("Set-Cookie", cookie.toString());
+    }
+
+    private ResponseEntity<Map<String, String>> errorResponse(Exception exception, String fallback) {
+        if (exception instanceof IllegalArgumentException || exception instanceof IllegalStateException) {
+            return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage() == null ? fallback : exception.getMessage()));
+        }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", fallback));
     }
 
     private boolean secureRequest(HttpServletRequest request) {

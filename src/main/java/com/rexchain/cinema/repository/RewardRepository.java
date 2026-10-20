@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
-public interface RewardRepository extends JpaRepository<Reward, Long> {
+public interface RewardRepository extends JpaRepository<Reward, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Reward> {
     List<Reward> findByActiveTrueOrderByPointsCostAsc();
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select r from Reward r where r.id=:id")
     Optional<Reward> findByIdForUpdate(@Param("id") Long id);

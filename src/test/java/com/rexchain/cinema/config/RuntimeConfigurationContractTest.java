@@ -56,7 +56,7 @@ class RuntimeConfigurationContractTest {
         Properties dev = properties("application-dev.properties");
         Properties prod = properties("application-prod.properties");
 
-        assertThat(dev.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("${HIBERNATE_DDL_AUTO:update}");
+        assertThat(dev.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("${HIBERNATE_DDL_AUTO:validate}");
         assertThat(dev.getProperty("app.seed.enabled")).isEqualTo("${SEED_ENABLED:false}");
         assertThat(dev.getProperty("app.cookie.secure")).isEqualTo("${COOKIE_SECURE:false}");
         assertThat(prod.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");

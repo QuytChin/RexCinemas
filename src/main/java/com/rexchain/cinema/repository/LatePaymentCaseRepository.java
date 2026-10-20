@@ -6,11 +6,13 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface LatePaymentCaseRepository extends JpaRepository<LatePaymentCase, Long> {
+public interface LatePaymentCaseRepository extends JpaRepository<LatePaymentCase, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<LatePaymentCase> {
     Optional<LatePaymentCase> findByProviderTransactionId(String providerTransactionId);
     List<LatePaymentCase> findByStatusInOrderByCreatedAtDesc(List<LatePaymentCaseStatus> statuses);
     @Query("select c from LatePaymentCase c join fetch c.booking b join fetch b.user " +
@@ -19,6 +21,18 @@ public interface LatePaymentCaseRepository extends JpaRepository<LatePaymentCase
             "or lower(c.providerTransactionId) like lower(concat('%', :query, '%')) " +
             "or lower(b.user.email) like lower(concat('%', :query, '%'))) order by c.createdAt desc")
     List<LatePaymentCase> search(@Param("status") LatePaymentCaseStatus status, @Param("query") String query);
+    @Query(value = "select c from LatePaymentCase c join fetch c.booking b join fetch b.user " +
+            "where (:status is null or c.status = :status) and " +
+            "(:query is null or lower(b.bookingCode) like lower(concat('%', :query, '%')) " +
+            "or lower(c.providerTransactionId) like lower(concat('%', :query, '%')) " +
+            "or lower(b.user.email) like lower(concat('%', :query, '%')))",
+            countQuery = "select count(c) from LatePaymentCase c join c.booking b join b.user " +
+            "where (:status is null or c.status = :status) and " +
+            "(:query is null or lower(b.bookingCode) like lower(concat('%', :query, '%')) " +
+            "or lower(c.providerTransactionId) like lower(concat('%', :query, '%')) " +
+            "or lower(b.user.email) like lower(concat('%', :query, '%')))")
+    Page<LatePaymentCase> searchPage(@Param("status") LatePaymentCaseStatus status,
+                                    @Param("query") String query, Pageable pageable);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from LatePaymentCase c join fetch c.booking where c.id = :id")
     Optional<LatePaymentCase> findByIdForUpdate(@Param("id") Long id);

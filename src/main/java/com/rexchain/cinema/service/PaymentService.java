@@ -79,12 +79,18 @@ public class PaymentService {
         if (booking.getStatus() != BookingStatus.PENDING)
             throw new IllegalStateException("Booking không còn chờ thanh toán");
 
+        // Serialize the session transition before locking seats. A failed settlement
+        // rolls this deletion back together with the booking transaction.
+        seatReservationService.finishCheckout(booking.getUser().getId(), booking.getShowtime().getId(),
+                booking.getExpiresAt());
+
         List<Long> seatIds = booking.getSeats().stream()
                 .map(bs -> bs.getShowtimeSeat().getId()).distinct().sorted().toList();
         List<ShowtimeSeat> lockedSeats = seats.findByIdInForUpdate(seatIds);
         boolean seatHoldValid = lockedSeats.size() == seatIds.size()
                 && lockedSeats.stream().allMatch(seat -> seat.getStatus() == SeatStatus.HELD
                     && Objects.equals(seat.getHeldByUserId(), booking.getUser().getId())
+                    && Objects.equals(seat.getHoldUntil(), booking.getExpiresAt())
                     && seat.getHoldUntil() != null && seat.getHoldUntil().isAfter(bankRecordedAt));
         if (!seatHoldValid) return expirePendingBooking(booking);
 
@@ -137,9 +143,11 @@ public class PaymentService {
         Booking booking = bookings.findByBookingCodeForUpdate(bookingCode)
                 .orElseThrow(() -> new IllegalArgumentException("Booking không tồn tại"));
         if (booking.getStatus() != BookingStatus.PENDING) return booking;
+        seatReservationService.finishCheckout(booking.getUser().getId(), booking.getShowtime().getId(),
+                booking.getExpiresAt());
         booking.setStatus(BookingStatus.CANCELLED);
-        booking.setExpiresAt(null);
         seatReservationService.releaseBookingSeats(booking);
+        booking.setExpiresAt(null);
         Booking saved = bookings.save(booking);
         if (notifications != null) notifications.bookingCancelled(saved);
         return saved;
@@ -249,6 +257,8 @@ public class PaymentService {
 
     private Booking expirePendingBooking(Booking booking) {
         if (booking.getStatus() != BookingStatus.PENDING) return booking;
+        seatReservationService.finishCheckout(booking.getUser().getId(), booking.getShowtime().getId(),
+                booking.getExpiresAt());
         booking.setStatus(BookingStatus.EXPIRED);
         // A pending booking may already have reserved combo stock and voucher usage.
         // Release all temporary resources atomically with the status transition.

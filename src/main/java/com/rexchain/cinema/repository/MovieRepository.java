@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-public interface MovieRepository extends JpaRepository<Movie, Long> {
+public interface MovieRepository extends JpaRepository<Movie, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Movie> {
     List<Movie> findByActiveTrueOrderByReleaseDateDesc();
     Optional<Movie> findByTitleIgnoreCase(String title);
     boolean existsByTitleIgnoreCaseAndReleaseDate(String title, LocalDate releaseDate);

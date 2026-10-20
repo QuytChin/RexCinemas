@@ -24,6 +24,16 @@
  const closeSeatErrorBtn=document.getElementById('closeSeatErrorBtn');
  let held=false;
  let countdownTimer=null;
+ let holdDeadlineMs=null;
+ let serverNowMs=null;
+ let clockSampleMs=null;
+ let holdGeneration=0;
+ let activePage=true;
+ let checkingHold=false;
+ let lastHoldCheckMs=0;
+ const stopCountdown=()=>{if(countdownTimer)clearInterval(countdownTimer);countdownTimer=null;holdGeneration++};
+ window.addEventListener('pagehide',()=>{activePage=false;stopCountdown()});
+ window.addEventListener('pageshow',event=>{if(event.persisted)location.reload()});
  const money=n=>new Intl.NumberFormat('vi-VN').format(Math.round(n||0))+'đ';
  const selectedSeatTotal=()=>[...selected.values()].reduce((a,x)=>a+x.price,0);
  const comboTotal=()=>comboQtys.reduce((a,x)=>a+(Number(x.dataset.price)||0)*(Number(x.value)||0),0);
@@ -90,15 +100,15 @@
 
  holdBtn.addEventListener('click',async()=>{
   clearSeatError();
-  holdBtn.disabled=true; const ids=[...selected.keys()];
+  holdBtn.disabled=true; const ids=[...selected.keys()]; const generation=++holdGeneration;
   try{
    const r=await fetch(`/api/showtimes/${window.SHOWTIME_ID}/hold`,{method:'POST',headers:{'Content-Type':'application/json',...csrfHeaders()},body:JSON.stringify({seatIds:ids})});
    const data=await r.json(); if(!r.ok)throw new Error(data.error||'Không thể giữ ghế');
+   if(!activePage||generation!==holdGeneration)return;
    held=true; holdBtn.classList.add('d-none'); holdNotice.classList.remove('d-none');
    seats.forEach(b=>{b.disabled=true;if(selected.has(Number(b.dataset.id)))b.classList.add('selected')});
-   const expiresMs = data.expiresAt ? Date.parse(String(data.expiresAt).replace(' ', 'T')) : NaN;
-   startCountdown(Number.isFinite(expiresMs) ? Math.max(0, Math.floor((expiresMs-Date.now())/1000)) : 0); render(); showStage('combo');
-  }catch(e){showSeatError(e.message);holdBtn.disabled=false}
+   startCountdown(Number(data.expiresAtEpochMillis),Number(data.serverNowEpochMillis)); render(); showStage('combo');
+  }catch(e){if(activePage&&generation===holdGeneration){showSeatError(e.message);holdBtn.disabled=false}}
  });
  document.getElementById('goPayment')?.addEventListener('click',()=>{showStage('payment');requestQuote()});
  voucherInput?.addEventListener('change',requestQuote);
@@ -106,7 +116,7 @@
  document.getElementById('backToSeats')?.addEventListener('click',async()=>{
   const ids=[...selected.keys()];
   try{await fetch(`/api/showtimes/${window.SHOWTIME_ID}/release`,{method:'POST',headers:{'Content-Type':'application/json',...csrfHeaders()},body:JSON.stringify({seatIds:ids})})}catch(e){}
-  held=false; if(countdownTimer)clearInterval(countdownTimer); holdNotice.classList.add('d-none');holdBtn.classList.remove('d-none');
+  held=false; stopCountdown(); holdDeadlineMs=null; holdNotice.classList.add('d-none');holdBtn.classList.remove('d-none');
   seats.forEach(b=>{
    const id=Number(b.dataset.id);
    const isBooked=b.classList.contains('booked');
@@ -121,9 +131,35 @@
   });
   showStage('seat'); render();
  });
- function startCountdown(sec){
-  const el=document.getElementById('countdown'); if(countdownTimer)clearInterval(countdownTimer);
-  countdownTimer=setInterval(()=>{sec--;el.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');if(sec<=0){clearInterval(countdownTimer);location.reload()}},1000)
+ async function verifyHold(generation){
+  if(checkingHold||!activePage||!held||generation!==holdGeneration)return;
+  checkingHold=true; lastHoldCheckMs=performance.now();
+  try{
+   const params=new URLSearchParams({expiresAtEpochMillis:String(holdDeadlineMs)});
+   [...selected.keys()].forEach(id=>params.append('seatIds',String(id)));
+   const r=await fetch(`/api/showtimes/${window.SHOWTIME_ID}/hold-status?${params}`,{headers:{'Accept':'application/json'}});
+   if(!r.ok)throw new Error('Không thể kiểm tra trạng thái giữ ghế');
+   const result=await r.json();
+   if(!activePage||generation!==holdGeneration)return;
+   if(result.active){serverNowMs=Number(result.serverNowEpochMillis);clockSampleMs=performance.now();renderCountdown();}
+   else{stopCountdown();showSeatError('Hết thời gian giữ ghế. Vui lòng chọn ghế và đặt vé lại.');
+    window.setTimeout(()=>{if(activePage)location.reload()},1200)}
+  }catch(_){if(activePage&&generation===holdGeneration)document.getElementById('countdown').textContent='Đang kiểm tra trạng thái';}
+  finally{checkingHold=false}
+ }
+ function renderCountdown(){
+  if(!held||!activePage)return;
+  const el=document.getElementById('countdown');
+  if(!Number.isFinite(holdDeadlineMs)||!Number.isFinite(serverNowMs)){el.textContent='Đang kiểm tra trạng thái';return}
+  const remaining=Math.max(0,Math.ceil((holdDeadlineMs-serverNowMs-(performance.now()-clockSampleMs))/1000));
+  el.textContent=String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0');
+  if(remaining===0){el.textContent='Đang kiểm tra trạng thái';
+   if(performance.now()-lastHoldCheckMs>=4000)verifyHold(holdGeneration)}
+ }
+ function startCountdown(deadline,serverNow){
+  if(countdownTimer)clearInterval(countdownTimer);
+  holdDeadlineMs=deadline;serverNowMs=serverNow;clockSampleMs=performance.now();lastHoldCheckMs=clockSampleMs-4000;
+  renderCountdown();countdownTimer=setInterval(renderCountdown,1000);
  }
  try{
   const client=new StompJs.Client({webSocketFactory:()=>new SockJS('/ws'),reconnectDelay:3000});

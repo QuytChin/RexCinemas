@@ -2,6 +2,7 @@ package com.rexchain.cinema.service;
 
 import com.rexchain.cinema.entity.Booking;
 import com.rexchain.cinema.entity.BookingSeat;
+import com.rexchain.cinema.entity.BookingStatus;
 import com.rexchain.cinema.entity.SeatStatus;
 import com.rexchain.cinema.entity.Showtime;
 import com.rexchain.cinema.entity.ShowtimeSeat;
@@ -9,11 +10,13 @@ import com.rexchain.cinema.entity.SeatHoldSession;
 import com.rexchain.cinema.repository.ShowtimeRepository;
 import com.rexchain.cinema.repository.ShowtimeSeatRepository;
 import com.rexchain.cinema.repository.SeatHoldSessionRepository;
+import com.rexchain.cinema.repository.BookingRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,25 +31,30 @@ public class SeatReservationService {
     private final com.rexchain.cinema.repository.BookingSeatRepository bookingSeats;
     private final SeatBroadcastService broadcast;
     private final SeatHoldSessionRepository holdSessions;
+    private final BookingRepository bookings;
+    private static final List<BookingStatus> FINISHED_STATUSES = List.of(
+            BookingStatus.CONFIRMED, BookingStatus.CANCELLED, BookingStatus.EXPIRED,
+            BookingStatus.REFUND_PENDING, BookingStatus.REFUNDED);
 
     @Autowired
     public SeatReservationService(ShowtimeSeatRepository seats,
                                   ShowtimeRepository showtimes,
                                   com.rexchain.cinema.repository.BookingSeatRepository bookingSeats,
                                   SeatBroadcastService broadcast,
-                                  SeatHoldSessionRepository holdSessions) {
+                                  SeatHoldSessionRepository holdSessions, BookingRepository bookings) {
         this.seats = seats;
         this.showtimes = showtimes;
         this.bookingSeats = bookingSeats;
         this.broadcast = broadcast;
         this.holdSessions = holdSessions;
+        this.bookings = bookings;
     }
 
     /** Compatibility constructor for isolated tests written before checkout sessions existed. */
     SeatReservationService(ShowtimeSeatRepository seats, ShowtimeRepository showtimes,
                            com.rexchain.cinema.repository.BookingSeatRepository bookingSeats,
                            SeatBroadcastService broadcast) {
-        this(seats, showtimes, bookingSeats, broadcast, null);
+        this(seats, showtimes, bookingSeats, broadcast, null, null);
     }
 
     /**
@@ -93,7 +101,7 @@ public class SeatReservationService {
                     && Objects.equals(seat.getHeldByUserId(), userId)
                     && seat.getHoldUntil() != null && seat.getHoldUntil().isAfter(now);
             boolean expired = seat.getStatus() == SeatStatus.HELD
-                    && (seat.getHoldUntil() == null || seat.getHoldUntil().isBefore(now));
+                    && (seat.getHoldUntil() == null || !seat.getHoldUntil().isAfter(now));
 
             if (expired) {
                 seat.setStatus(SeatStatus.AVAILABLE);
@@ -124,11 +132,55 @@ public class SeatReservationService {
             holdSessions.save(session);
             return session.getExpiresAt();
         }
-        if (!session.getExpiresAt().isAfter(now)) {
-            session.setExpiresAt(now.plusMinutes(5));
-            holdSessions.save(session);
+        LocalDateTime deadline = session.getExpiresAt();
+        if (deadline.isAfter(now) && bookings != null
+                && bookings.existsByUserIdAndShowtimeIdAndStatusAndExpiresAtBetween(
+                    userId, showtime.getId(), BookingStatus.PENDING,
+                    deadline.minusSeconds(1), deadline.plusSeconds(1)))
+            throw new IllegalStateException("Bạn đang có booking chờ thanh toán cho suất chiếu này");
+
+        // Existing installations may still have sessions left by completed bookings.
+        // A finished booking created during this five-minute cycle consumes the session;
+        // releasing seats without a booking does not start a new clock.
+        LocalDateTime cycleStart = deadline.minusMinutes(5);
+        if (session.getCreatedAt() != null && session.getCreatedAt().isAfter(cycleStart))
+            cycleStart = session.getCreatedAt();
+        boolean finished = bookings != null && bookings.existsByUserIdAndShowtimeIdAndStatusInAndCreatedAtBetween(
+                userId, showtime.getId(), FINISHED_STATUSES, cycleStart, deadline);
+        if (!deadline.isAfter(now) || finished) {
+            holdSessions.delete(session);
+            holdSessions.flush();
+            SeatHoldSession next = new SeatHoldSession();
+            next.setUserId(userId);
+            next.setShowtime(showtime);
+            next.setExpiresAt(now.plusMinutes(5));
+            holdSessions.save(next);
+            return next.getExpiresAt();
         }
-        return session.getExpiresAt();
+        return deadline;
+    }
+
+    /** Close only the hold cycle that actually belongs to this booking. */
+    @Transactional
+    public void finishCheckout(Long userId, Long showtimeId, LocalDateTime deadline) {
+        if (holdSessions == null || deadline == null) return;
+        holdSessions.findByUserIdAndShowtimeIdForUpdate(userId, showtimeId)
+                .filter(session -> deadline.equals(session.getExpiresAt()))
+                .ifPresent(holdSessions::delete);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isHoldActive(Long userId, Long showtimeId, List<Long> ids, long deadlineEpochMillis) {
+        if (ids == null || ids.isEmpty() || deadlineEpochMillis <= System.currentTimeMillis()) return false;
+        List<Long> distinct = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (distinct.size() != ids.size()) return false;
+        List<ShowtimeSeat> selected = seats.findByIdIn(distinct);
+        return selected.size() == distinct.size() && selected.stream().allMatch(seat ->
+                seat.getShowtime().getId().equals(showtimeId)
+                && seat.getStatus() == SeatStatus.HELD
+                && Objects.equals(seat.getHeldByUserId(), userId)
+                && seat.getHoldUntil() != null
+                && seat.getHoldUntil().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() == deadlineEpochMillis);
     }
 
     /**
@@ -173,7 +225,8 @@ public class SeatReservationService {
         List<Long> ids = new ArrayList<>();
         for (ShowtimeSeat seat : lockedSeats) {
             boolean ownedHold = seat.getStatus() == SeatStatus.HELD
-                    && Objects.equals(seat.getHeldByUserId(), booking.getUser().getId());
+                    && Objects.equals(seat.getHeldByUserId(), booking.getUser().getId())
+                    && Objects.equals(seat.getHoldUntil(), booking.getExpiresAt());
             boolean bookedByAnotherConfirmedBooking = seat.getStatus() == SeatStatus.BOOKED
                     && bookingSeats.existsByShowtimeSeatIdAndBookingStatusAndBookingIdNot(
                         seat.getId(), com.rexchain.cinema.entity.BookingStatus.CONFIRMED, booking.getId());

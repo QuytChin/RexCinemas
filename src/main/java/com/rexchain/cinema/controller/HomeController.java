@@ -54,9 +54,9 @@ public class HomeController {
         model.addAttribute("nowShowing", nowShowing);
         model.addAttribute("comingSoon", comingSoon);
         model.addAttribute("cinemas", cinemas.findByActiveTrueOrderByCityAscNameAsc());
-        model.addAttribute("events", events.findByActiveTrueOrderBySortOrderAscCreatedAtDesc().stream().limit(4).toList());
-        model.addAttribute("articles", articles.findByActiveTrueOrderBySortOrderAscPublishDateDesc().stream().limit(6).toList());
-        model.addAttribute("mediaItems", mediaItems.findByActiveTrueOrderBySortOrderAscCreatedAtDesc().stream().limit(8).toList());
+        model.addAttribute("events", events.findTop4ByActiveTrueOrderBySortOrderAscCreatedAtDesc());
+        model.addAttribute("articles", articles.findTop6ByActiveTrueOrderBySortOrderAscPublishDateDesc());
+        model.addAttribute("mediaItems", mediaItems.findTop8ByActiveTrueOrderBySortOrderAscCreatedAtDesc());
         List<Showtime> quickShowtimes = showtimes.findPublicByStartTimeAfterOrderByStartTimeAsc(LocalDateTime.now())
                 .stream().limit(8).toList();
         model.addAttribute("quickShowtimes", quickShowtimes);
@@ -157,7 +157,7 @@ public class HomeController {
         Article article = articles.findById(id).orElseThrow();
         if (!article.isActive()) throw new IllegalStateException("Bài viết đang ẩn");
         model.addAttribute("article", article);
-        model.addAttribute("latestArticles", articles.findByActiveTrueOrderBySortOrderAscPublishDateDesc().stream()
+        model.addAttribute("latestArticles", articles.findTop5ByActiveTrueOrderBySortOrderAscPublishDateDesc().stream()
                 .filter(a -> !a.getId().equals(id)).limit(4).toList());
         return "article-detail";
     }

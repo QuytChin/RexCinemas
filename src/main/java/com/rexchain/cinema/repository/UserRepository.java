@@ -8,7 +8,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
-public interface UserRepository extends JpaRepository<User,Long>{
+public interface UserRepository extends JpaRepository<User,Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<User>{
+    @Query("select coalesce(sum(u.loyaltyPoints),0) from User u")
+    long sumAvailablePoints();
+    @Query("select coalesce(sum(u.lifetimePoints),0) from User u")
+    long sumLifetimePoints();
+    @Query("select coalesce(sum(u.redeemedPoints),0) from User u")
+    long sumRedeemedPoints();
     Optional<User> findByEmailIgnoreCase(String email);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where lower(u.email) = lower(:email)")

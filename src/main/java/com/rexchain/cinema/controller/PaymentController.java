@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.ui.Model;
 
+import java.time.ZoneId;
+
 @Controller
 public class PaymentController {
     private final BookingRepository bookings;
@@ -74,10 +76,19 @@ public class PaymentController {
             model.addAttribute("bankName", snapshot.getBankName());
             model.addAttribute("accountHolder", snapshot.getAccountHolder());
             model.addAttribute("qrImageUrl", bankTransferPaymentService.qrImageUrl(snapshot));
+            // A hold begins before this page loads, so this must remain the original
+            // absolute deadline instead of a new client-side five-minute countdown.
+            model.addAttribute("expiresAtEpochMillis", epochMillis(snapshot.getExpiresAt()));
+            model.addAttribute("serverNowEpochMillis", System.currentTimeMillis());
+            model.addAttribute("seatMapUrl", "/booking/" + booking.getShowtime().getId());
             return "booking/bank-qr-waiting";
         } catch (Exception ex) {
             return "redirect:/bookings/" + booking.getId() + "?paymentError";
         }
+    }
+
+    private long epochMillis(java.time.LocalDateTime value) {
+        return value.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
 
 }

@@ -50,6 +50,7 @@ class PaymentServiceTest {
         BookingSeat line = new BookingSeat();
         line.setShowtimeSeat(seat);
         Booking booking = pendingBooking(user, showtime, line);
+        booking.setExpiresAt(seat.getHoldUntil());
         ComboProduct combo = new ComboProduct();
         combo.setId(31L);
         combo.setName("Combo test");
@@ -132,6 +133,7 @@ class PaymentServiceTest {
         User user = new User(); user.setId(7L);
         Booking booking = new Booking();
         booking.setBookingCode("REX-DUE"); booking.setUser(user); booking.setStatus(BookingStatus.PENDING);
+        Showtime showtime = new Showtime(); showtime.setId(11L); booking.setShowtime(showtime);
         booking.setExpiresAt(LocalDateTime.now().minusSeconds(1));
         when(bookings.findByBookingCodeForUpdate("REX-DUE")).thenReturn(Optional.of(booking));
         when(bookings.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));

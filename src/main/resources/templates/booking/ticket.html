@@ -11,6 +11,7 @@
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container-fluid pt-page pb-5 rex-ticket-page">
     <div class="alert alert-danger mx-auto rex-ticket-alert" th:if="${param.paymentError}">Thanh toán không thành công hoặc chưa cấu hình cổng thanh toán. Booking đã được hủy và ghế đã trả lại.</div>
+    <div class="alert alert-warning mx-auto rex-ticket-alert" th:if="${booking.status.name()=='EXPIRED'}">Hết thời gian giữ ghế. Thời gian đặt vé đã kết thúc. Vui lòng chọn ghế và đặt vé lại. <a th:href="${rebookUrl}">Đặt vé lại</a></div>
     <div class="alert alert-warning mx-auto rex-ticket-alert" th:if="${param.refundPending}">Cổng thanh toán đã ghi nhận tiền nhưng booking không còn đủ điều kiện xác nhận. Giao dịch đã chuyển sang chờ hoàn tiền; vui lòng liên hệ rạp với mã đặt vé bên dưới.</div>
     <div class="alert alert-warning mx-auto rex-ticket-alert" th:if="${booking.status.name()=='REFUND_PENDING'}">Yêu cầu hoàn tiền đang chờ rạp xác nhận chuyển khoản. Chưa có xác nhận tiền đã về tài khoản.</div>
     <div class="alert alert-info mx-auto rex-ticket-alert" th:if="${booking.status.name()=='REFUNDED'}">Rạp đã xác nhận hoàn tiền thủ công. Bạn có thể liên hệ rạp kèm mã đặt vé nếu cần đối soát thêm.</div>
@@ -39,7 +40,7 @@
                 </div>
                 <div class="rex-ticket-status">
                     <span class="rex-ticket-label">TRẠNG THÁI</span>
-                    <span class="badge rex-ticket-status-badge" th:classappend="${booking.status.name()=='CONFIRMED'?' rex-ticket-status-confirmed':(booking.status.name()=='PENDING'?' rex-ticket-status-pending':' rex-ticket-status-other')}" th:text="${booking.status.name()=='CONFIRMED'?'ĐÃ XÁC NHẬN':(booking.status.name()=='PENDING'?'CHỜ THANH TOÁN':(booking.status.name()=='CANCELLED'?'ĐÃ HỦY':(booking.status.name()=='REFUNDED'?'ĐÃ HOÀN TIỀN':'CHỜ HOÀN TIỀN')))}"></span>
+                    <span class="badge rex-ticket-status-badge" th:classappend="${booking.status.name()=='CONFIRMED'?' rex-ticket-status-confirmed':(booking.status.name()=='PENDING'?' rex-ticket-status-pending':' rex-ticket-status-other')}" th:text="${booking.status.name()=='CONFIRMED'?'ĐÃ XÁC NHẬN':(booking.status.name()=='PENDING'?'CHỜ THANH TOÁN':(booking.status.name()=='CANCELLED'?'ĐÃ HỦY':(booking.status.name()=='EXPIRED'?'HẾT HẠN':(booking.status.name()=='REFUNDED'?'ĐÃ HOÀN TIỀN':'CHỜ HOÀN TIỀN'))))}"></span>
                     <div class="rex-ticket-code-meta"><small>MÃ ĐẶT VÉ</small><strong th:text="${booking.bookingCode}"></strong></div>
                     <div class="rex-ticket-code-meta"><small>KHÁCH HÀNG</small><strong th:text="${booking.user.fullName}"></strong></div>
                     <div class="rex-ticket-code-meta" th:if="${booking.checkedIn}"><small>CHECK-IN</small><strong>ĐÃ SỬ DỤNG</strong></div>

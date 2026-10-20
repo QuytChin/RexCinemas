@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.Optional;
-public interface VoucherRepository extends JpaRepository<Voucher,Long>{
+public interface VoucherRepository extends JpaRepository<Voucher,Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Voucher>{
     Optional<Voucher> findByCodeIgnoreCase(String code);
     boolean existsByCodeIgnoreCase(String code);
     boolean existsByCodeIgnoreCaseAndIdNot(String code, Long id);

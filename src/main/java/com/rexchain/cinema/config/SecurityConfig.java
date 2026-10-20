@@ -5,6 +5,7 @@ import com.rexchain.cinema.security.CsrfCookieFilter;
 import com.rexchain.cinema.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -22,6 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +31,12 @@ import java.nio.charset.StandardCharsets;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+    @Bean
+    NotFoundAwareAuthenticationEntryPoint notFoundAwareAuthenticationEntryPoint(
+            @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping requestMappings) {
+        return new NotFoundAwareAuthenticationEntryPoint(requestMappings);
+    }
+
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -50,6 +58,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwt,
                                     AuthenticationProvider authenticationProvider,
+                                    NotFoundAwareAuthenticationEntryPoint authenticationEntryPoint,
                                     @Value("${app.cookie.secure:true}") boolean secureCookie) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/").secure(secureCookie));
@@ -66,7 +75,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/error", "/login", "/register", "/auth/**",
                                 "/css/**", "/js/**", "/images/**", "/ws/**",
-                                "/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook").permitAll()
+                                "/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook",
+                                "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/movies/**", "/schedule", "/articles/**",
                                 "/api/movies/**", "/api/showtimes/*/seats", "/api/snacks").permitAll()
                         .requestMatchers("/admin/users/**", "/admin/payments/**", "/admin/transactions/**", "/admin/late-payments/**",
@@ -82,17 +92,7 @@ public class SecurityConfig {
                                 "frame-src https://www.youtube.com https://www.youtube-nocookie.com"))
                         .referrerPolicy(referrer -> referrer.policy(
                                 ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)))
-                .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
-                    if (request.getRequestURI().startsWith("/api/")) {
-                        response.sendError(401);
-                        return;
-                    }
-                    String target = request.getRequestURI();
-                    if (request.getQueryString() != null && !request.getQueryString().isBlank())
-                        target += "?" + request.getQueryString();
-                    response.sendRedirect("/login?returnUrl=" +
-                            URLEncoder.encode(target, StandardCharsets.UTF_8));
-                }))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint))
                 .authenticationProvider(authenticationProvider)
                 // Login is handled by AuthController so it can issue the existing JWT cookie.
                 .formLogin(form -> form.disable())

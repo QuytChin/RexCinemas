@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Collection;
 import java.util.Optional;
 
-public interface BookingRepository extends JpaRepository<Booking, Long> {
+public interface BookingRepository extends JpaRepository<Booking, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Booking> {
     @EntityGraph(attributePaths = {"showtime", "showtime.movie", "showtime.auditorium", "showtime.auditorium.cinema", "user"})
     List<Booking> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<Booking> findByStatusOrderByCreatedAtAsc(BookingStatus status);
@@ -27,7 +27,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Optional<Booking> findByPaymentMethodAndPaymentReference(PaymentMethod paymentMethod, String paymentReference);
     List<Booking> findByPaymentMethodAndStatus(PaymentMethod paymentMethod, BookingStatus status);
     Optional<Booking> findBySepayTransactionId(String sepayTransactionId);
+    boolean existsByUserIdAndShowtimeIdAndStatusAndExpiresAtBetween(Long userId, Long showtimeId,
+            BookingStatus status, LocalDateTime from, LocalDateTime to);
+    boolean existsByUserIdAndShowtimeIdAndStatusInAndCreatedAtBetween(Long userId, Long showtimeId,
+            Collection<BookingStatus> statuses, LocalDateTime from, LocalDateTime to);
     boolean existsByShowtimeIdAndStatusNot(Long showtimeId, BookingStatus status);
+    boolean existsByShowtimeIdAndStatusIn(Long showtimeId, Collection<BookingStatus> statuses);
     List<Booking> findTop20ByCheckedInAtIsNotNullOrderByCheckedInAtDesc();
 
     @Query("select coalesce(sum(b.totalAmount),0) from Booking b where b.status = :status")
@@ -43,6 +48,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             "left join fetch b.seats " +
             "order by b.createdAt desc")
     List<Booking> findAllDetailed();
+
+    @Query("select distinct b from Booking b left join fetch b.seats where b.id in :ids")
+    List<Booking> loadSeatsForPage(@Param("ids") Collection<Long> ids);
 
     @Query("select b.id from Booking b " +
             "join b.showtime st " +

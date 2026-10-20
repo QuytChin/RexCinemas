@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
-public interface ComboProductRepository extends JpaRepository<ComboProduct,Long>{
+public interface ComboProductRepository extends JpaRepository<ComboProduct,Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<ComboProduct>{
     List<ComboProduct> findByActiveTrueOrderByIdAsc();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

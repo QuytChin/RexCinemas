@@ -3,6 +3,7 @@ package com.rexchain.cinema.controller;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.BookingService;
+import com.rexchain.cinema.service.MembershipService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 @RestController
@@ -29,11 +31,12 @@ public class CinemaApiController {
     private final UserRepository users;
     private final BookingRepository bookings;
     private final BookingService bookingService;
+    private final MembershipService membership;
 
     public CinemaApiController(MovieRepository movies, ShowtimeRepository showtimes,
                                ShowtimeSeatRepository showtimeSeats, ComboProductRepository combos,
                                ReviewRepository reviews, UserRepository users,
-                               BookingRepository bookings, BookingService bookingService) {
+                               BookingRepository bookings, BookingService bookingService, MembershipService membership) {
         this.movies = movies;
         this.showtimes = showtimes;
         this.showtimeSeats = showtimeSeats;
@@ -42,6 +45,7 @@ public class CinemaApiController {
         this.users = users;
         this.bookings = bookings;
         this.bookingService = bookingService;
+        this.membership = membership;
     }
 
     @GetMapping("/movies/now-showing")
@@ -131,7 +135,14 @@ public class CinemaApiController {
         x.put("role", user.getRole().name());
         x.put("loyaltyPoints", user.getLoyaltyPoints());
         x.put("lifetimePoints", user.getLifetimePoints());
-        x.put("membershipTier", user.getMembershipTier().name());
+        var membershipStatus = membership.statusFor(user.getTierQualifyingPoints());
+        x.put("membershipTier", membershipStatus.tier().name());
+        x.put("tierQualifyingPoints", membershipStatus.qualifyingPoints());
+        x.put("nextTier", membershipStatus.nextTier() == null ? null : membershipStatus.nextTier().name());
+        x.put("nextTierThreshold", membershipStatus.nextThreshold());
+        x.put("tierProgressPercent", membershipStatus.progressPercent());
+        x.put("ticketDiscountPercent", membershipStatus.policy().getTicketDiscountPercent());
+        x.put("pointMultiplier", membershipStatus.policy().getPointMultiplier());
         return x;
     }
 
@@ -185,7 +196,9 @@ public class CinemaApiController {
             bookingService.releaseOwnHolds(user.getId(), request.showtimeId(), request.seatIds());
             String message = ex instanceof IllegalArgumentException || ex instanceof IllegalStateException
                     ? Objects.requireNonNullElse(ex.getMessage(), "Không thể tạo booking") : "Không thể tạo booking";
-            return ResponseEntity.badRequest().body(Map.of("error", message));
+            HttpStatus status = ex instanceof IllegalArgumentException || ex instanceof IllegalStateException
+                    ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR;
+            return ResponseEntity.status(status).body(Map.of("error", message));
         }
     }
 
@@ -258,6 +271,16 @@ public class CinemaApiController {
         x.put("ticketUrl", "/bookings/" + b.getId());
         x.put("qrImageUrl", b.getStatus() == BookingStatus.CONFIRMED ? "/bookings/" + b.getId() + "/qr" : null);
         x.put("createdAt", b.getCreatedAt());
+        x.put("expiresAtEpochMillis", b.getExpiresAt() == null ? null
+                : b.getExpiresAt().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+        x.put("serverNowEpochMillis", System.currentTimeMillis());
+        x.put("paymentAllowed", b.getStatus() == BookingStatus.PENDING && b.getExpiresAt() != null
+                && b.getExpiresAt().isAfter(LocalDateTime.now()));
+        Showtime bookedShowtime = b.getShowtime();
+        boolean open = bookedShowtime.isActive() && bookedShowtime.getStartTime().isAfter(LocalDateTime.now())
+                && bookedShowtime.getAuditorium().getCinema().isActive();
+        x.put("rebookUrl", open ? "/booking/" + bookedShowtime.getId()
+                : "/movies/" + bookedShowtime.getMovie().getId());
         return x;
     }
 

@@ -1,6 +1,7 @@
 package com.rexchain.cinema.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
@@ -12,6 +13,9 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+import com.rexchain.cinema.service.OtpRateLimitException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +42,7 @@ public class GlobalExceptionHandler {
      * Xử lý lỗi validation DTO (@Valid, @RequestBody, @ModelAttribute)
      */
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
-    public Object handleValidationExceptions(Exception exception, HttpServletRequest request, Model model) {
+    public Object handleValidationExceptions(Exception exception, HttpServletRequest request, HttpServletResponse response, Model model) {
         List<String> errors;
         if (exception instanceof MethodArgumentNotValidException manv) {
             errors = manv.getBindingResult().getAllErrors().stream()
@@ -64,6 +68,7 @@ public class GlobalExceptionHandler {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
         }
 
+        response.setStatus(HttpStatus.BAD_REQUEST.value());
         model.addAttribute("status", 400);
         model.addAttribute("message", firstMessage);
         model.addAttribute("errors", errors);
@@ -75,7 +80,7 @@ public class GlobalExceptionHandler {
      * Dịch lỗi Hibernate Concurrency / Optimistic / Pessimistic Locking thành thông báo thân thiện
      */
     @ExceptionHandler({PessimisticLockingFailureException.class, OptimisticLockingFailureException.class})
-    public Object concurrencyError(Exception exception, HttpServletRequest request, Model model) {
+    public Object concurrencyError(Exception exception, HttpServletRequest request, HttpServletResponse response, Model model) {
         String friendlyMessage = "Ghế vừa được người khác chọn. Vui lòng chọn ghế khác.";
         if (isApiRequest(request)) {
             Map<String, Object> body = new LinkedHashMap<>();
@@ -86,6 +91,7 @@ public class GlobalExceptionHandler {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
         }
 
+        response.setStatus(HttpStatus.CONFLICT.value());
         model.addAttribute("status", 409);
         model.addAttribute("message", friendlyMessage);
         model.addAttribute("path", request.getRequestURI());
@@ -96,7 +102,7 @@ public class GlobalExceptionHandler {
      * Xử lý lỗi nghiệp vụ IllegalArgumentException, IllegalStateException
      */
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
-    public Object businessError(Exception exception, HttpServletRequest request, Model model) {
+    public Object businessError(Exception exception, HttpServletRequest request, HttpServletResponse response, Model model) {
         String msg = exception.getMessage() == null ? "Yêu cầu không hợp lệ" : exception.getMessage();
         if (isApiRequest(request)) {
             Map<String, Object> body = new LinkedHashMap<>();
@@ -107,8 +113,41 @@ public class GlobalExceptionHandler {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
         }
 
+        response.setStatus(HttpStatus.BAD_REQUEST.value());
         model.addAttribute("status", 400);
         model.addAttribute("message", msg);
+        model.addAttribute("path", request.getRequestURI());
+        return "error";
+    }
+
+    @ExceptionHandler(OtpRateLimitException.class)
+    public Object otpRateLimit(OtpRateLimitException exception, HttpServletRequest request, HttpServletResponse response, Model model) {
+        String message = exception.getMessage() == null ? "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau." : exception.getMessage();
+        if (isApiRequest(request)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                    "status", HttpStatus.TOO_MANY_REQUESTS.value(), "error", message,
+                    "path", request.getRequestURI(), "timestamp", LocalDateTime.now()));
+        }
+        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        model.addAttribute("status", HttpStatus.TOO_MANY_REQUESTS.value());
+        model.addAttribute("message", message);
+        model.addAttribute("path", request.getRequestURI());
+        return "error";
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Object uploadTooLarge(MaxUploadSizeExceededException exception, HttpServletRequest request, HttpServletResponse response, Model model) {
+        String message = "Ảnh tải lên vượt quá dung lượng tối đa 5 MB";
+        if (isApiRequest(request)) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of(
+                    "status", HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                    "error", message,
+                    "path", request.getRequestURI(),
+                    "timestamp", LocalDateTime.now()));
+        }
+        response.setStatus(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        model.addAttribute("status", HttpStatus.PAYLOAD_TOO_LARGE.value());
+        model.addAttribute("message", message);
         model.addAttribute("path", request.getRequestURI());
         return "error";
     }
@@ -117,7 +156,7 @@ public class GlobalExceptionHandler {
      * Xử lý lỗi không tìm thấy tài nguyên (NoSuchElementException)
      */
     @ExceptionHandler(NoSuchElementException.class)
-    public Object notFoundError(Exception exception, HttpServletRequest request, Model model) {
+    public Object notFoundError(Exception exception, HttpServletRequest request, HttpServletResponse response, Model model) {
         String msg = "Không tìm thấy dữ liệu yêu cầu";
         if (isApiRequest(request)) {
             Map<String, Object> body = new LinkedHashMap<>();
@@ -128,14 +167,30 @@ public class GlobalExceptionHandler {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
         }
 
+        response.setStatus(HttpStatus.NOT_FOUND.value());
         model.addAttribute("status", 404);
         model.addAttribute("message", msg);
         model.addAttribute("path", request.getRequestURI());
         return "error";
     }
 
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Object resourceNotFound(NoResourceFoundException exception, HttpServletRequest request, HttpServletResponse response, Model model) {
+        String message = "Không tìm thấy tài nguyên yêu cầu";
+        if (isApiRequest(request)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "status", HttpStatus.NOT_FOUND.value(), "error", message,
+                    "path", request.getRequestURI(), "timestamp", LocalDateTime.now()));
+        }
+        response.setStatus(HttpStatus.NOT_FOUND.value());
+        model.addAttribute("status", HttpStatus.NOT_FOUND.value());
+        model.addAttribute("message", message);
+        model.addAttribute("path", request.getRequestURI());
+        return "error";
+    }
+
     @ExceptionHandler(Exception.class)
-    public Object unexpectedError(Exception exception, HttpServletRequest request, Model model) {
+    public Object unexpectedError(Exception exception, HttpServletRequest request, HttpServletResponse response, Model model) {
         log.error("Unhandled error for {} {}", request.getMethod(), request.getRequestURI(), exception);
         String message = "Hệ thống chưa thể xử lý yêu cầu. Vui lòng thử lại sau.";
         if (isApiRequest(request)) {
@@ -143,6 +198,7 @@ public class GlobalExceptionHandler {
                     "status", 500, "error", message, "path", request.getRequestURI(),
                     "timestamp", LocalDateTime.now()));
         }
+        response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
         model.addAttribute("status", 500);
         model.addAttribute("message", message);
         model.addAttribute("path", request.getRequestURI());

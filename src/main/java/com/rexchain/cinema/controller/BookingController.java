@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.time.ZoneId;
 
 @Controller
 public class BookingController {
@@ -58,37 +59,36 @@ public class BookingController {
     @PostMapping("/api/showtimes/{showtimeId}/hold")
     @ResponseBody
     ResponseEntity<?> hold(@PathVariable Long showtimeId, @Valid @RequestBody HoldRequest req, Authentication auth) {
-        try {
-            User user = current(auth);
-            java.time.LocalDateTime expiresAt = service.holdSeats(user.getId(), showtimeId, req.seatIds());
-            return ResponseEntity.ok(Map.of("message", "Đã giữ ghế trong 5 phút", "expiresAt", expiresAt));
-        } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", safeMessage(ex, "Không thể giữ ghế")));
-        }
+        User user = current(auth);
+        java.time.LocalDateTime expiresAt = service.holdSeats(user.getId(), showtimeId, req.seatIds());
+        return ResponseEntity.ok(Map.of("message", "Đã giữ ghế", "expiresAt", expiresAt,
+                "expiresAtEpochMillis", expiresAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                "serverNowEpochMillis", System.currentTimeMillis()));
+    }
+
+    @GetMapping("/api/showtimes/{showtimeId}/hold-status")
+    @ResponseBody
+    ResponseEntity<?> holdStatus(@PathVariable Long showtimeId, @RequestParam List<Long> seatIds,
+                                 @RequestParam long expiresAtEpochMillis, Authentication auth) {
+        User user = current(auth);
+        return ResponseEntity.ok(Map.of("active", service.isHoldActive(user.getId(), showtimeId, seatIds, expiresAtEpochMillis),
+                "serverNowEpochMillis", System.currentTimeMillis()));
     }
 
     @PostMapping("/api/showtimes/{showtimeId}/release")
     @ResponseBody
     ResponseEntity<?> release(@PathVariable Long showtimeId, @Valid @RequestBody HoldRequest req, Authentication auth) {
-        try {
-            User user = current(auth);
-            service.releaseOwnHolds(user.getId(), showtimeId, req.seatIds());
-            return ResponseEntity.ok(Map.of("message", "Đã trả ghế"));
-        } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", safeMessage(ex, "Không thể trả ghế")));
-        }
+        User user = current(auth);
+        service.releaseOwnHolds(user.getId(), showtimeId, req.seatIds());
+        return ResponseEntity.ok(Map.of("message", "Đã trả ghế"));
     }
 
     @PostMapping("/api/showtimes/{showtimeId}/quote")
     @ResponseBody
     ResponseEntity<?> quote(@PathVariable Long showtimeId, @RequestBody BookingQuoteRequest request, Authentication auth) {
-        try {
-            User user = current(auth);
-            return ResponseEntity.ok(service.quote(user.getId(), showtimeId, request.seatIds(), request.voucherCode(),
-                    request.comboIds(), request.comboQtys()));
-        } catch (Exception ex) {
-            return ResponseEntity.badRequest().body(Map.of("error", safeMessage(ex, "Unable to calculate loyalty benefits")));
-        }
+        User user = current(auth);
+        return ResponseEntity.ok(service.quote(user.getId(), showtimeId, request.seatIds(), request.voucherCode(),
+                request.comboIds(), request.comboQtys()));
     }
 
     @PostMapping("/booking/confirm")
@@ -144,6 +144,11 @@ public class BookingController {
             bookings.save(booking);
         }
         model.addAttribute("booking", booking);
+        boolean open = booking.getShowtime().isActive()
+                && booking.getShowtime().getStartTime().isAfter(java.time.LocalDateTime.now())
+                && booking.getShowtime().getAuditorium().getCinema().isActive();
+        model.addAttribute("rebookUrl", open ? "/booking/" + booking.getShowtime().getId()
+                : "/movies/" + booking.getShowtime().getMovie().getId());
         return "booking/ticket";
     }
 
