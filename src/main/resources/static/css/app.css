@@ -717,6 +717,29 @@ html[lang="vi"] :is(.auth-visual h1, .auth-panel h2, body.auth-page .auth-panel-
 .scanner-card{padding:20px;border:1px solid rgba(183,191,209,.14);border-radius:16px;background:linear-gradient(145deg,rgba(25,40,68,.92),rgba(15,26,47,.96))}
 .scanner-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;color:#e8eef7}
 .scanner-head small{color:#8fa0b6}.qr-reader{overflow:hidden;border-radius:12px;background:#0b0d12;min-height:280px}
+.checkin-camera-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}
+.checkin-camera-tools .form-select{width:auto;min-width:0;max-width:min(100%,320px);height:40px;min-height:40px;flex:1 1 180px;border-color:rgba(170,187,212,.24);background-color:#0d172b;color:#f4f6fb;font-size:.82rem}
+.checkin-camera-tools .btn,.checkin-upload-label{display:inline-flex;min-height:40px;align-items:center;justify-content:center;margin:0;padding:8px 13px;border-radius:9px;font-size:.78rem;white-space:nowrap;cursor:pointer}
+.checkin-camera-tools .btn:disabled{opacity:.55;cursor:not-allowed}
+.checkin-camera-tools .btn-rex-outline{border:1px solid rgba(170,187,212,.35);background:rgba(10,20,36,.65);color:#dce6f4}
+.checkin-camera-tools .btn-rex-outline:hover,.checkin-camera-tools .btn-rex-outline:focus-visible{border-color:var(--yellow);background:rgba(244,229,0,.08);color:#fff}
+.scanner-head .live-dot{background:#f4c542;box-shadow:0 0 0 5px rgba(244,197,66,.11)}
+.scanner-head .live-dot.is-active{background:#41d895;box-shadow:0 0 0 5px rgba(65,216,149,.11)}
+.qr-reader{display:flex;min-height:280px;align-items:center;justify-content:center;padding:10px}
+.qr-reader-placeholder{display:flex;min-height:250px;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#91a2ba;text-align:center}
+.qr-reader-placeholder strong{color:#e9eff8;font-size:.9rem;font-weight:600}
+.qr-reader-placeholder span:last-child{font-size:.76rem}
+.qr-placeholder-icon{display:grid;width:54px;height:54px;place-items:center;border:1px solid rgba(244,229,0,.35);border-radius:14px;color:#f4e500;font-size:1.8rem}
+.qr-reader video{max-width:100%;border-radius:8px}
+.checkin-camera-message{min-height:1.25em;margin:8px 0 0;color:#9eacc1;font-size:.75rem;line-height:1.4}
+.scan-result{min-height:100%;overflow-wrap:anywhere}
+.scan-result .scan-ticket-info{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin-top:18px}
+.scan-result .scan-ticket-info>div{display:grid;min-width:0;gap:3px;padding:9px 0;border-bottom:1px solid rgba(183,191,209,.12)}
+.scan-result .scan-ticket-info span{color:#91a2ba;font-size:.7rem}
+.scan-result .scan-ticket-info b{color:#f0f4fa;font-size:.82rem;font-weight:550;overflow-wrap:anywhere}
+.scan-result.loading .scan-icon{color:#101725;background:var(--yellow)}
+.scan-result.danger .scan-icon{color:#ff7581}
+.scan-result.danger h3{color:#ffe2e5}
 .scanner-manual .form-label{display:block;margin:0 0 6px;color:#aab7cc;font-size:.72rem;font-weight:700}
 .scanner-manual .input-group{align-items:stretch}
 .scanner-manual .input-group .form-control{min-height:52px}
@@ -737,7 +760,8 @@ html[lang="vi"] :is(.auth-visual h1, .auth-panel h2, body.auth-page .auth-panel-
 .rewards-tier-check{gap:4px!important;justify-content:flex-end;min-width:80px;flex:0 0 auto}
 .rewards-tier-check .form-check-input{margin:0}
 .rewards-check{align-items:end!important}.rewards-check .form-check{margin:0 0 8px}
-@media(max-width:767px){.admin-form .row>[class*=col-]{min-width:0}.scanner-card{padding:14px}.admin-thumb{width:52px;height:36px}}
+@media(max-width:767px){.admin-form .row>[class*=col-]{min-width:0}.scanner-card{padding:14px}.admin-thumb{width:52px;height:36px}.scanner-head{align-items:flex-start;flex-direction:column;gap:4px}.checkin-camera-tools .form-select{flex-basis:100%;max-width:none}.scanner-manual .input-group{display:grid;grid-template-columns:1fr}.scanner-manual .input-group .form-control,.scanner-manual .input-group .btn{width:100%;border-radius:9px}.scan-result .scan-ticket-info{grid-template-columns:1fr 1fr}}
+@media(max-width:420px){.checkin-camera-tools .btn,.checkin-upload-label{flex:1 1 calc(50% - 8px)}.scan-result .scan-ticket-info{grid-template-columns:1fr}}
 
 /* Rex Rewards admin: consistent form grids and one policy per table row. */
 .rewards-admin-page{max-width:1640px;margin-inline:auto;min-width:0}

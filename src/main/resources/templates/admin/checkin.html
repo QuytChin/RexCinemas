@@ -14,22 +14,30 @@
     <div class="row g-4 mt-2">
         <div class="col-xl-7">
             <div class="scanner-card">
-                <div class="scanner-head"><div><span class="live-dot"></span><strong>Camera scanner</strong></div><small>Camera hoạt động trên localhost hoặc HTTPS</small></div>
-                <div id="reader" class="qr-reader"></div>
+                <div class="scanner-head"><div><span id="cameraStatusDot" class="live-dot"></span><strong>Máy quét QR</strong></div><small>Camera cần quyền truy cập và kết nối HTTPS hoặc localhost</small></div>
+                <div class="checkin-camera-tools">
+                    <label class="visually-hidden" for="cameraSelect">Chọn camera</label>
+                    <select id="cameraSelect" class="form-select" aria-label="Chọn camera" disabled><option value="">Đang tải camera…</option></select>
+                    <button id="cameraToggleBtn" type="button" class="btn btn-rex-outline">Bật camera</button>
+                    <label class="btn btn-rex-outline checkin-upload-label" for="qrImageInput">Quét ảnh QR</label>
+                    <input id="qrImageInput" type="file" accept="image/*" hidden>
+                </div>
+                <div id="reader" class="qr-reader" aria-live="polite"><div class="qr-reader-placeholder"><span class="qr-placeholder-icon">▦</span><strong>Sẵn sàng quét vé</strong><span>Chọn “Bật camera” hoặc tải ảnh QR lên</span></div></div>
+                <p id="cameraMessage" class="checkin-camera-message" role="status">Chưa bật camera.</p>
                 <div class="scanner-manual mt-3">
-                    <label class="form-label">Hoặc nhập mã booking</label>
-                    <div class="input-group"><input id="manualCode" class="form-control form-control-lg" placeholder="Ví dụ REX12AB34CD"><button id="manualScanBtn" class="btn btn-rex">KIỂM TRA & CHECK-IN</button></div>
+                    <label class="form-label" for="manualCode">Hoặc nhập mã vé / mã đặt vé</label>
+                    <div class="input-group"><input id="manualCode" class="form-control form-control-lg" placeholder="Ví dụ: TKT-REX…-A1" autocomplete="off"><button id="manualScanBtn" type="button" class="btn btn-rex">KIỂM TRA &amp; CHECK-IN</button></div>
                 </div>
             </div>
         </div>
         <div class="col-xl-5">
             <div id="scanResult" class="scan-result empty">
-                <div class="scan-icon">QR</div><h3>Chờ quét vé</h3><p>Thông tin phim, rạp, phòng, ghế và khách hàng sẽ hiện tại đây.</p>
+                <div class="scan-icon">QR</div><h3>Chờ quét vé</h3><p>Kết quả kiểm tra vé, suất chiếu và ghế sẽ hiển thị tại đây.</p>
             </div>
         </div>
     </div>
 
-    <div th:replace="~{fragments/admin-list :: filters}"></div><section class="mt-5"><div class="d-flex justify-content-between align-items-end mb-3"><div><p class="eyebrow mb-1">RECENT</p><h3>Check-in gần đây</h3></div></div>
+    <section class="mt-5"><div class="d-flex justify-content-between align-items-end mb-3"><div><p class="eyebrow mb-1">GẦN ĐÂY</p><h3>Check-in gần đây</h3></div></div>
         <div class="table-responsive"><table class="table table-dark table-hover align-middle"><thead><tr><th>Mã đặt vé</th><th>Khách hàng</th><th>Phim</th><th>Rạp / Phòng</th><th>Ghế</th><th>Giờ check-in</th></tr></thead><tbody><tr th:each="b:${recentCheckins}"><td><strong th:text="${b.bookingCode}"></strong></td><td th:text="${b.user.fullName}"></td><td th:text="${b.showtime.movie.title}"></td><td th:text="${b.showtime.auditorium.cinema.name+' / '+b.showtime.auditorium.name}"></td><td><span th:each="s,i:${b.seats}" th:text="${s.seatLabel+(i.last?'':', ')}"></span></td><td><span class="badge text-bg-info" th:text="${#temporals.format(b.checkedInAt,'HH:mm dd/MM')}"></span><div class="small text-secondary" th:text="${b.checkedInBy}"></div></td></tr><tr th:if="${recentCheckins.isEmpty()}"><td colspan="6" class="text-center text-secondary py-4">Chưa có lượt check-in nào.</td></tr></tbody></table></div>
     </section>
 <div th:replace="~{fragments/admin-list :: pager}"></div></main>
