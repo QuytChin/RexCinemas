@@ -9,16 +9,16 @@
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container-fluid admin-page-wrap pt-page pb-5 admin-cinema-page"><div th:replace="~{fragments/admin-list :: filters}"></div>
+<main class="container-fluid admin-page-wrap pt-page pb-5 admin-cinema-page">
     <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
     <header class="ui-page-header admin-cinema-page-header">
         <div>
-            <nav class="ui-breadcrumb" aria-label="Điều hướng trang"><span>Quản trị</span><span aria-hidden="true">/</span><strong>Chuỗi rạp</strong></nav>
+            <p class="eyebrow">CINEMA MANAGEMENT</p>
             <div class="ui-page-header__title-row"><h1>Chuỗi rạp</h1><span class="ui-badge ui-badge--neutral" th:text="${#lists.size(cinemas) + ' rạp'}"></span></div>
-            <p>Quản lý thông tin, trạng thái hiển thị và điểm vận hành của hệ thống rạp RexCinemas.</p>
         </div>
-        <a class="btn btn-rex ui-btn ui-btn--primary admin-cinema-add" th:href="@{/admin/cinemas/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm rạp</span></a>
     </header>
+    <div th:replace="~{fragments/admin-list :: filters}"></div>
+    <div class="admin-cinemas-actions" th:if="${!#lists.isEmpty(cinemas)}"><a class="btn btn-rex ui-btn ui-btn--primary admin-cinema-add" th:href="@{/admin/cinemas/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm rạp</span></a></div>
     <section class="row g-4 admin-cinema-grid" aria-label="Danh sách rạp">
         <div class="col-md-6 col-xxl-4" th:each="c:${cinemas}">
             <article class="ui-card admin-cinema-card">
