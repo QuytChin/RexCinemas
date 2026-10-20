@@ -1,396 +1,173 @@
-# Rex Chain Cinema — Spring Boot + SePay BANK_QR
+# RexCinemas
 
-Hệ thống quản lý chuỗi rạp và đặt vé xem phim trực tuyến bằng **Spring Boot + Thymeleaf + Bootstrap + JPA + MySQL/PostgreSQL/SQL Server + JWT + WebSocket + Cloudinary**, có luồng booking realtime và **vé điện tử QR check-in tại cổng**.
+Ứng dụng đặt vé và quản lý chuỗi rạp phim, xây dựng bằng Java 21, Spring Boot, Thymeleaf và MySQL. Tài liệu này mô tả cách chuẩn bị môi trường, chạy ứng dụng, kiểm thử và triển khai dựa trên cấu hình hiện có trong repository.
 
-Ứng dụng không cung cấp secret hay mật khẩu mặc định. Hãy cấu hình qua environment variables hoặc secret store; không commit file `.env`. Chạy local với profile `dev,mysql`, còn production dùng `prod,mysql`. `JWT_SECRET` phải có ít nhất 32 byte UTF-8. `DB_USERNAME`, `DB_PASSWORD`, `MAIL_USERNAME` và `MAIL_PASSWORD` là bắt buộc; ứng dụng dừng sớm nếu thiếu. Production bật cookie `Secure` và yêu cầu HTTPS.
+## Yêu cầu
 
-### Cấu hình local
+- JDK 21.
+- Apache Maven 3.8 trở lên.
+- MySQL 8.x (hoặc PostgreSQL / SQL Server nếu chọn profile tương ứng).
+- SMTP Gmail để gửi OTP trong các luồng xác thực tài khoản và đặt lại mật khẩu. Cần cấu hình SMTP nếu muốn thử các luồng gửi thư.
+- Trình duyệt hiện đại. Quét QR bằng camera cần `localhost` hoặc HTTPS.
 
-Sao chép `.env.example` thành `.env.local` để làm danh sách biến cần cấu hình. Spring Boot không tự nạp file `.env`; hãy nhập các giá trị vào cấu hình môi trường của IDE/terminal/secret manager. Dùng giá trị riêng cho máy local, không tái sử dụng credential production.
+## Chức năng chính
 
-PowerShell ví dụ (đặt giá trị trực tiếp tại terminal riêng của bạn, không lưu vào source):
+- Danh sách phim, lịch chiếu và lọc theo ngày, rạp, phim.
+- Đăng ký/đăng nhập, OTP qua email, quản lý hồ sơ và đặt lại mật khẩu.
+- Chọn ghế có giữ chỗ tạm thời và cập nhật trạng thái ghế realtime qua WebSocket.
+- Booking, combo có kiểm soát số lượng tồn, voucher, thanh toán BANK_QR/VietQR qua SePay và vé điện tử QR check-in. Đây là phương thức thanh toán trực tuyến duy nhất được hỗ trợ trong luồng đặt vé hiện tại.
+- Rex Rewards: điểm thành viên, hạng, voucher đổi điểm và sổ lịch sử biến động.
+- Trang quản trị dành cho ADMIN: phim, rạp, phòng chiếu, suất chiếu, đặt vé, quét vé, người dùng, thanh toán, nội dung và Rex Rewards.
+
+Cinema Manager đã ngừng được cấp quyền và không còn được tạo bởi seed. Chỉ tài khoản `ADMIN` được truy cập `/admin/**`. Giá trị role `CINEMA_MANAGER` còn trong enum để đọc an toàn các bản ghi cũ trong database; nó không được phép truy cập trang quản trị và không xuất hiện như lựa chọn cấp quyền mới.
+
+## Chạy local trên Windows
+
+### 1. Chuẩn bị MySQL
+
+Tạo database rỗng `rex_chain_cinema` hoặc cấp cho tài khoản local quyền tạo database. Profile MySQL dùng JDBC URL mặc định:
+
+```text
+jdbc:mysql://localhost:3306/rex_chain_cinema?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh
+```
+
+Ứng dụng không tự chạy SQL init. Hibernate mặc định kiểm tra schema bằng `validate`; vì vậy database phải được tạo/cập nhật trước theo các script migration phù hợp. Không đổi sang `update` trên database dùng chung để né lỗi schema.
+
+### 2. Cấu hình biến môi trường
+
+Spring Boot không tự đọc `.env`. `.env.example` là danh sách tham khảo, không phải file tự nạp. Có thể cấu hình biến trong Run Configuration của IDE hoặc trong một cửa sổ PowerShell riêng:
 
 ```powershell
 $env:SPRING_PROFILES_ACTIVE = "dev,mysql"
+$env:PORT = "8080"
+$env:COOKIE_SECURE = "false"
 $env:DB_URL = "jdbc:mysql://localhost:3306/rex_chain_cinema?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh"
-$env:DB_USERNAME = "<local-db-user>"
-$env:DB_PASSWORD = "<local-db-password>"
-$env:JWT_SECRET = "<unique-random-secret-at-least-32-bytes>"
-$env:MAIL_USERNAME = "<smtp-account>"
-$env:MAIL_PASSWORD = "<smtp-app-password>"
+$env:DB_USERNAME = "<tài-khoản-MySQL-local>"
+$env:DB_PASSWORD = "<mật-khẩu-MySQL-local>"
+$env:JWT_SECRET = "<chuỗi-ngẫu-nhiên-riêng-tối-thiểu-32-byte>"
+$env:MAIL_USERNAME = "<địa-chỉ-Gmail>"
+$env:MAIL_PASSWORD = "<Gmail-App-Password>"
 ```
 
-Production: đặt `SPRING_PROFILES_ACTIVE=mysql,prod` (profile `prod` đứng sau để ghi đè tùy chọn môi trường), cấu hình các biến bắt buộc qua secret store, dùng HTTPS và chỉ định migration ngoài ứng dụng. Profile `prod` bật cookie `Secure`, dùng Hibernate `validate` và không chạy SQL init lúc khởi động.
+Các biến kết nối database và `JWT_SECRET` cần có giá trị hợp lệ. Cấu hình `MAIL_USERNAME`/`MAIL_PASSWORD` khi cần thử gửi OTP hoặc đặt lại mật khẩu. Nếu cần tạo tài khoản quản trị ban đầu trên database chưa có admin, đặt thêm:
 
-### Xoay vòng credential đã từng xuất hiện trong Git
-
-Các commit cũ có chứa credential; thay đổi file hiện tại không xóa chúng khỏi lịch sử. Thực hiện qua chủ sở hữu dịch vụ theo trình tự, rồi cập nhật secret store và khởi động lại ứng dụng:
-
-1. Tạo `JWT_SECRET` mới, tối thiểu 32 byte và riêng cho môi trường. Sau khi triển khai, mọi JWT hiện hành sẽ mất hiệu lực và người dùng cần đăng nhập lại.
-2. Thu hồi Gmail App Password cũ trong tài khoản Google, tạo App Password mới và cập nhật `MAIL_PASSWORD` cùng `MAIL_USERNAME` nếu cần.
-3. Đổi mật khẩu MySQL bằng tài khoản DBA theo quy trình vận hành, cập nhật `DB_USERNAME`/`DB_PASSWORD`, rồi triển khai cấu hình đồng bộ. Không đổi credential từ ứng dụng này.
-4. Kiểm tra login, OTP qua mail thử nghiệm, kết nối database staging, rồi mới triển khai production.
-
-Không paste credential vào ticket, chat, log hoặc Git. `.env.example` chỉ chứa placeholder.
-
-## 1. Luồng hoàn chỉnh
-
-```text
-Trang chủ / Lịch chiếu
-        ↓
-Chọn suất đang mở bán
-        ↓
-Đăng nhập (nếu cần) → quay lại đúng suất
-        ↓
-Chọn ghế realtime WebSocket
-        ↓
-Combo / voucher
-        ↓
-Thanh toán
-        ↓
-Booking CONFIRMED
-        ↓
-Vé điện tử + QR
-        ↓
-Admin/Manager quét QR tại /admin/checkin
-        ↓
-CHECKED-IN
+```powershell
+$env:ADMIN_INITIAL_EMAIL = "admin@example.com"
+$env:ADMIN_INITIAL_PASSWORD = "<mật-khẩu-mạnh>"
+$env:SEED_ENABLED = "true"
 ```
 
-## 2. Stack
-- Java 21
-- Spring Boot 3.3.5
-- Thymeleaf + Bootstrap 5.3
-- Spring Data JPA / Hibernate
-- Spring Security + JWT HttpOnly cookie / Bearer token
-- WebSocket STOMP + SockJS
-- MySQL / PostgreSQL / SQL Server
-- Cloudinary
-- Chart.js
-- ZXing Core 3.5.4 để sinh QR
-- html5-qrcode 2.3.8 để quét QR bằng camera trên trình duyệt
+Seeder chỉ chạy trên profile `dev` và mặc định tắt. Chỉ bật `SEED_ENABLED=true` khi chủ động khởi tạo database dev: ngoài admin, seeder có thể thêm dữ liệu phim, rạp, suất chiếu, combo, voucher và nội dung mẫu nếu các bảng tương ứng đang trống. Tắt/xóa biến này sau khi khởi tạo để tránh seeder cập nhật lại mật khẩu admin ở lần chạy sau. Nếu chỉ muốn demo tài khoản khách, đặt thêm `SEED_DEMO_USERS=true` và `DEMO_CUSTOMER_PASSWORD`. Không còn biến hay tài khoản demo Cinema Manager.
 
-## 3. Lịch chiếu và đặt vé
+Không lưu secret thật vào source, README, `.env.example` hoặc Git. Dùng thông tin riêng cho môi trường local; không dùng lại mật khẩu production.
 
-Trang:
-```text
-/schedule
+### 3. Khởi động
+
+Trong thư mục chứa `pom.xml`, chạy:
+
+```powershell
+mvn spring-boot:run
 ```
 
-Có thể lọc theo:
-- ngày;
-- rạp;
-- phim.
+Hoặc mở thư mục project trong IntelliJ IDEA, chọn Project SDK 21, nạp lại Maven, khai báo các biến môi trường ở trên trong Run Configuration rồi chạy `RexChainCinemaApplication`.
 
-Mỗi suất hiển thị:
-- giờ chiếu;
-- phòng;
-- giá chuẩn;
-- số ghế còn / tổng ghế;
-- nút **ĐẶT VÉ** nếu còn ghế.
+Trên máy Windows đã cấu hình trước bằng script DPAPI của repository, có thể dùng:
 
-Nếu chưa đăng nhập, hệ thống chuyển đến login rồi tự quay lại đúng `/booking/{showtimeId}`.
-
-Trang chủ còn có khu **Đặt nhanh – Suất chiếu sắp tới**.
-
-## 4. Booking 4 bước
-
-```text
-1. Chọn ghế
-2. Combo / bắp nước
-3. Thanh toán
-4. Vé điện tử
+```powershell
+.\start-rex-prefilled.ps1
 ```
 
-- STANDARD / VIP / COUPLE.
-- WebSocket cập nhật ghế realtime.
-- Giữ ghế 5 phút.
-- Tối đa 10 ghế/booking.
-- Combo tối đa 10 phần/món.
-- Voucher.
-- Chỉ hỗ trợ `BANK_QR`, hiển thị VietQR và đối soát qua SePay.
-- Booking online đi theo `PENDING -> CONFIRMED/CANCELLED`.
-- Booking đã nhận tiền nhưng hết hạn hoặc không còn đủ điều kiện sẽ đi qua `REFUND_PENDING` và chỉ thành `REFUNDED` sau khi Admin xác nhận hoàn tiền thủ công.
-- Booking pending quá hạn tự trả ghế.
+Script sẽ nạp cấu hình local đã mã hóa cho tài khoản Windows hiện tại và chạy ứng dụng ở cổng 8080. Lần đầu cần nhập các thông tin được hỏi. Thêm `-Reconfigure` để nhập lại cấu hình; `-NoStart` chỉ nạp/kiểm tra cấu hình mà không chạy server.
 
-## 5. Thanh toán BANK_QR qua SePay
+Mở `http://localhost:8080`. Health endpoint: `http://localhost:8080/actuator/health`.
 
-Luồng thực tế:
+## Các profile database
 
-```text
-Tạo booking PENDING
-        ↓
-Hiển thị VietQR và nội dung chuyển khoản
-        ↓
-SePay gửi webhook
-        ↓
-Xác thực webhook + đối soát mã booking/số tiền
-        ↓
-CONFIRMED → phát hành vé điện tử và QR check-in
-```
+Chọn đúng profile database, ví dụ `dev,mysql`, `dev,postgres` hoặc `dev,sqlserver`. Đặt `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` theo server của bạn. Driver cho cả ba hệ quản trị đã có trong Maven dependencies.
 
-Trang thanh toán của booking:
-```text
-/payment/{bookingId}/start
-/payment/{bookingId}/bank-qr
-```
+- `application-dev.properties`: cookie không Secure theo mặc định để chạy HTTP local; seeder tắt; Hibernate mặc định `validate`.
+- `application-mysql.properties`: kết nối MySQL; không tự chạy SQL init.
+- `application-postgres.properties`: kết nối PostgreSQL; migration PostgreSQL cần chạy thủ công từ script tương ứng.
+- `application-sqlserver.properties`: Flyway có thể dùng các migration tại `db/migration/sqlserver` khi được bật rõ ràng; cần xác nhận phiên bản/schema trước khi migrate.
+- `application-prod.properties`: Hibernate `validate`, SQL init tắt, seeder tắt, cookie Secure bật. Production bắt buộc HTTPS và secret store.
 
-Booking chỉ được xác nhận sau khi webhook hợp lệ được xử lý. Giao dịch trùng được nhận diện bằng mã giao dịch/provider reference và không cộng dồn hoặc xác nhận lặp. Khi booking hết hạn, hệ thống trả ghế; trường hợp tiền đến muộn được ghi nhận để Admin xử lý hoàn tiền thủ công.
+Đặt profile production bằng `SPRING_PROFILES_ACTIVE=mysql,prod` (hoặc đúng loại database). Không bật `HIBERNATE_DDL_AUTO=update` hoặc seeder cho database production. Sao lưu và xem xét migration trước khi áp dụng. Flyway mặc định tắt; không chạy các script SQL thủ công lặp lại.
 
-### Webhook SePay
+## Thanh toán SePay (tùy chọn)
 
-- Endpoint: `POST /api/payments/sepay/webhook`.
-- HTTP body: JSON payload do SePay gửi.
-- Chế độ `API_KEY`: header `Authorization: Apikey <SEPAY_API_KEY>`.
-- Chế độ `HMAC_SHA256`: header `X-SePay-Timestamp`, `X-SePay-Signature` với chữ ký `sha256=<HMAC_SHA256(timestamp + "." + rawBody)>`, trong thời hạn `SEPAY_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS`.
-- Chế độ được chọn bằng `SEPAY_WEBHOOK_AUTH_MODE`; mặc định là `API_KEY`.
-- Các biến cần cấu hình khi bật SePay: `SEPAY_ENABLED`, `SEPAY_API_KEY` hoặc `SEPAY_WEBHOOK_SECRET`, `SEPAY_BANK_ACCOUNT`, `SEPAY_BANK_CODE`, `SEPAY_BANK_NAME`, `SEPAY_ACCOUNT_HOLDER`, `SEPAY_PAYMENT_PREFIX`, `PAYMENT_BASE_URL`.
-- Không đưa API key, webhook secret, số tài khoản thật hoặc URL tunnel cá nhân vào README, log hay Git.
+SePay tắt theo mặc định. Để thử tích hợp, cần cấu hình `SEPAY_ENABLED`, thông tin VietQR/ngân hàng, `SEPAY_API_KEY` hoặc `SEPAY_WEBHOOK_SECRET`, `SEPAY_WEBHOOK_AUTH_MODE`, `SEPAY_PAYMENT_PREFIX` và `PAYMENT_BASE_URL`. Không bật với thông tin giả hoặc URL không thể truy cập từ SePay.
 
-SePay phải gọi được URL public tương ứng với route trên. Không tắt xác thực webhook để xử lý lỗi HTTP 401; hãy kiểm tra header, chế độ xác thực, tunnel và log lỗi không chứa secret.
-
-### Cloudflare Tunnel cho development
-
-Quick Tunnel trên Windows có thể chạy bằng:
+Webhook nhận tại `POST /api/payments/sepay/webhook`. Việc cấu hình biến môi trường chỉ bật luồng tích hợp; xác nhận thanh toán thực tế còn phụ thuộc cấu hình tài khoản SePay, ngân hàng, URL công khai và webhook hợp lệ. Có thể dùng Cloudflare Quick Tunnel trong phát triển:
 
 ```powershell
 cloudflared tunnel --url http://localhost:8080
 ```
 
-Sau khi nhận URL `https://<random>.trycloudflare.com`, đặt `PAYMENT_BASE_URL` bằng URL đó trong cùng PowerShell trước khi khởi động ứng dụng. Quick Tunnel có thể đổi URL sau mỗi lần restart, vì vậy phải cập nhật URL webhook trên SePay. Production nên dùng Named Tunnel hoặc domain ổn định, HTTPS và secret store.
+Cập nhật URL HTTPS được cấp vào `PAYMENT_BASE_URL` và cấu hình webhook tương ứng ở SePay. Quick Tunnel có thể đổi URL khi chạy lại, không phù hợp production. Không tắt xác thực webhook để khắc phục lỗi 401.
 
-## 6. Hoàn tiền thủ công
+## Tạo ảnh và tải nội dung
 
-**Hoàn tiền là nghiệp vụ thủ công của Admin.** Ứng dụng không tự chuyển tiền qua ngân hàng.
+Cloudinary là tùy chọn cho upload ảnh; đặt `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` nếu sử dụng. Nếu không cấu hình, các chức năng không cần upload vẫn hoạt động. Giới hạn tải ảnh mặc định là 5 MB.
 
-1. Mở booking hoặc hồ sơ late payment trong khu vực Admin.
-2. Kiểm tra booking, số tiền và giao dịch SePay.
-3. Admin chuyển khoản hoàn tiền bên ngoài website.
-4. Nhập mã tham chiếu/chứng từ, số tiền và bằng chứng nếu có.
-5. Tích xác nhận đã chuyển khoản rồi gửi form.
+## Kiểm thử và build
 
-Ứng dụng ghi nhận người thao tác, thời điểm, số tiền, mã tham chiếu và chuyển trạng thái sang `REFUNDED`. Trạng thái này là xác nhận nghiệp vụ trong hệ thống; không phải bằng chứng ngân hàng đã chuyển tiền nếu Admin chưa đối soát chứng từ.
+Test thông thường dùng H2 trong bộ nhớ, không dùng database MySQL local:
 
-## 7. Tính năng thanh toán chưa hoạt động
-
-- `MOMO_SANDBOX` và `VNPAY_SANDBOX` không phải phương thức booking được hỗ trợ hiện tại.
-- `PAY_AT_COUNTER` không phải phương thức booking được hỗ trợ hiện tại.
-- Không quảng bá hoặc cấu hình các phương thức trên như tính năng đang hoạt động. Nếu cần tích hợp, đó là hạng mục riêng sau này.
-
-## 8. Vé QR
-
-Booking `CONFIRMED` có QR thật tại:
-```text
-/bookings/{id}
-```
-
-Ảnh QR:
-```text
-GET /bookings/{id}/qr
-```
-
-QR không chứa ID booking. Nội dung là token bí mật ngẫu nhiên:
-```text
-REXCINEMAS:TICKET:<64-character-random-token>
-```
-
-Booking cũ từ V3 vẫn dùng được: khi mở QR lần đầu, token sẽ được tạo tự động.
-
-Vé có:
-- tên phim;
-- rạp / phòng;
-- giờ chiếu;
-- ghế;
-- combo/voucher;
-- tổng tiền;
-- mã booking;
-- QR;
-- trạng thái check-in;
-- nút In / lưu PDF.
-
-## 9. Quét QR check-in
-
-Đăng nhập bằng ADMIN hoặc CINEMA_MANAGER và mở:
-```text
-/admin/checkin
-```
-
-Có 3 cách:
-1. Camera quét QR trên vé.
-2. Chọn ảnh QR từ thiết bị (UI của html5-qrcode).
-3. Nhập mã booking thủ công, ví dụ `REXABC123456`.
-
-Backend xác thực:
-- vé có tồn tại không;
-- booking đã CONFIRMED chưa;
-- booking có bị CANCELLED không;
-- vé đã check-in chưa;
-- suất chiếu đã hết thời gian check-in chưa.
-
-Check-in thành công lưu:
-```text
-checkedInAt
-checkedInBy
-```
-
-Quét lại cùng vé sẽ báo `ALREADY_CHECKED_IN`.
-
-> Camera trình duyệt hoạt động tốt trên `localhost` hoặc HTTPS. Nếu camera không khả dụng, vẫn có thể nhập booking code thủ công.
-
-## 10. Quản lý suất chiếu nâng cấp
-
-Trang:
-```text
-/admin/showtimes
-```
-
-Khi tạo suất:
-- tự sinh ShowtimeSeat;
-- tự mở bán trên lịch chiếu;
-- chặn giờ quá khứ;
-- chặn giá <= 0;
-- chặn trùng phòng.
-
-Quy tắc chống chồng lịch:
-```text
-startTime
-→ thời lượng phim
-→ +15 phút dọn phòng
-→ suất tiếp theo mới được bắt đầu
-```
-
-Nếu suất đã có booking chưa hủy, admin không thể đổi giờ/giá để tránh làm sai vé đã bán. Có thể **Ẩn** suất để ngừng bán thêm.
-
-Nếu database local lâu ngày không còn suất tương lai trong 8 ngày, demo seeder sẽ tạo một lịch mới khi khởi động.
-
-## 11. Rex Member
-- 1 điểm / 10.000đ booking CONFIRMED.
-- MEMBER: 0–249 lifetime points.
-- SILVER: 250–599.
-- GOLD: 600–1199.
-- DIAMOND: 1200+.
-- Admin hủy booking chưa check-in sẽ hoàn tác điểm và lượt voucher.
-
-## 12. Admin
-- Dashboard + doanh thu + AOV + top phim + top rạp.
-- KPI check-in QR.
-- Movie CRUD.
-- Cinema CRUD.
-- Auditorium + tự sinh ghế.
-- Showtime + chống chồng lịch.
-- Booking + trạng thái check-in.
-- QR gate scanner.
-- Combo.
-- Voucher.
-- Review.
-- Event.
-- Article.
-- Trailer / Clip.
-- User / Role (ADMIN only).
-
-## 13. REST API
-
-Public:
-```text
-GET /api/movies/now-showing
-GET /api/movies/coming-soon
-GET /api/movies/{id}
-GET /api/movies/{id}/showtimes
-GET /api/showtimes/{id}/seats
-GET /api/snacks
-```
-
-Showtime API có thêm:
-```json
-{
-  "availableSeats": 52,
-  "totalSeats": 60,
-  "bookingUrl": "/booking/15"
-}
-```
-
-Cần JWT:
-```text
-GET  /api/me
-GET  /api/me/bookings
-GET  /api/payment-status/{bookingCode}
-POST /api/showtimes/{showtimeId}/hold
-POST /api/showtimes/{showtimeId}/release
-POST /api/bookings/checkout
-```
-
-Booking JSON có thêm:
-```text
-checkedIn
-checkedInAt
-ticketUrl
-qrImageUrl
-```
-
-## 14. Cấu hình và chạy project
-
-1. Cài Java 21, Maven và MySQL.
-2. IntelliJ → **Open** thư mục có `pom.xml`, chọn Project SDK = **Java 21** và reload Maven.
-3. Tạo biến môi trường theo `.env.example`; Spring Boot không tự đọc file `.env`.
-4. Với Windows, có thể dùng `start-rex-prefilled.ps1` để nạp cấu hình đã lưu bằng DPAPI rồi chạy profile `dev,mysql`:
 ```powershell
-.\start-rex-prefilled.ps1
+mvn test
+mvn -DskipTests package
 ```
-5. Hoặc đặt biến môi trường trong terminal riêng rồi chạy:
+
+Một số lớp integration test được đặt tên rõ `*MySqlIntegrationTest` dành cho schema MySQL DEV và có thể yêu cầu database fixture sẵn có. Kiểm tra annotation/profile của test trước khi chạy riêng; không chạy các test đó trên dữ liệu production. Test JS nằm trong `src/test/js`; repository hiện không khai báo npm script làm bước build bắt buộc.
+
+## Luồng đặt vé và check-in
+
 ```text
-src/main/java/com/rexchain/cinema/RexChainCinemaApplication.java
-```
-6. Truy cập:
-```text
-http://localhost:8080
+Chọn suất chiếu → chọn ghế và giữ chỗ → combo/voucher → BANK_QR
+→ webhook thanh toán hợp lệ → booking CONFIRMED → vé QR
+→ ADMIN quét vé tại /admin/checkin
 ```
 
-Các giá trị bắt buộc gồm `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `MAIL_USERNAME` và `MAIL_PASSWORD`. Khi bật SePay, đặt thêm các biến `SEPAY_*` và `PAYMENT_BASE_URL`. Không đưa giá trị thật vào README, `.env.example`, log hoặc Git.
+Giữ ghế có thời hạn; booking chưa thanh toán quá hạn sẽ giải phóng ghế. QR vé dùng token ngẫu nhiên, không nhúng trực tiếp ID booking. Camera chỉ hoạt động trên `localhost` hoặc HTTPS; trang check-in hỗ trợ quét QR và nhập mã thủ công. Trạng thái chờ hoàn tiền được hệ thống ghi nhận, nhưng việc chuyển tiền hoàn cho khách là thao tác thủ công ngoài hệ thống do ADMIN đối soát và xác nhận.
 
-## 15. Database cũ V3
+## Phạm vi chưa hỗ trợ / chưa xác minh
 
-**Không cần xóa database.**
+- MoMo, VNPAY và thanh toán trực tiếp tại quầy không được hỗ trợ trong luồng đặt vé hiện tại.
+- Không có phân quyền vận hành riêng theo từng rạp; các trang `/admin/**` chỉ dành cho `ADMIN`. `CINEMA_MANAGER` còn trong enum để tương thích dữ liệu cũ, không phải role được cấp mới.
+- Không tuyên bố đã kiểm thử tải, triển khai production, tích hợp thanh toán thật hoặc gửi email thật chỉ từ việc build/test tự động.
 
-Ở profile `dev`, `spring.jpa.hibernate.ddl-auto` mặc định là `update`, nhưng thay đổi schema trên database dùng chung phải được backup và review trước. Profile `prod` dùng `validate` và không chạy SQL init tự động. Các trường QR/check-in liên quan gồm:
-```text
-qr_token
-checked_in_at
-checked_in_by
-```
+Các route người dùng phổ biến: `/`, `/movies`, `/schedule`, `/profile`, `/bookings`, `/rewards`. Trang quản trị: `/admin`; mọi route `/admin/**` yêu cầu role ADMIN.
 
-`application-mysql.properties` chỉ lấy URL, username và password từ biến môi trường; không chứa credential thật.
+## Một số biến cấu hình
 
-## 16. Tài khoản khởi tạo và demo
+| Nhóm | Biến | Mục đích |
+|---|---|---|
+| Server | `SPRING_PROFILES_ACTIVE`, `PORT`, `COOKIE_SECURE` | Profile, cổng HTTP, cờ cookie Secure |
+| Database | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | Kết nối cơ sở dữ liệu |
+| Schema | `HIBERNATE_DDL_AUTO`, `FLYWAY_ENABLED` | Kiểm tra schema và bật migration có chủ đích |
+| Bảo mật | `JWT_SECRET`, `JWT_EXPIRATION_MS`, `JWT_REMEMBER_EXPIRATION_MS` | JWT; secret tối thiểu 32 byte |
+| Email | `MAIL_USERNAME`, `MAIL_PASSWORD` | Gmail SMTP/App Password để gửi OTP |
+| Admin/demo | `ADMIN_INITIAL_EMAIL`, `ADMIN_INITIAL_PASSWORD`, `SEED_ENABLED`, `SEED_DEMO_USERS`, `DEMO_CUSTOMER_PASSWORD` | Tạo admin ban đầu và dữ liệu demo tùy chọn |
+| Ảnh | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Tải ảnh lên Cloudinary |
+| Thanh toán | `PAYMENT_BASE_URL`, `SEPAY_*` | VietQR và xác thực webhook SePay |
 
-Project không chứa mật khẩu mặc định. Trước lần chạy đầu, đặt `ADMIN_INITIAL_PASSWORD`
-để tạo tài khoản quản trị tại email trong `ADMIN_INITIAL_EMAIL` (mặc định chỉ là tên đăng nhập
-`admin@rexchain.vn`). Tài khoản demo chỉ được tạo khi `SEED_DEMO_USERS=true` và đã đặt cả
-`DEMO_CUSTOMER_PASSWORD`, `DEMO_MANAGER_PASSWORD`.
+Các giá trị mặc định và giới hạn chi tiết khác được định nghĩa trong `src/main/resources/application.properties`; cấu hình theo từng profile nằm cạnh file đó.
 
-Voucher:
-```text
-REX10
-```
+## Xử lý sự cố nhanh
 
-## 17. Cách test booking và QR nhanh
+- Ứng dụng dừng ngay khi khởi động: kiểm tra đủ năm biến bắt buộc, Java 21, kết nối database và schema tương thích với `validate`.
+- Không gửi được OTP: kiểm tra Gmail App Password, quyền SMTP và log server; không dùng mật khẩu đăng nhập Gmail thông thường.
+- Báo lỗi cột/bảng khi startup: kiểm tra đúng database/schema và áp dụng migration đã được review sau khi backup; không xóa database để chữa lỗi.
+- Camera không mở: dùng `localhost` hoặc HTTPS và cấp quyền camera; có thể nhập mã booking thủ công.
+- Webhook không đến: kiểm tra URL công khai, tunnel, chế độ API key/HMAC và cấu hình SePay; không đưa secret vào log hoặc chat.
 
-1. Login bằng tài khoản customer đã đăng ký hoặc tài khoản demo được cấu hình qua biến môi trường.
-2. Vào **Lịch chiếu**.
-3. Bấm **ĐẶT VÉ** ở một suất còn ghế.
-4. Chọn ghế → giữ ghế → combo → chọn `BANK_QR`.
-5. Quét VietQR và chờ SePay webhook xác nhận; chỉ booking `CONFIRMED` mới có vé điện tử hợp lệ và QR.
-6. Mở trình duyệt/thiết bị khác, login bằng tài khoản `ADMIN` hoặc `CINEMA_MANAGER` đã cấu hình.
-7. Vào `/admin/checkin`.
-8. Dùng camera quét QR trên màn hình vé.
-9. Kết quả đúng: `CHECKED_IN` + thông tin phim/rạp/phòng/ghế.
-10. Quét lại: phải báo `ALREADY_CHECKED_IN`.
+## Cấu trúc repository
 
-## 18. Cloudinary và triển khai production
-Cloudinary là tùy chọn cho chức năng upload ảnh. Thanh toán booking hiện dùng BANK_QR qua SePay; MoMo, VNPAY và thanh toán tại quầy chưa được tích hợp trong luồng thực tế.
-
-Khi deploy thật:
-- đặt `JWT_SECRET` mạnh và riêng cho từng môi trường;
-- không bật `SEED_DEMO_USERS`;
-- đặt `COOKIE_SECURE=true` và dùng HTTPS;
-- cấu hình URL public ổn định cho webhook SePay;
-- không dùng Quick Tunnel cho production.
+- `src/main/java/.../controller`: MVC, REST API, thanh toán, check-in.
+- `src/main/java/.../service`: nghiệp vụ booking, ghế, điểm thưởng, OTP, thanh toán.
+- `src/main/java/.../entity` và `repository`: mô hình JPA và truy vấn dữ liệu.
+- `src/main/resources/templates`: giao diện Thymeleaf.
+- `src/main/resources/static`: CSS, JavaScript, biểu tượng và ảnh tĩnh.
+- `src/main/resources/db`: script khởi tạo/migration theo từng database; xem kỹ ghi chú trong từng script trước khi chạy.
+- `src/test`: unit, MVC, regression và integration tests.
+- `docs`: kiến trúc và tài liệu dự án bổ sung.
