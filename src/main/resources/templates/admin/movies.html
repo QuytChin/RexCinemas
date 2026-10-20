@@ -12,10 +12,10 @@
 <main class="container-fluid admin-page-wrap pt-page pb-5">
     <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
     <header class="ui-page-header">
-        <div><p class="eyebrow">MOVIE MANAGEMENT</p><h1>Quản lý phim</h1><p>Quản lý thông tin, lịch phát hành và trạng thái hiển thị của phim.</p></div>
-        <a class="btn btn-rex ui-btn ui-btn--primary" th:href="@{/admin/movies/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm phim</span></a>
+        <div><p class="eyebrow">MOVIE MANAGEMENT</p><h1>Quản lý phim</h1></div>
     </header>
     <div th:replace="~{fragments/admin-list :: filters}"></div>
+    <div class="admin-movies-actions"><a class="btn btn-rex ui-btn ui-btn--primary" th:href="@{/admin/movies/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm phim</span></a></div>
     <div class="table-responsive mt-4">
         <table class="table table-dark table-hover align-middle">
             <thead>
