@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+<link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Điều khoản &amp; Chính sách bảo mật - RexCinemas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container-xl policies-page pt-page pb-5">
+    <header class="policies-heading">
+        <p class="eyebrow">REXCINEMAS • THÔNG TIN DỊCH VỤ</p>
+        <h1>Điều khoản &amp; Chính sách bảo mật</h1>
+        <p>Thông tin về việc sử dụng dịch vụ và cách RexCinemas xử lý dữ liệu trong quá trình bạn sử dụng website.</p>
+    </header>
+
+    <nav class="policies-nav" aria-label="Mục chính sách">
+        <a href="#terms">Điều khoản sử dụng</a>
+        <a href="#privacy">Chính sách bảo mật</a>
+    </nav>
+
+    <article id="terms" class="policy-document">
+        <header class="policy-document-heading">
+            <div><p class="eyebrow">ĐIỀU KIỆN SỬ DỤNG</p><h2>Điều khoản sử dụng RexCinemas</h2></div>
+            <span>Phiên bản 1.0 · Cập nhật 21/10/2026</span>
+        </header>
+        <section><h3>1. Giới thiệu và phạm vi</h3><p>RexCinemas cung cấp thông tin phim, rạp, lịch chiếu và các chức năng đặt vé trực tuyến hiện có trên website. Điều khoản này mô tả các nguyên tắc sử dụng dịch vụ.</p></section>
+        <section><h3>2. Tài khoản</h3><p>Khi đăng ký, khách hàng cần cung cấp thông tin chính xác theo các trường hệ thống yêu cầu và tự bảo vệ thông tin đăng nhập, mật khẩu, mã OTP và mã vé. Nếu nghi ngờ tài khoản bị truy cập trái phép, vui lòng liên hệ theo thông tin ở cuối trang. Tài khoản có thể bị hạn chế khi phát hiện dấu hiệu gian lận hoặc vi phạm.</p></section>
+        <section><h3>3. Đặt vé và giữ chỗ</h3><p>Khách hàng có thể chọn phim, rạp, suất chiếu, ghế và combo đang được cung cấp. Vui lòng kiểm tra tên phim, thời gian, địa điểm, ghế, sản phẩm kèm theo, ưu đãi và tổng tiền trước khi xác nhận. Ghế được giữ trong thời hạn hiển thị trên hệ thống; booking chỉ được xác nhận khi hệ thống ghi nhận trạng thái thanh toán hợp lệ.</p></section>
+        <section><h3>4. Thanh toán</h3><p>Luồng đặt vé trực tuyến hiện hỗ trợ chuyển khoản qua BANK_QR/VietQR và đối soát SePay khi được cấu hình. Hãy chuyển đúng số tiền, nội dung chuyển khoản và thời hạn hiển thị. Giao dịch đến sau thời hạn không tự động khôi phục booking; cần được đối soát. MoMo, VNPAY và thanh toán tại quầy hiện không thuộc luồng checkout được hỗ trợ.</p></section>
+        <section><h3>5. Hủy booking và hoàn tiền</h3><p>Booking chưa thanh toán có thể hết hạn theo cơ chế hệ thống và ghế được giải phóng. Website hiện không cung cấp chức năng để khách tự hủy booking đã thanh toán. Giao dịch đến muộn hoặc trường hợp cần xem xét hoàn tiền được ghi nhận để ADMIN đối soát; việc chuyển tiền hoàn, nếu được duyệt, thực hiện thủ công ngoài hệ thống. Việc xác nhận đã hoàn tiền chỉ được ghi nhận sau thao tác thủ công của quản trị viên có thẩm quyền.</p></section>
+        <section><h3>6. Vé điện tử và check-in</h3><p>Vé điện tử hiển thị trong tài khoản sau khi booking được xác nhận. Mã QR hoặc mã vé dùng để kiểm tra tại rạp; khách hàng cần bảo vệ mã và không chia sẻ công khai. Việc vào phòng chiếu tuân theo phân loại độ tuổi của phim và nội quy rạp.</p></section>
+        <section><h3>7. Rex Rewards</h3><p>Điểm, hạng thành viên, ưu đãi và điều kiện đổi điểm được tính theo cấu hình chương trình tại thời điểm áp dụng. Điểm hoặc quyền lợi liên quan booking bị hủy/điều chỉnh có thể được cập nhật tương ứng theo nghiệp vụ hiện có.</p></section>
+        <section><h3>8. Hành vi không được phép</h3><ul><li>Truy cập trái phép vào tài khoản hoặc hệ thống của người khác.</li><li>Can thiệp, gian lận ghế, giao dịch, mã vé hoặc điểm thưởng.</li><li>Giả mạo thông tin thanh toán hoặc phát tán mã độc.</li><li>Cố ý làm gián đoạn website hoặc sử dụng dịch vụ vào mục đích trái pháp luật.</li></ul></section>
+        <section><h3>9. Sự cố và khiếu nại</h3><p>Khi gặp sai lệch về booking, thanh toán, vé hoặc tài khoản, khách hàng có thể liên hệ qua kênh ở cuối trang và cung cấp mã booking cùng thông tin cần thiết; không gửi mật khẩu, OTP hoặc thông tin đăng nhập. Quy trình tiếp nhận và thời hạn phản hồi cần được đơn vị vận hành xác nhận.</p></section>
+        <section><h3>10. Cập nhật điều khoản</h3><p>Điều khoản có thể được cập nhật khi dịch vụ hoặc quy trình thay đổi. Mỗi phiên bản cập nhật sẽ ghi rõ số phiên bản và ngày cập nhật; thay đổi quan trọng sẽ được thông báo phù hợp.</p></section>
+    </article>
+
+    <article id="privacy" class="policy-document">
+        <header class="policy-document-heading">
+            <div><p class="eyebrow">QUYỀN RIÊNG TƯ</p><h2>Chính sách bảo mật RexCinemas</h2></div>
+            <span>Phiên bản 1.0 · Cập nhật 21/10/2026</span>
+        </header>
+        <section><h3>1. Phạm vi</h3><p>Chính sách này giải thích các nhóm dữ liệu có thể được xử lý khi sử dụng những chức năng đang có trên website.</p></section>
+        <section><h3>2. Dữ liệu hệ thống có thể xử lý</h3><ul><li><strong>Tài khoản và hồ sơ:</strong> họ tên, email, số điện thoại, ngày sinh, giới tính; tên đăng nhập, địa chỉ, ảnh đại diện, rạp yêu thích hoặc số định danh có thể được cung cấp tùy biểu mẫu/chức năng.</li><li><strong>Đặt vé:</strong> phim, rạp, suất chiếu, ghế, combo, mã booking, giá trị và trạng thái giao dịch.</li><li><strong>Thành viên:</strong> điểm, hạng, lịch sử biến động và voucher liên quan Rex Rewards.</li><li><strong>Bảo mật:</strong> cookie xác thực/CSRF cần thiết, dữ liệu phục vụ OTP và giới hạn gửi/xác minh; địa chỉ IP có thể được xử lý trong cơ chế giới hạn yêu cầu.</li><li><strong>Đối soát:</strong> mã tham chiếu, mã giao dịch, số tiền và thông tin giao dịch do SePay cung cấp khi tính năng thanh toán được bật. Không cung cấp mật khẩu ngân hàng, mã PIN hoặc OTP ngân hàng cho RexCinemas.</li></ul></section>
+        <section><h3>3. Mục đích sử dụng</h3><p>Dữ liệu được dùng để tạo và quản lý tài khoản; xác thực OTP/khôi phục mật khẩu; xử lý booking, thanh toán, vé và check-in; vận hành Rex Rewards; hỗ trợ khách hàng; và bảo vệ hệ thống, phát hiện giao dịch bất thường. Việc gửi nội dung tiếp thị không được mô tả là tính năng hiện có của hệ thống.</p></section>
+        <section><h3>4. Cookie và công nghệ cần thiết</h3><p>Website sử dụng cookie phục vụ phiên xác thực và bảo vệ yêu cầu gửi tới máy chủ. Nếu tắt cookie, đăng nhập hoặc một số thao tác có thể không hoạt động. Chính sách này không tuyên bố website đang dùng cookie quảng cáo hoặc công cụ phân tích hành vi.</p></section>
+        <section><h3>5. Nhà cung cấp dịch vụ</h3><p>Khi được cấu hình và sử dụng, dữ liệu tối thiểu cần thiết có thể được xử lý bởi nhà cung cấp gửi email, SePay phục vụ đối soát thanh toán, Cloudinary phục vụ lưu trữ ảnh, đơn vị máy chủ/cơ sở dữ liệu và nhà cung cấp tài nguyên frontend được tải từ bên ngoài.</p></section>
+        <section><h3>6. Lưu trữ và bảo vệ</h3><p>Dữ liệu được lưu trong thời gian cần thiết cho mục đích vận hành và đối soát; thời hạn cụ thể cho từng nhóm dữ liệu hiện chưa được công bố trong ứng dụng và cần được đơn vị vận hành xác định. Hệ thống có các biện pháp kỹ thuật như băm mật khẩu, kiểm soát truy cập và cookie xác thực; không có hệ thống trực tuyến nào được cam kết an toàn tuyệt đối.</p></section>
+        <section><h3>7. Yêu cầu của khách hàng</h3><p>Khách hàng có thể liên hệ theo thông tin ở cuối trang để hỏi về dữ liệu, đề nghị cập nhật hoặc gửi yêu cầu liên quan đến quyền riêng tư. Yêu cầu cần được xác minh danh tính và có thể bị giới hạn khi dữ liệu phải tiếp tục lưu để xử lý booking, giao dịch hoặc nghĩa vụ liên quan. Website hiện chưa cung cấp chức năng tự xóa tài khoản hoặc dữ liệu.</p></section>
+        <section><h3>8. Sự cố dữ liệu</h3><p>Nếu nghi ngờ tài khoản hoặc dữ liệu bị truy cập trái phép, vui lòng liên hệ theo địa chỉ ở cuối trang. Quy trình xử lý, đánh giá và thông báo sự cố cần được đơn vị vận hành thiết lập theo quy định áp dụng.</p></section>
+        <section><h3>9. Cập nhật chính sách</h3><p>Nội dung có thể được cập nhật khi thay đổi chức năng, nhà cung cấp hoặc quy trình xử lý. Bản chính thức cần thể hiện phiên bản, ngày hiệu lực và cách thông báo thay đổi.</p></section>
+        <section><h3>10. Thông tin liên hệ</h3><p><strong>Đơn vị vận hành:</strong> CHIENTRUONGBACHKHANH<br><strong>Email:</strong> <a href="mailto:quangkhanhpvt@gmail.com">quangkhanhpvt@gmail.com</a><br><strong>Địa chỉ:</strong> 01 Võ Văn Ngân, Trường Đại học Công nghệ Kỹ thuật Thành phố Hồ Chí Minh</p></section>
+    </article>
+</main>
+<div th:replace="~{fragments/footer :: footer}"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

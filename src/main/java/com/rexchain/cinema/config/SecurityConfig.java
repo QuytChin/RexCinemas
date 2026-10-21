@@ -73,7 +73,7 @@ public class SecurityConfig {
                     return authorization != null && authorization.startsWith("Bearer ");
                 }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/error", "/login", "/register", "/auth/**",
+                        .requestMatchers("/", "/error", "/login", "/register", "/policies", "/auth/**",
                                 "/css/**", "/js/**", "/images/**", "/ws/**",
                                 "/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook",
                                 "/actuator/health", "/actuator/health/**").permitAll()
@@ -82,7 +82,7 @@ public class SecurityConfig {
                         .requestMatchers("/admin/users/**", "/admin/payments/**", "/admin/transactions/**", "/admin/late-payments/**",
                                 "/admin/bookings/*/refund").hasRole("ADMIN")
                         .requestMatchers("/admin/rewards/**").hasRole("ADMIN")
-                        .requestMatchers("/admin/**").hasAnyRole("ADMIN", "CINEMA_MANAGER")
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives(

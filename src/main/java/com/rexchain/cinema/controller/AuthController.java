@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -52,7 +54,13 @@ public class AuthController {
 
     @GetMapping({"/login", "/auth/login"})
     String login(@RequestParam(required = false) String returnUrl,
-                 @RequestParam(required = false) String info, Model model) {
+                 @RequestParam(required = false) String info, Model model,
+                 Authentication authentication) {
+        if (authentication != null && authentication.isAuthenticated()
+                && !(authentication instanceof AnonymousAuthenticationToken)) {
+            return "redirect:" + (returnUrl == null || returnUrl.isBlank()
+                    ? "/profile" : safeReturnUrl(returnUrl));
+        }
         model.addAttribute("returnUrl", safeReturnUrl(returnUrl));
         model.addAttribute("info", info);
         return "auth/login";

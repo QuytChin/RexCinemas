@@ -1,13 +1,13 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org"><body><th:block th:fragment="footer">
+<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"><body><th:block th:fragment="footer">
 <footer class="rex-footer">
     <div class="container-xl py-5">
         <div class="row g-4">
-            <div class="col-lg-4"><a class="rex-brand footer-brand" th:href="@{/}" aria-label="Rex Chain Cinemas"><img class="site-logo footer-logo" th:src="@{/images/rex-chain-cinemas-logo.webp}" alt="Rex Chain Cinemas" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="site-logo-fallback" hidden>REX</span></a><p class="text-secondary mt-3 mb-0">Hệ thống quản lý và đặt vé xem phim trực tuyến theo mô hình chuỗi rạp.</p></div>
+            <div class="col-lg-4"><a class="rex-brand footer-brand" th:href="@{/}" aria-label="Rex Chain Cinemas"><img class="site-logo footer-logo" th:src="@{/images/rex-chain-cinemas-logo-header.webp}" alt="Rex Chain Cinemas" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="site-logo-fallback" hidden>REX</span></a><p class="text-secondary mt-3 mb-0">Khám phá phim hay, cập nhật lịch chiếu và đặt vé trực tuyến cho những trải nghiệm điện ảnh đáng nhớ tại RexCinemas.</p></div>
             <div class="col-6 col-lg-2"><h6>KHÁM PHÁ</h6><a th:href="@{/schedule}">Lịch chiếu</a><a th:href="@{/movies(status='now')}">Đang chiếu</a><a th:href="@{/movies(status='coming')}">Sắp chiếu</a></div>
-            <div class="col-6 col-lg-3"><h6>TÀI KHOẢN</h6><a th:href="@{/profile}">Rex Member</a><a th:href="@{/bookings}">Lịch sử đặt vé</a><a th:href="@{/auth/login}">Đăng nhập</a></div>
-            <div class="col-lg-3"><h6>CÔNG NGHỆ</h6><p class="small text-secondary">Spring Boot • Thymeleaf • JPA • JWT • WebSocket • Cloudinary</p></div>
+            <div class="col-6 col-lg-3"><h6>TÀI KHOẢN</h6><a th:href="@{/profile}">Rex Member</a><a th:href="@{/bookings}">Lịch sử đặt vé</a><a sec:authorize="!isAuthenticated()" th:href="@{/auth/login}">Đăng nhập</a><a sec:authorize="isAuthenticated()" th:href="@{/profile}">Tài khoản của tôi</a></div>
+            <div class="col-lg-3"><h6>THÔNG TIN</h6><a th:href="@{/policies#terms}">Điều khoản sử dụng</a><a th:href="@{/policies#privacy}">Chính sách bảo mật</a><p class="small text-secondary mt-3">Chọn phim yêu thích, tìm suất chiếu phù hợp và giữ chỗ chỉ với vài thao tác.</p></div>
         </div>
-        <div class="footer-bottom mt-5 pt-3"><span>© 2026 Rex Chain Cinemas</span><span>Student project • Demo environment</span></div>
+        <div class="footer-bottom mt-5 pt-3"><span>© 2026 Rex Chain Cinemas</span><span>Chọn phim hay • Đặt vé dễ dàng • Trọn vẹn cảm xúc</span></div>
     </div>
 </footer>
 <div th:replace="~{fragments/trailer-modal :: trailerModal}"></div>

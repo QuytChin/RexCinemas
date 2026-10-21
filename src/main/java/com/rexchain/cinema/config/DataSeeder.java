@@ -28,12 +28,11 @@ public class DataSeeder {
                            @Value("${app.seed.admin-password:}") String adminPassword,
                            @Value("${app.seed.enabled:false}") boolean seedEnabled,
                            @Value("${app.seed.demo-users:false}") boolean seedDemoUsers,
-                           @Value("${app.seed.demo-customer-password:}") String demoCustomerPassword,
-                           @Value("${app.seed.demo-manager-password:}") String demoManagerPassword) {
+                           @Value("${app.seed.demo-customer-password:}") String demoCustomerPassword) {
         return args -> {
             if (!seedEnabled) return;
             seedUsers(users, passwordEncoder, adminEmail, adminPassword, seedDemoUsers,
-                    demoCustomerPassword, demoManagerPassword);
+                    demoCustomerPassword);
             if (seedDemoUsers) ensureDemoMembership(users);
             seedMovies(movies);
             upgradeLegacyMovies(movies);
@@ -66,11 +65,10 @@ public class DataSeeder {
 
     private void seedUsers(UserRepository users, PasswordEncoder encoder, String adminEmail,
                            String adminPassword, boolean seedDemoUsers,
-                           String demoCustomerPassword, String demoManagerPassword) {
+                           String demoCustomerPassword) {
         if (users.count() != 0) {
             if (adminPassword != null && !adminPassword.isBlank()) upsertUser(users, encoder, adminEmail, "Rex Administrator", adminPassword, Role.ADMIN);
             if (seedDemoUsers && demoCustomerPassword != null && !demoCustomerPassword.isBlank()) upsertUser(users, encoder, "user@rexchain.vn", "Demo User", demoCustomerPassword, Role.CUSTOMER);
-            if (seedDemoUsers && demoManagerPassword != null && !demoManagerPassword.isBlank()) upsertUser(users, encoder, "manager@rexchain.vn", "Cinema Manager Demo", demoManagerPassword, Role.CINEMA_MANAGER);
             return;
         }
         if (adminPassword != null && !adminPassword.isBlank()) {
@@ -94,14 +92,6 @@ public class DataSeeder {
             users.save(customer);
         }
 
-        if (demoManagerPassword != null && !demoManagerPassword.isBlank()) {
-            User manager = new User();
-            manager.setFullName("Cinema Manager Demo");
-            manager.setEmail("manager@rexchain.vn");
-            manager.setPassword(encoder.encode(demoManagerPassword));
-            manager.setRole(Role.CINEMA_MANAGER);
-            users.save(manager);
-        }
     }
 
     private void upsertUser(UserRepository users, PasswordEncoder encoder, String email, String name, String password, Role role) {

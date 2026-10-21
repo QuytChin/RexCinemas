@@ -189,8 +189,8 @@ class AdminPaginationIntegrationTest {
 
     @Test
     @WithMockUser(roles = "CINEMA_MANAGER")
-    void managerCanRenderMoviesButNotUsers() throws Exception {
-        mvc.perform(get("/admin/movies")).andExpect(status().isOk());
+    void legacyCinemaManagerRoleCannotAccessAdminPages() throws Exception {
+        mvc.perform(get("/admin/movies")).andExpect(status().isForbidden());
         mvc.perform(get("/admin/users")).andExpect(status().isForbidden());
     }
 

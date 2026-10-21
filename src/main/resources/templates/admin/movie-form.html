@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
+<link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Form phim - Rex Cinemas</title>
@@ -12,6 +13,7 @@
 <main class="container-fluid admin-page-wrap pt-page pb-5">
     <div class="mb-4" th:replace="~{fragments/admin-nav :: adminNav}"></div>
     <header class="ui-page-header"><div><p class="eyebrow">MOVIE MANAGEMENT</p><h1 th:text="${movie.id == null ? 'Thêm phim mới' : 'Cập nhật phim'}"></h1></div><a class="btn btn-outline-light" th:href="@{/admin/movies}">Quay lại</a></header>
+    <div class="alert alert-danger mt-3" role="alert" th:if="${error}" th:text="${error}"></div>
     <form class="admin-form mt-4" th:action="@{/admin/movies/save}" method="post" enctype="multipart/form-data">
         <input type="hidden" name="id" th:value="${movie.id}">
         <div class="row g-3">
@@ -21,7 +23,7 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Thời lượng (phút)</label>
-                <input class="form-control" type="number" name="durationMinutes" th:value="${movie.durationMinutes}" required>
+                <input class="form-control" type="number" name="durationMinutes" min="1" max="600" th:value="${movie.durationMinutes}" required>
             </div>
             <div class="col-12">
                 <label class="form-label">Mô tả phim</label>

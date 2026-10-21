@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
+<link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Rex Rewards | Quản trị</title>
@@ -200,10 +201,10 @@
                         <tr th:each="entry : ${entries}">
                             <td class="text-nowrap" th:text="${#temporals.format(entry.createdAt, 'dd/MM/yyyy HH:mm')}"></td>
                             <td th:text="${entry.user.fullName ?: ('Khách #' + entry.user.id)}"></td>
-                            <td th:text="${@uiText.label(entry.transactionType)}"></td>
+                            <td><span th:text="${@uiText.label(entry.transactionType)}"></span><small class="d-block text-secondary" th:if="${entry.transactionType.name() == 'MIGRATION_OPENING'}">Điểm được chuyển từ số dư cũ</small></td>
                             <td class="text-nowrap" th:text="${#numbers.formatInteger(entry.pointsDelta, 1, 'POINT')}"></td>
                             <td class="text-nowrap" th:text="${#numbers.formatInteger(entry.availableAfter, 1, 'POINT')}"></td>
-                            <td class="rewards-ledger-reference"><span class="rewards-reference-text" th:text="${entry.reference}" th:attr="title=${entry.reference}"></span></td>
+                            <td class="rewards-ledger-reference"><span class="rewards-reference-text" th:text="${entry.transactionType.name() == 'MIGRATION_OPENING' ? 'Số dư ban đầu' : entry.reference}" th:attr="title=${entry.reference}"></span></td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(entries)}"><td colspan="6" class="text-center text-secondary py-4">Chưa có ledger.</td></tr>
                         </tbody>

@@ -27,11 +27,12 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AuthController.class)
+@WebMvcTest({AuthController.class, PolicyController.class})
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 @TestPropertySource(properties = "server.forward-headers-strategy=framework")
 class AuthControllerSecurityTest {
@@ -74,6 +75,24 @@ class AuthControllerSecurityTest {
                 .andExpect(content().string(containsString("name=\"_csrf\"")))
                 .andExpect(content().string(not(containsString("Please sign in"))))
                 .andExpect(header().doesNotExist("WWW-Authenticate"));
+    }
+
+    @Test
+    void approvedPoliciesArePublicAndRegistrationLinksHaveTargets() throws Exception {
+        mockMvc.perform(get("/policies"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("policies"))
+                .andExpect(content().string(containsString("id=\"terms\"")))
+                .andExpect(content().string(containsString("id=\"privacy\"")))
+                .andExpect(content().string(containsString("Phiên bản 1.0")))
+                .andExpect(content().string(not(containsString("dự thảo"))));
+    }
+
+    @Test
+    void signedInUserOpeningLoginIsSentToProfile() throws Exception {
+        mockMvc.perform(get("/auth/login").with(user("member").roles("CUSTOMER")))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/profile"));
     }
 
     @Test

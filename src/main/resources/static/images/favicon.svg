@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="RexCinemas">
+  <rect width="512" height="512" fill="#071331"/>
+  <!-- The R is built as a compact cinema ticket: stem, reel holes, play cut-out and ticket notch. -->
+  <path fill="#FFCB32" d="M108 72h120c119 0 190 54 190 147 0 66-35 109-90 130l116 91H323L218 352h-8v88H108V72Zm102 91v101h25c49 0 76-15 76-51 0-34-27-50-76-50h-25Z"/>
+  <path fill="#071331" d="M247 181v64l56-32-56-32Z"/>
+  <rect x="132" y="117" width="28" height="28" rx="3" fill="#071331"/>
+  <rect x="132" y="166" width="28" height="28" rx="3" fill="#071331"/>
+  <rect x="132" y="315" width="28" height="28" rx="3" fill="#071331"/>
+  <rect x="132" y="364" width="28" height="28" rx="3" fill="#071331"/>
+  <circle cx="413" cy="256" r="28" fill="#071331"/>
+</svg>

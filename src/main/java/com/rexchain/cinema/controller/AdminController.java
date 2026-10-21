@@ -269,7 +269,8 @@ public class AdminController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate releaseDate,
             @RequestParam(required = false) String posterUrl,
             @RequestParam(required = false) String trailerUrl,
-            @RequestParam(required = false) MultipartFile posterFile) throws Exception {
+            @RequestParam(required = false) MultipartFile posterFile, Model model) throws Exception {
+        try {
         title = requiredText(title, "Tên phim", 180);
         description = requiredText(description, "Mô tả phim", 10_000);
         if (durationMinutes < 1 || durationMinutes > 600)
@@ -294,6 +295,25 @@ public class AdminController {
             movie.setPosterUrl(posterUrl);
         movies.save(movie);
         return "redirect:/admin/movies";
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            Movie draft = new Movie();
+            draft.setId(id);
+            draft.setTitle(title);
+            draft.setDescription(description);
+            draft.setDurationMinutes(durationMinutes);
+            draft.setAgeRating(ageRating);
+            draft.setStatus(status);
+            draft.setGenre(genre);
+            draft.setLanguage(language);
+            draft.setReleaseDate(releaseDate);
+            draft.setPosterUrl(posterUrl);
+            draft.setTrailerUrl(trailerUrl);
+            model.addAttribute("movie", draft);
+            model.addAttribute("ageRatings", AgeRating.values());
+            model.addAttribute("movieStatuses", MovieStatus.values());
+            model.addAttribute("error", ex.getMessage());
+            return "admin/movie-form";
+        }
     }
 
     @PostMapping("/movies/{id}/toggle")
@@ -555,7 +575,7 @@ public class AdminController {
         var options = new AdminListSupport.Options("fullName,email,username,phone", "role", "createdAt", "email", "fullName", "id")
                 .withLabels("Vai trò", "Tên, email, số điện thoại");
         Page<User> page = lists.query(users, params, options);
-        display(model, request, params, page, options, "users", Role.values());
+        display(model, request, params, page, options, "users", List.of(Role.CUSTOMER, Role.ADMIN));
         java.util.Map<Long, MembershipTier> memberTiers = new java.util.HashMap<>();
         var policies = membershipService.tierPolicies();
         page.forEach(user -> memberTiers.put(user.getId(), policies.stream()
@@ -563,7 +583,7 @@ public class AdminController {
                 .max(java.util.Comparator.comparingInt(policy -> policy.getTier().ordinal()))
                 .orElseThrow().getTier()));
         model.addAttribute("memberTiers", memberTiers);
-        model.addAttribute("roles", Role.values());
+        model.addAttribute("roles", List.of(Role.CUSTOMER, Role.ADMIN));
         return "admin/users";
     }
 
@@ -577,6 +597,9 @@ public class AdminController {
 
     @PostMapping("/users/{id}/role")
     String roleUser(@PathVariable Long id, @RequestParam Role role) {
+        if (role != Role.CUSTOMER && role != Role.ADMIN) {
+            throw new IllegalArgumentException("Vai trò này đã ngừng hỗ trợ");
+        }
         User user = users.findById(id).orElseThrow();
         user.setRole(role);
         users.save(user);
