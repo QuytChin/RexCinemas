@@ -11,24 +11,77 @@
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container-fluid admin-page-wrap pt-page pb-5">
   <div class="admin-title">
-    <div><p class="eyebrow">ADMIN ONLY</p><h1>Người dùng &amp; Rex Member</h1></div>
+    <div>
+      <p class="eyebrow">QUẢN TRỊ NHÂN SỰ &amp; THÀNH VIÊN</p>
+      <h1>Người dùng &amp; Phân quyền rạp</h1>
+      <p th:if="${scopedSupervisorCinema != null}" class="text-warning small mb-0">
+        Bạn đang quản lý nhân viên tại cụm rạp: <strong th:text="${scopedSupervisorCinema.name}"></strong>
+      </p>
+    </div>
     <div th:replace="~{fragments/admin-nav :: adminNav}"></div>
   </div>
+
+  <div th:if="${success}" class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+    <span th:text="${success}"></span>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  <div th:if="${error}" class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+    <span th:text="${error}"></span>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+
   <div th:replace="~{fragments/admin-list :: filters}"></div>
   <div class="table-responsive">
     <table class="table table-dark table-hover align-middle">
-      <thead><tr><th>Mã</th><th>Họ tên</th><th>Email</th><th>Hạng</th><th>Điểm</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Mã</th>
+          <th>Họ tên</th>
+          <th>Email</th>
+          <th>Hạng</th>
+          <th>Điểm</th>
+          <th>Cụm rạp trực thuộc</th>
+          <th style="min-width: 240px;">Phân quyền &amp; Gán rạp</th>
+          <th>Trạng thái</th>
+          <th>Thao tác</th>
+        </tr>
+      </thead>
       <tbody>
       <tr th:each="u:${users}">
-        <td th:text="${u.id}"></td><td th:text="${u.fullName}"></td><td th:text="${u.email}"></td>
+        <td th:text="${u.id}"></td>
+        <td class="fw-semibold" th:text="${u.fullName}"></td>
+        <td th:text="${u.email}"></td>
         <td><span class="badge text-bg-dark" th:text="${@uiText.label(memberTiers[u.id])}"></span></td>
-        <td><strong th:text="${u.loyaltyPoints}"></strong><div class="small text-secondary" th:text="${u.lifetimePoints+' điểm tích lũy'}"></div></td>
-        <td><form th:action="@{'/admin/users/'+${u.id}+'/role'}" method="post" class="d-flex gap-2">
-          <select name="role" class="form-select form-select-sm" aria-label="Vai trò"><option th:each="r:${roles}" th:value="${r}" th:text="${@uiText.label(r)}" th:selected="${r==u.role}"></option></select>
-          <button class="btn btn-outline-light btn-sm">Lưu</button>
-        </form></td>
-        <td><span class="badge" th:classappend="${u.enabled?' text-bg-success':' text-bg-secondary'}" th:text="${u.enabled?'Hoạt động':'Đã khóa'}"></span></td>
-        <td><form th:action="@{'/admin/users/'+${u.id}+'/toggle'}" method="post"><button class="btn btn-sm" th:classappend="${u.enabled?' btn-outline-danger':' btn-outline-success'}" th:text="${u.enabled?'Khóa':'Mở khóa'}"></button></form></td>
+        <td>
+          <strong th:text="${u.loyaltyPoints}"></strong>
+          <div class="small text-secondary" th:text="${u.lifetimePoints+' điểm tích lũy'}"></div>
+        </td>
+        <td>
+          <span th:if="${u.cinema!=null}" class="badge text-bg-warning text-dark fw-bold" th:text="${u.cinema.name}"></span>
+          <span th:if="${u.cinema==null and u.role.name() == 'CINEMA_MANAGER'}" class="badge text-bg-info">Toàn chuỗi (Tổng QL)</span>
+          <span th:if="${u.cinema==null and u.role.name() == 'ADMIN'}" class="badge text-bg-danger">Hệ thống kỹ thuật</span>
+          <span th:if="${u.cinema==null and u.role.name() == 'CUSTOMER'}" class="text-secondary small">Khách hàng</span>
+        </td>
+        <td>
+          <form th:action="@{'/admin/users/'+${u.id}+'/role'}" method="post" class="d-flex flex-column gap-1">
+            <select name="role" class="form-select form-select-sm" aria-label="Vai trò">
+              <option th:each="r:${roles}" th:value="${r}" th:text="${@uiText.label(r)}" th:selected="${r==u.role}"></option>
+            </select>
+            <select name="cinemaId" class="form-select form-select-sm" aria-label="Cụm rạp gán">
+              <option value="">-- Chọn rạp (Bắt buộc cho Sup/Staff) --</option>
+              <option th:each="c:${cinemas}" th:value="${c.id}" th:text="${c.name}" th:selected="${u.cinema!=null and u.cinema.id==c.id}"></option>
+            </select>
+            <button class="btn btn-outline-light btn-sm w-100">Cập nhật quyền</button>
+          </form>
+        </td>
+        <td>
+          <span class="badge" th:classappend="${u.enabled?' text-bg-success':' text-bg-secondary'}" th:text="${u.enabled?'Hoạt động':'Đã khóa'}"></span>
+        </td>
+        <td>
+          <form th:action="@{'/admin/users/'+${u.id}+'/toggle'}" method="post">
+            <button class="btn btn-sm" th:classappend="${u.enabled?' btn-outline-danger':' btn-outline-success'}" th:text="${u.enabled?'Khóa':'Mở khóa'}"></button>
+          </form>
+        </td>
       </tr>
       </tbody>
     </table>

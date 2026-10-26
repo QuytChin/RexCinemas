@@ -13,28 +13,47 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import com.rexchain.cinema.entity.Role;
+import com.rexchain.cinema.entity.User;
+import com.rexchain.cinema.repository.UserRepository;
+
 @Controller
 @RequestMapping("/admin/checkin")
 public class CheckInController {
     private final BookingService bookingService;
     private final BookingRepository bookings;
+    private final UserRepository users;
     private final AdminListSupport lists;
 
-    public CheckInController(BookingService bookingService, BookingRepository bookings, AdminListSupport lists) {
+    public CheckInController(BookingService bookingService, BookingRepository bookings, UserRepository users, AdminListSupport lists) {
         this.bookingService = bookingService;
         this.bookings = bookings;
+        this.users = users;
         this.lists = lists;
     }
 
     @GetMapping
-    String page(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+    String page(@RequestParam Map<String, String> params, HttpServletRequest request, Authentication auth, Model model) {
         var options = new AdminListSupport.Options("bookingCode,user.email", null,
                 new String[]{"checkedInAt", "createdAt", "id"},
                 new String[]{"user", "showtime.movie", "showtime.auditorium.cinema"})
                 .withLabels("Trạng thái", "Mã booking hoặc email khách")
                 .withoutSortControls();
-        var page = lists.query(bookings, params, options, (root, query, cb) -> cb.isNotNull(root.get("checkedInAt")));
+        User currentUser = (auth != null && auth.getName() != null)
+                ? users.findByEmailIgnoreCase(auth.getName()).orElse(null)
+                : null;
+        var page = lists.query(bookings, params, options, (root, query, cb) -> {
+            var predicate = cb.isNotNull(root.get("checkedInAt"));
+            if (currentUser != null && (currentUser.getRole() == Role.STAFF || currentUser.getRole() == Role.SUPERVISOR) && currentUser.getCinema() != null) {
+                var cinemaId = currentUser.getCinema().getId();
+                return cb.and(predicate, cb.equal(root.get("showtime").get("auditorium").get("cinema").get("id"), cinemaId));
+            }
+            return predicate;
+        });
         model.addAttribute("recentCheckins", page.getContent());
+        if (currentUser != null && currentUser.getCinema() != null) {
+            model.addAttribute("operatorCinema", currentUser.getCinema());
+        }
         lists.present(model, page, params, options, request);
         return "admin/checkin";
     }

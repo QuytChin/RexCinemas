@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "app_users", uniqueConstraints =
         @UniqueConstraint(name = "uk_app_users_email", columnNames = "email"), indexes = {
-        @Index(name = "idx_app_users_favorite_cinema", columnList = "favorite_cinema_id")
+        @Index(name = "idx_app_users_favorite_cinema", columnList = "favorite_cinema_id"),
+        @Index(name = "idx_app_users_cinema", columnList = "cinema_id")
 })
 public class User {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,6 +27,9 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "favorite_cinema_id")
     private Cinema favoriteCinema;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cinema_id")
+    private Cinema cinema;
     @Column(nullable = false)
     private String password;
     @Column(length = 30)
@@ -72,6 +76,8 @@ public class User {
     public void setNationalId(String nationalId){ this.nationalId = nationalId; }
     public Cinema getFavoriteCinema(){ return favoriteCinema; }
     public void setFavoriteCinema(Cinema favoriteCinema){ this.favoriteCinema = favoriteCinema; }
+    public Cinema getCinema(){ return cinema; }
+    public void setCinema(Cinema cinema){ this.cinema = cinema; }
     public String getPassword(){ return password; }
     public void setPassword(String password){ this.password = password; }
     public String getPhone(){ return phone; }

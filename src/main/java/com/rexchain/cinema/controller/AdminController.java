@@ -89,7 +89,16 @@ public class AdminController {
             @RequestParam(required = false) Long cinemaId,
             @RequestParam(required = false) Long movieId,
             @RequestParam(required = false) PaymentMethod paymentMethod,
+            Authentication auth,
             Model model) {
+        User currentUser = currentUser(auth);
+        if (currentUser != null && currentUser.getRole() == Role.STAFF) {
+            return "redirect:/admin/checkin";
+        }
+        if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
+            cinemaId = currentUser.getCinema().getId();
+            model.addAttribute("lockedCinema", currentUser.getCinema());
+        }
         dashboardService.populate(model, from, to, cinemaId, movieId, paymentMethod);
         return "admin/dashboard";
     }
@@ -436,13 +445,24 @@ public class AdminController {
 
     @GetMapping("/showtimes")
     String showtimes(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
-                     HttpServletRequest request, Model model) {
+                     HttpServletRequest request, Authentication auth, Model model) {
+        User currentUser = currentUser(auth);
         var options = new AdminListSupport.Options("movie.title,auditorium.name", "active",
                 new String[]{"startTime", "basePrice", "id"}, new String[]{"movie", "auditorium.cinema"})
                 .withLabels("Hiển thị", "Tên phim, tên phòng");
-        display(model, request, params, lists.query(showtimes, params, options), options, "showtimes", "true", "false");
+        Page<Showtime> page;
+        if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
+            Long cinemaId = currentUser.getCinema().getId();
+            page = lists.query(showtimes, params, options, (root, query, cb) ->
+                    cb.equal(root.get("auditorium").get("cinema").get("id"), cinemaId));
+            model.addAttribute("auditoriums", auditoriums.findByCinemaIdOrderByNameAsc(cinemaId));
+            model.addAttribute("scopedSupervisorCinema", currentUser.getCinema());
+        } else {
+            page = lists.query(showtimes, params, options);
+            model.addAttribute("auditoriums", auditoriums.findAll());
+        }
+        display(model, request, params, page, options, "showtimes", "true", "false");
         model.addAttribute("movies", movies.findAll());
-        model.addAttribute("auditoriums", auditoriums.findAll());
         model.addAttribute("editShowtime",
                 edit == null ? new Showtime() : showtimes.findById(edit).orElse(new Showtime()));
         model.addAttribute("now", LocalDateTime.now());
@@ -456,16 +476,28 @@ public class AdminController {
             @RequestParam Long auditoriumId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
             @RequestParam BigDecimal basePrice,
+            Authentication auth,
             RedirectAttributes redirect) {
         try {
+            User currentUser = currentUser(auth);
+            Auditorium auditorium = auditoriums.findById(auditoriumId).orElseThrow();
+            if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
+                if (!auditorium.getCinema().getId().equals(currentUser.getCinema().getId())) {
+                    throw new IllegalStateException("Giám sát viên chỉ có quyền tạo suất chiếu tại cụm rạp " + currentUser.getCinema().getName());
+                }
+            }
             boolean create = id == null;
             Showtime showtime = create ? new Showtime() : showtimes.findById(id).orElseThrow();
+            if (!create && currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
+                if (!showtime.getAuditorium().getCinema().getId().equals(currentUser.getCinema().getId())) {
+                    throw new IllegalStateException("Bạn không có quyền chỉnh sửa suất chiếu của cụm rạp khác!");
+                }
+            }
             if (!create && bookings.existsByShowtimeIdAndStatusNot(id, BookingStatus.CANCELLED))
                 throw new IllegalStateException(
                         "Suất chiếu đã có vé bán ra nên không thể đổi giờ hoặc giá. Bạn có thể ẩn suất để ngừng bán thêm.");
             if (create) {
                 Movie movie = movies.findById(movieId).orElseThrow();
-                Auditorium auditorium = auditoriums.findById(auditoriumId).orElseThrow();
                 if (!movie.isActive())
                     throw new IllegalArgumentException("Phim đang bị ẩn");
                 if (!auditorium.getCinema().isActive())
@@ -530,11 +562,18 @@ public class AdminController {
 
     @GetMapping("/bookings")
     @Transactional(readOnly = true)
-    String bookings(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+    String bookings(@RequestParam Map<String, String> params, HttpServletRequest request, Authentication auth, Model model) {
+        User currentUser = currentUser(auth);
+        Long scopedCinemaId = (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null)
+                ? currentUser.getCinema().getId()
+                : null;
         var options = new AdminListSupport.Options("bookingCode,user.email,user.fullName,showtime.movie.title", "status",
                 new String[]{"createdAt", "totalAmount", "status", "id"}, new String[]{"user", "showtime.movie", "showtime.auditorium.cinema"})
                 .withLabels("Trạng thái booking", "Mã booking, email, tên khách, tên phim");
-        display(model, request, params, bookingPage(params, options), options, "bookings", BookingStatus.values());
+        display(model, request, params, bookingPage(params, options, scopedCinemaId), options, "bookings", BookingStatus.values());
+        if (scopedCinemaId != null) {
+            model.addAttribute("scopedSupervisorCinema", currentUser.getCinema());
+        }
         return "admin/bookings";
     }
 
@@ -571,11 +610,22 @@ public class AdminController {
 
     @GetMapping("/users")
     @Transactional(readOnly = true)
-    String users(@RequestParam Map<String, String> params, HttpServletRequest request, Model model) {
+    String users(@RequestParam Map<String, String> params, HttpServletRequest request, Authentication auth, Model model) {
+        User currentUser = currentUser(auth);
         var options = new AdminListSupport.Options("fullName,email,username,phone", "role", "createdAt", "email", "fullName", "id")
                 .withLabels("Vai trò", "Tên, email, số điện thoại");
-        Page<User> page = lists.query(users, params, options);
-        display(model, request, params, page, options, "users", List.of(Role.CUSTOMER, Role.ADMIN));
+        Page<User> page;
+        if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
+            Long cinemaId = currentUser.getCinema().getId();
+            page = lists.query(users, params, options, (root, query, cb) ->
+                    cb.equal(root.get("cinema").get("id"), cinemaId));
+            model.addAttribute("roles", List.of(Role.STAFF));
+            model.addAttribute("scopedSupervisorCinema", currentUser.getCinema());
+        } else {
+            page = lists.query(users, params, options);
+            model.addAttribute("roles", List.of(Role.CUSTOMER, Role.STAFF, Role.SUPERVISOR, Role.CINEMA_MANAGER, Role.ADMIN));
+        }
+        display(model, request, params, page, options, "users", List.of(Role.CUSTOMER, Role.STAFF, Role.SUPERVISOR, Role.CINEMA_MANAGER, Role.ADMIN));
         java.util.Map<Long, MembershipTier> memberTiers = new java.util.HashMap<>();
         var policies = membershipService.tierPolicies();
         page.forEach(user -> memberTiers.put(user.getId(), policies.stream()
@@ -583,7 +633,7 @@ public class AdminController {
                 .max(java.util.Comparator.comparingInt(policy -> policy.getTier().ordinal()))
                 .orElseThrow().getTier()));
         model.addAttribute("memberTiers", memberTiers);
-        model.addAttribute("roles", List.of(Role.CUSTOMER, Role.ADMIN));
+        model.addAttribute("cinemas", cinemas.findAll());
         return "admin/users";
     }
 
@@ -596,13 +646,54 @@ public class AdminController {
     }
 
     @PostMapping("/users/{id}/role")
-    String roleUser(@PathVariable Long id, @RequestParam Role role) {
-        if (role != Role.CUSTOMER && role != Role.ADMIN) {
-            throw new IllegalArgumentException("Vai trò này đã ngừng hỗ trợ");
+    String roleUser(@PathVariable Long id, @RequestParam Role role,
+                    @RequestParam(required = false) Long cinemaId,
+                    Authentication auth,
+                    RedirectAttributes redirect) {
+        try {
+            User currentUser = currentUser(auth);
+            User user = users.findById(id).orElseThrow();
+
+            if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR) {
+                if (role != Role.STAFF) {
+                    throw new IllegalArgumentException("Giám sát rạp chỉ có quyền phân công vai trò Nhân viên (STAFF)!");
+                }
+                if (currentUser.getCinema() == null) {
+                    throw new IllegalStateException("Tài khoản giám sát chưa được gán vào cụm rạp nào!");
+                }
+                cinemaId = currentUser.getCinema().getId();
+            }
+
+            if (role == Role.SUPERVISOR) {
+                if (cinemaId == null) {
+                    throw new IllegalArgumentException("Vui lòng chọn cụm rạp cho Giám sát viên (SUPERVISOR)!");
+                }
+                long currentSups = users.countByCinemaIdAndRoleAndEnabledTrue(cinemaId, Role.SUPERVISOR);
+                boolean isAlreadySupAtThisCinema = (user.getRole() == Role.SUPERVISOR
+                        && user.getCinema() != null
+                        && user.getCinema().getId().equals(cinemaId));
+                if (currentSups >= 3 && !isAlreadySupAtThisCinema) {
+                    Cinema cinema = cinemas.findById(cinemaId).orElseThrow();
+                    throw new IllegalArgumentException("Cụm rạp " + cinema.getName() + " đã đạt tối đa 3 Giám sát viên (Supervisor)!");
+                }
+                Cinema cinema = cinemas.findById(cinemaId).orElseThrow();
+                user.setCinema(cinema);
+            } else if (role == Role.STAFF) {
+                if (cinemaId == null) {
+                    throw new IllegalArgumentException("Vui lòng chọn cụm rạp cho Nhân viên (STAFF)!");
+                }
+                Cinema cinema = cinemas.findById(cinemaId).orElseThrow();
+                user.setCinema(cinema);
+            } else {
+                user.setCinema(null);
+            }
+
+            user.setRole(role);
+            users.save(user);
+            redirect.addFlashAttribute("success", "Đã cập nhật vai trò " + role.name() + " cho " + user.getFullName());
+        } catch (Exception ex) {
+            redirect.addFlashAttribute("error", ex.getMessage());
         }
-        User user = users.findById(id).orElseThrow();
-        user.setRole(role);
-        users.save(user);
         return "redirect:/admin/users";
     }
 
@@ -720,9 +811,24 @@ public class AdminController {
     }
 
     private Page<Booking> bookingPage(Map<String, String> params, AdminListSupport.Options options) {
-        Page<Booking> page = lists.query(bookings, params, options);
+        return bookingPage(params, options, null);
+    }
+
+    private Page<Booking> bookingPage(Map<String, String> params, AdminListSupport.Options options, Long scopedCinemaId) {
+        Page<Booking> page;
+        if (scopedCinemaId != null) {
+            page = lists.query(bookings, params, options, (root, query, cb) ->
+                    cb.equal(root.get("showtime").get("auditorium").get("cinema").get("id"), scopedCinemaId));
+        } else {
+            page = lists.query(bookings, params, options);
+        }
         if (page.hasContent()) bookings.loadSeatsForPage(page.getContent().stream().map(Booking::getId).toList());
         return page;
+    }
+
+    private User currentUser(Authentication auth) {
+        if (auth == null || auth.getName() == null) return null;
+        return users.findByEmailIgnoreCase(auth.getName()).orElse(null);
     }
 
     private void display(Model model, HttpServletRequest request, Map<String, String> params,

@@ -10,7 +10,13 @@
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main class="container-fluid admin-page-wrap pt-page pb-5">
-    <div class="admin-title"><div><p class="eyebrow">KIỂM SOÁT VÉ</p><h1>Quét vé QR</h1></div><div th:replace="~{fragments/admin-nav :: adminNav}"></div></div>
+    <div class="admin-title">
+        <div>
+            <p class="eyebrow">KIỂM SOÁT VÉ · <span th:if="${operatorCinema != null}" th:text="${operatorCinema.name}" class="text-warning"></span><span th:if="${operatorCinema == null}" class="text-info">TOÀN HỆ THỐNG</span></p>
+            <h1>Quét vé QR</h1>
+        </div>
+        <div th:replace="~{fragments/admin-nav :: adminNav}"></div>
+    </div>
 
     <div class="row g-4 mt-2">
         <div class="col-xl-7">

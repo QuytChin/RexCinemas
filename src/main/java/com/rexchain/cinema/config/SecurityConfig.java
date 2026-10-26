@@ -79,10 +79,13 @@ public class SecurityConfig {
                                 "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/movies/**", "/schedule", "/articles/**",
                                 "/api/movies/**", "/api/showtimes/*/seats", "/api/snacks").permitAll()
-                        .requestMatchers("/admin/users/**", "/admin/payments/**", "/admin/transactions/**", "/admin/late-payments/**",
-                                "/admin/bookings/*/refund").hasRole("ADMIN")
-                        .requestMatchers("/admin/rewards/**").hasRole("ADMIN")
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/checkin/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR", "STAFF")
+                        .requestMatchers("/admin/bookings/*/refund").hasAnyRole("ADMIN", "CINEMA_MANAGER")
+                        .requestMatchers("/admin/bookings/**", "/admin/showtimes/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR")
+                        .requestMatchers("/admin/users/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR")
+                        .requestMatchers("/admin/payments/**", "/admin/late-payments/**", "/admin/rewards/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/transactions/**").hasAnyRole("ADMIN", "CINEMA_MANAGER")
+                        .requestMatchers("/admin/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR", "STAFF")
                         .anyRequest().authenticated())
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives(

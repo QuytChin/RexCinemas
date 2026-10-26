@@ -24,6 +24,9 @@ public interface UserRepository extends JpaRepository<User,Long>, org.springfram
     boolean existsByPhone(String phone);
     boolean existsByNationalId(String nationalId);
     List<User> findByRole(Role role);
+    long countByCinemaIdAndRoleAndEnabledTrue(Long cinemaId, Role role);
+    List<User> findByCinemaIdAndRole(Long cinemaId, Role role);
+    List<User> findByCinemaId(Long cinemaId);
 
     @Query("select u from User u where lower(u.email) = lower(:identifier) or lower(u.username) = lower(:identifier) or u.phone = :identifier")
     List<User> findAllByLoginIdentifier(@Param("identifier") String identifier);

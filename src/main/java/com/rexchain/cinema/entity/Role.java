@@ -1,4 +1,9 @@
 package com.rexchain.cinema.entity;
 
-/** CINEMA_MANAGER is retained only so existing database rows can still be read; it has no permissions. */
-public enum Role { CUSTOMER, CINEMA_MANAGER, ADMIN }
+public enum Role {
+    CUSTOMER, // Khách hàng
+    STAFF, // Nhân viên soát vé tại rạp
+    SUPERVISOR, // Giám sát rạp (tối đa 3 người / rạp)
+    CINEMA_MANAGER, // Tổng quản trị vận hành chuỗi
+    ADMIN // Quản trị viên hệ thống kỹ thuật
+}

@@ -6,6 +6,9 @@ import com.rexchain.cinema.entity.BookingSeat;
 import com.rexchain.cinema.entity.BookingStatus;
 import com.rexchain.cinema.repository.BookingRepository;
 import com.rexchain.cinema.repository.BookingSeatRepository;
+import com.rexchain.cinema.entity.Role;
+import com.rexchain.cinema.entity.User;
+import com.rexchain.cinema.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,14 +29,21 @@ public class CheckInService {
 
     private final BookingRepository bookings;
     private final BookingSeatRepository bookingSeats;
+    private final UserRepository users;
 
     public CheckInService(BookingRepository bookings, BookingSeatRepository bookingSeats) {
+        this(bookings, bookingSeats, null);
+    }
+
+    public CheckInService(BookingRepository bookings, BookingSeatRepository bookingSeats, UserRepository users) {
         this.bookings = bookings;
         this.bookingSeats = bookingSeats;
+        this.users = users;
     }
 
     /**
-     * Lấy chuỗi dữ liệu nhúng vào mã QR tổng của Booking (REXCINEMAS:TICKET:<token>).
+     * Lấy chuỗi dữ liệu nhúng vào mã QR tổng của Booking
+     * (REXCINEMAS:TICKET:<token>).
      */
     @Transactional
     public String qrPayloadFor(Long bookingId) {
@@ -120,8 +130,9 @@ public class CheckInService {
 
     private CheckInResult checkInSingleSeat(BookingSeat seat, LocalDateTime now, String operatorEmail) {
         Booking booking = bookings.findByIdForUpdate(seat.getBooking().getId()).orElseThrow();
-        CheckInResult statusCheck = validateBookingStatus(booking, now);
-        if (statusCheck != null) return statusCheck;
+        CheckInResult statusCheck = validateBookingStatus(booking, now, operatorEmail);
+        if (statusCheck != null)
+            return statusCheck;
 
         if (seat.isCheckedIn()) {
             return checkInSeatResult(booking, seat, false, "ALREADY_CHECKED_IN",
@@ -150,8 +161,9 @@ public class CheckInService {
 
     private CheckInResult checkInGroupBooking(Booking booking, LocalDateTime now, String operatorEmail) {
         booking = bookings.findByIdForUpdate(booking.getId()).orElseThrow();
-        CheckInResult statusCheck = validateBookingStatus(booking, now);
-        if (statusCheck != null) return statusCheck;
+        CheckInResult statusCheck = validateBookingStatus(booking, now, operatorEmail);
+        if (statusCheck != null)
+            return statusCheck;
 
         // Claim the group ticket first. Exactly one gate can change NULL -> checked-in.
         int claimed = bookings.atomicCheckIn(booking.getId(), now, operatorEmail);
@@ -180,7 +192,23 @@ public class CheckInService {
                 now.format(DATE_TIME), operatorEmail);
     }
 
-    private CheckInResult validateBookingStatus(Booking booking, LocalDateTime now) {
+    private CheckInResult validateBookingStatus(Booking booking, LocalDateTime now, String operatorEmail) {
+        if (users != null && operatorEmail != null && !operatorEmail.isBlank()) {
+            User operator = users.findByEmailIgnoreCase(operatorEmail).orElse(null);
+            if (operator != null && (operator.getRole() == Role.STAFF || operator.getRole() == Role.SUPERVISOR)) {
+                if (operator.getCinema() != null) {
+                    Long ticketCinemaId = booking.getShowtime().getAuditorium().getCinema().getId();
+                    if (!operator.getCinema().getId().equals(ticketCinemaId)) {
+                        String ticketCinemaName = booking.getShowtime().getAuditorium().getCinema().getName();
+                        String opCinemaName = operator.getCinema().getName();
+                        return emptyResult(false, "WRONG_CINEMA",
+                                "Vé này thuộc cụm rạp " + ticketCinemaName + ". Bạn chỉ có quyền soát vé tại cụm rạp "
+                                        + opCinemaName + "!");
+                    }
+                }
+            }
+        }
+
         if (booking.getStatus() == BookingStatus.PENDING)
             return emptyResult(false, "PENDING", "Vé chưa thanh toán / chưa được xác nhận");
         if (booking.getStatus() == BookingStatus.CANCELLED)
@@ -205,7 +233,8 @@ public class CheckInService {
         return null;
     }
 
-    private CheckInResult checkInSeatResult(Booking booking, BookingSeat seat, boolean success, String status, String message) {
+    private CheckInResult checkInSeatResult(Booking booking, BookingSeat seat, boolean success, String status,
+            String message) {
         return new CheckInResult(
                 success, status, message,
                 seat.getTicketCode() != null ? seat.getTicketCode() : booking.getBookingCode(),
@@ -216,8 +245,7 @@ public class CheckInService {
                 seat.getSeatLabel(),
                 booking.getUser().getFullName(),
                 seat.getCheckedInAt() == null ? null : seat.getCheckedInAt().format(DATE_TIME),
-                seat.getCheckedInBy()
-        );
+                seat.getCheckedInBy());
     }
 
     public String newQrToken() {

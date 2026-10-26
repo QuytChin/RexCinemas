@@ -48,12 +48,16 @@ ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
 -- 4. USERS (Mat khau mac dinh cho tat ca la '1' hoac '123456')
 -- BCrypt hash cua mat khau '1': $2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.
 INSERT INTO `app_users` 
-    (`id`, `email`, `full_name`, `password`, `role`, `enabled`, `loyalty_points`, `lifetime_points`, `tier_qualifying_points`, `redeemed_points`, `reversed_points`, `credential_version`, `version`, `created_at`, `favorite_cinema_id`, `phone`)
+    (`id`, `email`, `full_name`, `password`, `role`, `cinema_id`, `enabled`, `loyalty_points`, `lifetime_points`, `tier_qualifying_points`, `redeemed_points`, `reversed_points`, `credential_version`, `version`, `created_at`, `favorite_cinema_id`, `phone`)
 VALUES
-    (1, 'admin@rexchain.vn', 'Rex Administrator', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'ADMIN', 1, 9999, 9999, 9999, 0, 0, 0, 0, NOW(), 1, '0901234567'),
-    (2, 'manager@rexchain.vn', 'Quản lý Rạp Q1', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'CINEMA_MANAGER', 1, 500, 500, 500, 0, 0, 0, 0, NOW(), 1, '0902345678'),
-    (3, 'user@rexchain.vn', 'Khách hàng Demo', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'CUSTOMER', 1, 350, 350, 350, 0, 0, 0, 0, NOW(), 1, '0903456789')
-ON DUPLICATE KEY UPDATE `full_name` = VALUES(`full_name`), `password` = VALUES(`password`);
+    (1, 'admin@rexchain.vn', 'Rex Administrator', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'ADMIN', NULL, 1, 9999, 9999, 9999, 0, 0, 0, 0, NOW(), 1, '0901234567'),
+    (2, 'manager@rexchain.vn', 'Tổng Quản Lý Chuỗi', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'CINEMA_MANAGER', NULL, 1, 500, 500, 500, 0, 0, 0, 0, NOW(), 1, '0902345678'),
+    (3, 'user@rexchain.vn', 'Khách hàng Demo', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'CUSTOMER', NULL, 1, 350, 350, 350, 0, 0, 0, 0, NOW(), 1, '0903456789'),
+    (4, 'sup1.q1@rexchain.vn', 'Giám Sát 01 - Rex Quận 1', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'SUPERVISOR', 1, 1, 0, 0, 0, 0, 0, 0, 0, NOW(), 1, '0904567890'),
+    (5, 'sup2.q1@rexchain.vn', 'Giám Sát 02 - Rex Quận 1', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'SUPERVISOR', 1, 1, 0, 0, 0, 0, 0, 0, 0, NOW(), 1, '0904567891'),
+    (6, 'staff1.q1@rexchain.vn', 'Nhân Viên Soát Vé - Rex Q1', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'STAFF', 1, 1, 0, 0, 0, 0, 0, 0, 0, NOW(), 1, '0905678901'),
+    (7, 'staff2.gv@rexchain.vn', 'Nhân Viên Soát Vé - Rex Gò Vấp', '$2a$10$EblZqNptyYvcLm/VwDCVAuBjzZOI7khzdyGPBr08PpIi0na624b8.', 'STAFF', 2, 1, 0, 0, 0, 0, 0, 0, 0, NOW(), 2, '0906789012')
+ON DUPLICATE KEY UPDATE `full_name` = VALUES(`full_name`), `password` = VALUES(`password`), `role` = VALUES(`role`), `cinema_id` = VALUES(`cinema_id`);
 
 -- 5. MOVIES (Khop 100% voi thu muc static/images/movies va hero/)
 INSERT INTO `movies` 
