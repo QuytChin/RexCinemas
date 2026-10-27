@@ -47,7 +47,6 @@ public class UiText {
             Map.entry("TRAILER", "Trailer"), Map.entry("CLIP", "Clip"),
             Map.entry("POSTER", "Poster"), Map.entry("BANNER", "Banner"),
             Map.entry("PERCENT", "Phần trăm"), Map.entry("FIXED", "Số tiền cố định"),
-            Map.entry("CUSTOMER", "Khách hàng"), Map.entry("STAFF", "Nhân viên"),
             Map.entry("EARN", "Tích điểm"), Map.entry("REDEEM", "Đổi điểm"),
             Map.entry("REVERSE_EARN", "Thu hồi điểm"), Map.entry("REFUND_REDEMPTION", "Hoàn điểm đã đổi"),
             Map.entry("ADMIN_ADJUSTMENT", "Điều chỉnh thủ công"), Map.entry("MIGRATION_OPENING", "Khởi tạo số dư ban đầu"),

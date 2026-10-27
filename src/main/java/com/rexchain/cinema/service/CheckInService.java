@@ -9,6 +9,7 @@ import com.rexchain.cinema.repository.BookingSeatRepository;
 import com.rexchain.cinema.entity.Role;
 import com.rexchain.cinema.entity.User;
 import com.rexchain.cinema.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,7 @@ public class CheckInService {
         this(bookings, bookingSeats, null);
     }
 
+    @Autowired
     public CheckInService(BookingRepository bookings, BookingSeatRepository bookingSeats, UserRepository users) {
         this.bookings = bookings;
         this.bookingSeats = bookingSeats;
