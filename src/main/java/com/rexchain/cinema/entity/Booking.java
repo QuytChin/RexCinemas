@@ -186,6 +186,9 @@ public class Booking {
     public String getCheckedInBy() { return checkedInBy; }
     public void setCheckedInBy(String checkedInBy) { this.checkedInBy = checkedInBy; }
     public boolean isCheckedIn() { return checkedInAt != null; }
+    public boolean hasAnyCheckedInSeat() {
+        return checkedInAt != null || (seats != null && !seats.isEmpty() && seats.stream().anyMatch(BookingSeat::isCheckedIn));
+    }
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }

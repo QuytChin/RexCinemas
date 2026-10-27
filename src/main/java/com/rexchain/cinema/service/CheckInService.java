@@ -137,14 +137,19 @@ public class CheckInService {
             return statusCheck;
 
         if (seat.isCheckedIn()) {
+            String timeStr = seat.getCheckedInAt() != null ? seat.getCheckedInAt().format(DATE_TIME) : "trước đó";
+            String byStr = (seat.getCheckedInBy() != null && !seat.getCheckedInBy().isBlank()) ? " bởi nhân viên " + seat.getCheckedInBy() : "";
             return checkInSeatResult(booking, seat, false, "ALREADY_CHECKED_IN",
-                    "Ghế " + seat.getSeatLabel() + " (" + seat.getTicketCode() + ") đã được check-in trước đó");
+                    "Ghế " + seat.getSeatLabel() + " (" + seat.getTicketCode() + ") đã được sử dụng lúc " + timeStr + byStr);
         }
 
         int updated = bookingSeats.atomicCheckInSeat(seat.getId(), now, operatorEmail);
         if (updated == 0) {
-            return checkInSeatResult(booking, seat, false, "ALREADY_CHECKED_IN",
-                    "Ghế " + seat.getSeatLabel() + " vừa được cổng khác check-in");
+            BookingSeat refreshed = bookingSeats.findById(seat.getId()).orElse(seat);
+            String timeStr = refreshed.getCheckedInAt() != null ? refreshed.getCheckedInAt().format(DATE_TIME) : "vừa xong";
+            String byStr = (refreshed.getCheckedInBy() != null && !refreshed.getCheckedInBy().isBlank()) ? " bởi nhân viên " + refreshed.getCheckedInBy() : "";
+            return checkInSeatResult(booking, refreshed, false, "ALREADY_CHECKED_IN",
+                    "Ghế " + refreshed.getSeatLabel() + " đã được sử dụng lúc " + timeStr + byStr + "!");
         }
 
         seat.setCheckedIn(true);
@@ -167,10 +172,19 @@ public class CheckInService {
         if (statusCheck != null)
             return statusCheck;
 
+        if (booking.isCheckedIn()) {
+            String timeStr = booking.getCheckedInAt() != null ? booking.getCheckedInAt().format(DATE_TIME) : "trước đó";
+            String byStr = (booking.getCheckedInBy() != null && !booking.getCheckedInBy().isBlank()) ? " bởi nhân viên " + booking.getCheckedInBy() : "";
+            return emptyResult(false, "ALREADY_CHECKED_IN", "Vé đoàn (" + booking.getBookingCode() + ") đã được sử dụng lúc " + timeStr + byStr);
+        }
+
         // Claim the group ticket first. Exactly one gate can change NULL -> checked-in.
         int claimed = bookings.atomicCheckIn(booking.getId(), now, operatorEmail);
         if (claimed == 0) {
-            return emptyResult(false, "ALREADY_CHECKED_IN", "Vé đoàn đã được check-in trước đó");
+            Booking refreshed = bookings.findById(booking.getId()).orElse(booking);
+            String timeStr = refreshed.getCheckedInAt() != null ? refreshed.getCheckedInAt().format(DATE_TIME) : "vừa xong";
+            String byStr = (refreshed.getCheckedInBy() != null && !refreshed.getCheckedInBy().isBlank()) ? " bởi nhân viên " + refreshed.getCheckedInBy() : "";
+            return emptyResult(false, "ALREADY_CHECKED_IN", "Vé đoàn (" + booking.getBookingCode() + ") đã được sử dụng lúc " + timeStr + byStr + "!");
         }
         bookingSeats.atomicCheckInAllSeats(booking.getId(), now, operatorEmail);
 

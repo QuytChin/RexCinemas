@@ -63,14 +63,18 @@
           <span th:if="${u.cinema==null and u.role.name() == 'CUSTOMER'}" class="text-secondary small">Khách hàng</span>
         </td>
         <td>
-          <form th:action="@{'/admin/users/'+${u.id}+'/role'}" method="post" class="d-flex flex-column gap-1">
+          <div th:if="${scopedSupervisorCinema != null and (u.role.name() == 'ADMIN' or u.role.name() == 'CINEMA_MANAGER' or u.role.name() == 'SUPERVISOR')}">
+            <span class="badge text-bg-secondary">Tài khoản được bảo vệ</span>
+          </div>
+          <form th:if="${scopedSupervisorCinema == null or (u.role.name() != 'ADMIN' and u.role.name() != 'CINEMA_MANAGER' and u.role.name() != 'SUPERVISOR')}" th:action="@{'/admin/users/'+${u.id}+'/role'}" method="post" class="d-flex flex-column gap-1">
             <select name="role" class="form-select form-select-sm" aria-label="Vai trò">
               <option th:each="r:${roles}" th:value="${r}" th:text="${@uiText.label(r)}" th:selected="${r==u.role}"></option>
             </select>
-            <select name="cinemaId" class="form-select form-select-sm" aria-label="Cụm rạp gán">
+            <select th:if="${scopedSupervisorCinema == null}" name="cinemaId" class="form-select form-select-sm" aria-label="Cụm rạp gán">
               <option value="">-- Chọn rạp (Bắt buộc cho Sup/Staff) --</option>
               <option th:each="c:${cinemas}" th:value="${c.id}" th:text="${c.name}" th:selected="${u.cinema!=null and u.cinema.id==c.id}"></option>
             </select>
+            <input th:if="${scopedSupervisorCinema != null}" type="hidden" name="cinemaId" th:value="${scopedSupervisorCinema.id}">
             <button class="btn btn-outline-light btn-sm w-100">Cập nhật quyền</button>
           </form>
         </td>
@@ -78,7 +82,10 @@
           <span class="badge" th:classappend="${u.enabled?' text-bg-success':' text-bg-secondary'}" th:text="${u.enabled?'Hoạt động':'Đã khóa'}"></span>
         </td>
         <td>
-          <form th:action="@{'/admin/users/'+${u.id}+'/toggle'}" method="post">
+          <div th:if="${scopedSupervisorCinema != null and u.role.name() != 'STAFF'}">
+            <span class="text-secondary small">—</span>
+          </div>
+          <form th:if="${scopedSupervisorCinema == null or u.role.name() == 'STAFF'}" th:action="@{'/admin/users/'+${u.id}+'/toggle'}" method="post">
             <button class="btn btn-sm" th:classappend="${u.enabled?' btn-outline-danger':' btn-outline-success'}" th:text="${u.enabled?'Khóa':'Mở khóa'}"></button>
           </form>
         </td>

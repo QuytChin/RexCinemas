@@ -302,8 +302,8 @@ public class BookingService {
                 || booking.getStatus() == BookingStatus.REFUND_PENDING
                 || booking.getStatus() == BookingStatus.REFUNDED)
             return booking;
-        if (booking.isCheckedIn())
-            throw new IllegalStateException("Vé đã check-in nên không thể hủy");
+        if (booking.isCheckedIn() || booking.hasAnyCheckedInSeat())
+            throw new IllegalStateException("Vé hoặc ghế trong đơn đã check-in nên không thể hủy");
         boolean wasConfirmed = booking.getStatus() == BookingStatus.CONFIRMED;
         if (!wasConfirmed)
             seatReservationService.finishCheckout(booking.getUser().getId(), booking.getShowtime().getId(),

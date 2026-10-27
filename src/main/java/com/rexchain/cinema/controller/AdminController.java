@@ -463,8 +463,14 @@ public class AdminController {
         }
         display(model, request, params, page, options, "showtimes", "true", "false");
         model.addAttribute("movies", movies.findAll());
-        model.addAttribute("editShowtime",
-                edit == null ? new Showtime() : showtimes.findById(edit).orElse(new Showtime()));
+        Showtime editShowtime = edit == null ? new Showtime() : showtimes.findById(edit).orElse(new Showtime());
+        if (edit != null && currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
+            if (editShowtime.getId() != null && !editShowtime.getAuditorium().getCinema().getId().equals(currentUser.getCinema().getId())) {
+                editShowtime = new Showtime();
+                model.addAttribute("error", "Bạn không có quyền chỉnh sửa suất chiếu của cụm rạp khác!");
+            }
+        }
+        model.addAttribute("editShowtime", editShowtime);
         model.addAttribute("now", LocalDateTime.now());
         return "admin/showtimes";
     }
@@ -528,8 +534,15 @@ public class AdminController {
     }
 
     @PostMapping("/showtimes/{id}/delete")
-    String showtimeDelete(@PathVariable Long id, RedirectAttributes redirect) {
+    String showtimeDelete(@PathVariable Long id, Authentication auth, RedirectAttributes redirect) {
+        User currentUser = currentUser(auth);
         Showtime showtime = showtimes.findById(id).orElseThrow();
+        if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
+            if (!showtime.getAuditorium().getCinema().getId().equals(currentUser.getCinema().getId())) {
+                redirect.addFlashAttribute("error", "Bạn không có quyền thao tác trên suất chiếu của cụm rạp khác!");
+                return "redirect:/admin/showtimes";
+            }
+        }
         if (!canHideShowtime(showtime)) {
             redirect.addFlashAttribute("error", "Không thể ẩn suất chiếu đang có vé hợp lệ, booking chờ thanh toán hoặc ghế đang được giữ.");
             return "redirect:/admin/showtimes";
@@ -540,8 +553,15 @@ public class AdminController {
     }
 
     @PostMapping("/showtimes/{id}/toggle")
-    String showtimeToggle(@PathVariable Long id, RedirectAttributes redirect) {
+    String showtimeToggle(@PathVariable Long id, Authentication auth, RedirectAttributes redirect) {
+        User currentUser = currentUser(auth);
         Showtime showtime = showtimes.findById(id).orElseThrow();
+        if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
+            if (!showtime.getAuditorium().getCinema().getId().equals(currentUser.getCinema().getId())) {
+                redirect.addFlashAttribute("error", "Bạn không có quyền thay đổi trạng thái suất chiếu của cụm rạp khác!");
+                return "redirect:/admin/showtimes";
+            }
+        }
         if (showtime.isActive() && !canHideShowtime(showtime)) {
             redirect.addFlashAttribute("error", "Không thể ẩn suất chiếu đang có vé hợp lệ, booking chờ thanh toán hoặc ghế đang được giữ.");
             return "redirect:/admin/showtimes";
@@ -578,8 +598,27 @@ public class AdminController {
     }
 
     @PostMapping("/bookings/{id}/cancel")
-    String cancelBooking(@PathVariable Long id, RedirectAttributes redirect) {
+    String cancelBooking(@PathVariable Long id, Authentication auth, RedirectAttributes redirect) {
         try {
+            User currentUser = currentUser(auth);
+            Booking booking = bookings.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy booking #" + id));
+
+            if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR) {
+                if (currentUser.getCinema() == null) {
+                    throw new IllegalStateException("Giám sát viên chưa được gán cụm rạp!");
+                }
+                Long bookingCinemaId = booking.getShowtime().getAuditorium().getCinema().getId();
+                if (!currentUser.getCinema().getId().equals(bookingCinemaId)) {
+                    throw new IllegalStateException("Bạn không có quyền hủy vé của cụm rạp khác!");
+                }
+                if (booking.isCheckedIn() || booking.getCheckedInAt() != null || booking.hasAnyCheckedInSeat()) {
+                    throw new IllegalStateException("Vé hoặc ghế trong đơn đã được soát vào phòng chiếu (Check-in), tuyệt đối không thể hủy!");
+                }
+                if (booking.getShowtime().getStartTime().isBefore(LocalDateTime.now())) {
+                    throw new IllegalStateException("Suất chiếu đã bắt đầu hoặc đã qua giờ chiếu, không thể hủy vé!");
+                }
+            }
             bookingService.cancelByAdmin(id);
             redirect.addFlashAttribute("success", "Đã hủy booking và trả ghế về hệ thống");
         } catch (Exception ex) {
@@ -619,7 +658,7 @@ public class AdminController {
             Long cinemaId = currentUser.getCinema().getId();
             page = lists.query(users, params, options, (root, query, cb) ->
                     cb.equal(root.get("cinema").get("id"), cinemaId));
-            model.addAttribute("roles", List.of(Role.STAFF));
+            model.addAttribute("roles", List.of(Role.CUSTOMER, Role.STAFF));
             model.addAttribute("scopedSupervisorCinema", currentUser.getCinema());
         } else {
             page = lists.query(users, params, options);
@@ -638,57 +677,117 @@ public class AdminController {
     }
 
     @PostMapping("/users/{id}/toggle")
-    String toggleUser(@PathVariable Long id) {
-        User user = users.findById(id).orElseThrow();
-        user.setEnabled(!user.isEnabled());
-        users.save(user);
+    String toggleUser(@PathVariable Long id, Authentication auth, RedirectAttributes redirect) {
+        try {
+            User currentUser = currentUser(auth);
+            User user = users.findById(id).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng #" + id));
+
+            if (currentUser != null && currentUser.getId().equals(user.getId())) {
+                throw new IllegalStateException("Bạn không thể tự khóa tài khoản của chính mình!");
+            }
+
+            if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR) {
+                if (currentUser.getCinema() == null) {
+                    throw new IllegalStateException("Giám sát viên chưa được gán cụm rạp!");
+                }
+                // Supervisor can ONLY toggle STAFF belonging to their own cinema
+                if (user.getRole() != Role.STAFF) {
+                    throw new IllegalStateException("Giám sát rạp chỉ có quyền khóa/mở khóa tài khoản Nhân viên (STAFF) thuộc rạp mình!");
+                }
+                if (user.getCinema() == null || !user.getCinema().getId().equals(currentUser.getCinema().getId())) {
+                    throw new IllegalStateException("Nhân viên này không thuộc cụm rạp do bạn quản lý!");
+                }
+            } else if (currentUser != null && currentUser.getRole() == Role.CINEMA_MANAGER) {
+                if (user.getRole() == Role.ADMIN) {
+                    throw new IllegalStateException("Tổng quản lý không có quyền khóa tài khoản Quản trị hệ thống (ADMIN)!");
+                }
+            }
+
+            user.setEnabled(!user.isEnabled());
+            users.save(user);
+            redirect.addFlashAttribute("success", (user.isEnabled() ? "Đã mở khóa " : "Đã khóa ") + user.getFullName());
+        } catch (Exception ex) {
+            redirect.addFlashAttribute("error", ex.getMessage());
+        }
         return "redirect:/admin/users";
     }
 
     @PostMapping("/users/{id}/role")
+    @Transactional
     String roleUser(@PathVariable Long id, @RequestParam Role role,
                     @RequestParam(required = false) Long cinemaId,
                     Authentication auth,
                     RedirectAttributes redirect) {
         try {
             User currentUser = currentUser(auth);
-            User user = users.findById(id).orElseThrow();
+            User user = users.findById(id).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng #" + id));
+
+            if (currentUser != null && currentUser.getId().equals(user.getId())) {
+                throw new IllegalStateException("Bạn không thể tự thay đổi vai trò của chính mình!");
+            }
 
             if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR) {
-                if (role != Role.STAFF) {
-                    throw new IllegalArgumentException("Giám sát rạp chỉ có quyền phân công vai trò Nhân viên (STAFF)!");
-                }
                 if (currentUser.getCinema() == null) {
                     throw new IllegalStateException("Tài khoản giám sát chưa được gán vào cụm rạp nào!");
                 }
-                cinemaId = currentUser.getCinema().getId();
-            }
+                // Supervisor cannot touch ADMIN, CINEMA_MANAGER or other SUPERVISORS
+                if (user.getRole() == Role.ADMIN || user.getRole() == Role.CINEMA_MANAGER || user.getRole() == Role.SUPERVISOR) {
+                    throw new IllegalStateException("Giám sát rạp không có quyền can thiệp vào tài khoản Quản trị viên / Giám sát khác!");
+                }
 
-            if (role == Role.SUPERVISOR) {
-                if (cinemaId == null) {
-                    throw new IllegalArgumentException("Vui lòng chọn cụm rạp cho Giám sát viên (SUPERVISOR)!");
+                // Supervisor can ONLY assign STAFF or demote STAFF back to CUSTOMER
+                if (role == Role.STAFF) {
+                    if (user.getRole() != Role.CUSTOMER && (user.getCinema() != null && !user.getCinema().getId().equals(currentUser.getCinema().getId()))) {
+                        throw new IllegalStateException("Không thể chỉ định nhân viên thuộc rạp khác!");
+                    }
+                    user.setCinema(currentUser.getCinema());
+                    user.setRole(Role.STAFF);
+                } else if (role == Role.CUSTOMER) {
+                    if (user.getRole() != Role.STAFF || user.getCinema() == null || !user.getCinema().getId().equals(currentUser.getCinema().getId())) {
+                        throw new IllegalStateException("Bạn chỉ có quyền thu hồi vai trò của nhân viên STAFF thuộc rạp mình!");
+                    }
+                    user.setCinema(null);
+                    user.setRole(Role.CUSTOMER);
+                } else {
+                    throw new IllegalArgumentException("Giám sát rạp chỉ được phép phân quyền STAFF hoặc thu hồi về CUSTOMER!");
                 }
-                long currentSups = users.countByCinemaIdAndRoleAndEnabledTrue(cinemaId, Role.SUPERVISOR);
-                boolean isAlreadySupAtThisCinema = (user.getRole() == Role.SUPERVISOR
-                        && user.getCinema() != null
-                        && user.getCinema().getId().equals(cinemaId));
-                if (currentSups >= 3 && !isAlreadySupAtThisCinema) {
-                    Cinema cinema = cinemas.findById(cinemaId).orElseThrow();
-                    throw new IllegalArgumentException("Cụm rạp " + cinema.getName() + " đã đạt tối đa 3 Giám sát viên (Supervisor)!");
-                }
-                Cinema cinema = cinemas.findById(cinemaId).orElseThrow();
-                user.setCinema(cinema);
-            } else if (role == Role.STAFF) {
-                if (cinemaId == null) {
-                    throw new IllegalArgumentException("Vui lòng chọn cụm rạp cho Nhân viên (STAFF)!");
-                }
-                Cinema cinema = cinemas.findById(cinemaId).orElseThrow();
-                user.setCinema(cinema);
             } else {
-                user.setCinema(null);
+                if (currentUser != null && currentUser.getRole() == Role.CINEMA_MANAGER) {
+                    if (user.getRole() == Role.ADMIN || role == Role.ADMIN) {
+                        throw new IllegalStateException("Tổng quản lý không có quyền thăng cấp hoặc hạ cấp tài khoản ADMIN!");
+                    }
+                }
+
+                if (role == Role.SUPERVISOR) {
+                    if (cinemaId == null) {
+                        throw new IllegalArgumentException("Vui lòng chọn cụm rạp cho Giám sát viên (SUPERVISOR)!");
+                    }
+                    // RỦI RO 4: Pessimistic Lock on Cinema row to prevent Race Condition
+                    Cinema cinema = cinemas.findByIdForUpdate(cinemaId)
+                            .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cụm rạp #" + cinemaId));
+                    long currentSups = users.countByCinemaIdAndRoleAndEnabledTrue(cinemaId, Role.SUPERVISOR);
+                    boolean isAlreadySupAtThisCinema = (user.getRole() == Role.SUPERVISOR
+                            && user.getCinema() != null
+                            && user.getCinema().getId().equals(cinemaId));
+                    if (currentSups >= 3 && !isAlreadySupAtThisCinema) {
+                        throw new IllegalArgumentException("Cụm rạp " + cinema.getName() + " đã đạt tối đa 3 Giám sát viên (Supervisor) đang hoạt động!");
+                    }
+                    user.setCinema(cinema);
+                    user.setRole(role);
+                } else if (role == Role.STAFF) {
+                    if (cinemaId == null) {
+                        throw new IllegalArgumentException("Vui lòng chọn cụm rạp cho Nhân viên (STAFF)!");
+                    }
+                    Cinema cinema = cinemas.findById(cinemaId)
+                            .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy cụm rạp #" + cinemaId));
+                    user.setCinema(cinema);
+                    user.setRole(role);
+                } else {
+                    user.setCinema(null);
+                    user.setRole(role);
+                }
             }
 
-            user.setRole(role);
             users.save(user);
             redirect.addFlashAttribute("success", "Đã cập nhật vai trò " + role.name() + " cho " + user.getFullName());
         } catch (Exception ex) {
