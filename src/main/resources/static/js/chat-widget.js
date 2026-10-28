@@ -1,19 +1,24 @@
 /**
  * RexCinemas - Real-time Support Chat & AI Assistant Widget
+ * Fixed: Deduplication & Strict User Session Isolation on Logout
  */
 (function () {
     'use strict';
 
-    let sessionId = localStorage.getItem('rex_chat_session_id');
-    if (!sessionId) {
-        sessionId = 'rex_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
-        localStorage.setItem('rex_chat_session_id', sessionId);
-    }
+    // Xóa sạch storage cũ để tránh rò rỉ dữ liệu phiên trước
+    try {
+        localStorage.removeItem('rex_chat_session_id');
+        sessionStorage.removeItem('rex_chat_session_id');
+        localStorage.removeItem('rex_chat_messages');
+        sessionStorage.removeItem('rex_chat_messages');
+    } catch (e) {}
 
-    let currentTab = 'ai'; // 'ai' or 'cinema'
-    let selectedCinemaId = localStorage.getItem('rex_chat_cinema_id') || '';
     let currentUser = null;
+    let sessionId = null; // Chỉ giữ trong RAM biến JS, không lưu vào Storage!
+    let currentTab = 'ai'; // 'ai' hoặc 'cinema'
+    let selectedCinemaId = '';
     let stompClient = null;
+    let currentSubscription = null;
     let unreadCount = 0;
     let isOpen = false;
 
@@ -31,31 +36,45 @@
     const quickChips = document.getElementById('rexQuickChips');
     const chatInput = document.getElementById('rexChatInput');
     const sendBtn = document.getElementById('rexChatSendBtn');
+    const inputBar = document.querySelector('.rex-chat-input-bar');
 
     if (!openBtn || !chatBox) return;
 
-    // 1. Khởi tạo & nạp dữ liệu ban đầu
     init();
 
     function init() {
-        fetchCurrentUser();
-        loadCinemas();
-        loadHistory();
-        initWebSocket();
         bindEvents();
+        loadCinemas();
+        checkAuthAndInit();
     }
 
-    function fetchCurrentUser() {
+    // 1. Kiểm tra trạng thái xác thực từ Server
+    function checkAuthAndInit() {
         fetch('/api/support/me')
             .then(res => res.json())
             .then(data => {
                 currentUser = data;
-                if (data.authenticated && data.favoriteCinemaId && !selectedCinemaId) {
-                    selectedCinemaId = data.favoriteCinemaId;
-                    localStorage.setItem('rex_chat_cinema_id', selectedCinemaId);
+                if (data && data.authenticated) {
+                    // Khách đã đăng nhập: session cố định theo ID tài khoản
+                    sessionId = 'user_' + data.id;
+                    if (data.favoriteCinemaId && !selectedCinemaId) {
+                        selectedCinemaId = data.favoriteCinemaId;
+                        if (cinemaSelect) cinemaSelect.value = selectedCinemaId;
+                    }
+                    initWebSocket();
+                } else {
+                    // Chưa đăng nhập: session tạm cho AI trong bộ nhớ RAM
+                    sessionId = 'guest_' + Math.random().toString(36).substring(2, 9);
+                    disconnectWebSocket();
                 }
+                updateUiForCurrentTab();
             })
-            .catch(() => {});
+            .catch(() => {
+                currentUser = { authenticated: false };
+                sessionId = 'guest_' + Math.random().toString(36).substring(2, 9);
+                disconnectWebSocket();
+                updateUiForCurrentTab();
+            });
     }
 
     function loadCinemas() {
@@ -68,35 +87,41 @@
                     const opt = document.createElement('option');
                     opt.value = c.id;
                     opt.textContent = `${c.name} (${c.city})`;
-                    if (String(c.id) === String(selectedCinemaId)) {
-                        opt.selected = true;
-                    }
                     cinemaSelect.appendChild(opt);
                 });
-                if (!selectedCinemaId && cinemas.length > 0) {
+                if (cinemas.length > 0 && !selectedCinemaId) {
                     selectedCinemaId = cinemas[0].id;
                     cinemaSelect.value = cinemas[0].id;
-                    localStorage.setItem('rex_chat_cinema_id', selectedCinemaId);
                 }
             })
             .catch(() => {});
     }
 
     function loadHistory() {
-        fetch(`/api/support/history?sessionId=${encodeURIComponent(sessionId)}`)
-            .then(res => res.json())
+        if (!currentUser || !currentUser.authenticated) return;
+
+        fetch('/api/support/history')
+            .then(res => {
+                if (res.status === 401) throw new Error('Unauthorized');
+                return res.json();
+            })
             .then(msgs => {
-                if (Array.isArray(msgs) && msgs.length > 0) {
+                if (Array.isArray(msgs)) {
                     messagesContainer.innerHTML = '';
                     msgs.forEach(appendMessageUI);
                     scrollToBottom();
                 }
             })
-            .catch(() => {});
+            .catch(() => {
+                // Nếu bị 401: người dùng đã đăng xuất hoặc token hết hạn
+                currentUser = { authenticated: false };
+                updateUiForCurrentTab();
+            });
     }
 
-    // 2. Kết nối WebSocket STOMP
+    // 2. WebSocket Connection với cơ chế Unsubscribe chống nhân đôi listener
     function initWebSocket() {
+        if (!currentUser || !currentUser.authenticated) return;
         try {
             const socketFactory = () => new SockJS('/ws');
             let client;
@@ -123,21 +148,40 @@
     }
 
     function onStompConnected(client) {
-        client.subscribe('/topic/support/session/' + sessionId, message => {
+        if (!sessionId) return;
+
+        // Đảm bảo hủy đăng ký listener cũ trước khi tạo listener mới
+        if (currentSubscription) {
+            try { currentSubscription.unsubscribe(); } catch (e) {}
+            currentSubscription = null;
+        }
+
+        currentSubscription = client.subscribe('/topic/support/session/' + sessionId, message => {
             try {
                 const data = JSON.parse(message.body);
-                // Tránh duplicate nếu tin nhắn của chính mình vừa gửi xong
-                const existing = document.querySelector(`[data-msg-id="${data.id}"]`);
-                if (!existing) {
-                    appendMessageUI(data);
-                    scrollToBottom();
-                    if (!isOpen && data.senderType !== 'CUSTOMER') {
-                        unreadCount++;
-                        updateUnreadBadge();
-                    }
+                // Render tin nhắn từ Server và chống trùng lặp tuyệt đối
+                appendMessageUI(data);
+                scrollToBottom();
+                if (!isOpen && data.senderType !== 'CUSTOMER') {
+                    unreadCount++;
+                    updateUnreadBadge();
                 }
             } catch (err) {}
         });
+    }
+
+    function disconnectWebSocket() {
+        if (currentSubscription) {
+            try { currentSubscription.unsubscribe(); } catch (e) {}
+            currentSubscription = null;
+        }
+        if (stompClient) {
+            try {
+                if (stompClient.deactivate) stompClient.deactivate();
+                else if (stompClient.disconnect) stompClient.disconnect();
+            } catch (e) {}
+            stompClient = null;
+        }
     }
 
     // 3. Sự kiện giao diện
@@ -147,6 +191,8 @@
             chatBox.style.display = 'flex';
             unreadCount = 0;
             updateUnreadBadge();
+            // Luôn đồng bộ lại auth khi mở khung chat để phát hiện đăng xuất kịp thời
+            checkAuthAndInit();
             scrollToBottom();
             setTimeout(() => chatInput && chatInput.focus(), 150);
         });
@@ -162,7 +208,6 @@
         if (cinemaSelect) {
             cinemaSelect.addEventListener('change', (e) => {
                 selectedCinemaId = e.target.value;
-                localStorage.setItem('rex_chat_cinema_id', selectedCinemaId);
             });
         }
 
@@ -174,7 +219,6 @@
             }
         });
 
-        // Quick suggestion chips
         if (quickChips) {
             quickChips.addEventListener('click', (e) => {
                 const chip = e.target.closest('.rex-chip');
@@ -204,10 +248,56 @@
             quickChips.style.display = 'none';
             chatInput.placeholder = 'Nhập tin nhắn gửi đến nhân viên rạp...';
         }
+        updateUiForCurrentTab();
+    }
+
+    function updateUiForCurrentTab() {
+        const isAuth = currentUser && currentUser.authenticated;
+
+        if (currentTab === 'cinema') {
+            if (!isAuth) {
+                // CHƯA ĐĂNG NHẬP Ở TAB RẠP: Xóa sạch DOM, ngắt WebSocket, hiển thị thông báo bảo mật
+                disconnectWebSocket();
+                messagesContainer.innerHTML = `
+                    <div class="rex-login-required p-4 text-center my-auto" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+                        <div style="font-size: 40px; margin-bottom: 12px;">🔒</div>
+                        <h6 style="color: #fff; font-weight: 700; margin-bottom: 8px;">Yêu cầu đăng nhập</h6>
+                        <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin-bottom: 16px; max-width: 260px;">
+                            Vui lòng đăng nhập để trò chuyện với nhân viên rạp và bảo mật thông tin của bạn.
+                        </p>
+                        <a href="/auth/login" class="btn btn-sm btn-rex px-4 py-2" style="font-weight: 700; text-decoration: none;">
+                            ĐĂNG NHẬP NGAY
+                        </a>
+                    </div>
+                `;
+                if (inputBar) inputBar.style.display = 'none';
+                if (cinemaSelectBar) cinemaSelectBar.style.display = 'none';
+            } else {
+                if (inputBar) inputBar.style.display = 'flex';
+                if (cinemaSelectBar) cinemaSelectBar.style.display = 'flex';
+                // Chỉ nạp lại lịch sử nếu đang chưa có tin nhắn
+                if (!messagesContainer.querySelector('.rex-msg-group')) {
+                    loadHistory();
+                }
+            }
+        } else {
+            // TAB TRỢ LÝ AI: Luôn cho phép hỏi đáp
+            if (inputBar) inputBar.style.display = 'flex';
+            if (messagesContainer.querySelector('.rex-login-required')) {
+                messagesContainer.innerHTML = `
+                    <div class="rex-msg-group ai">
+                        <div class="rex-msg-sender">Trợ lý Rex AI 🤖</div>
+                        <div class="rex-msg-bubble">
+                            Chào bạn! Mình là <strong>Trợ lý AI của RexCinemas</strong>. Bạn có thể hỏi mình về thể loại phim, gợi ý phim theo độ tuổi, giá vé hoặc bắp nước nhé!
+                        </div>
+                    </div>
+                `;
+            }
+        }
         scrollToBottom();
     }
 
-    // 4. Gửi tin nhắn
+    // 4. Gửi tin nhắn - KHÔNG tự render tạm thời (Optimistic UI) để chống nhân đôi tin nhắn!
     function handleSendMessage() {
         const text = chatInput.value.trim();
         if (!text) return;
@@ -221,15 +311,6 @@
     }
 
     function sendToAi(prompt) {
-        // Render tin nhắn khách trước
-        const tempMsg = {
-            id: 'temp_' + Date.now(),
-            senderType: 'CUSTOMER',
-            senderName: (currentUser && currentUser.name) ? currentUser.name : 'Bạn',
-            message: prompt,
-            createdAt: 'Vừa xong'
-        };
-        appendMessageUI(tempMsg);
         showTypingIndicator('Rex AI đang soạn gợi ý...');
         scrollToBottom();
 
@@ -243,13 +324,14 @@
             body: JSON.stringify({
                 sessionId: sessionId,
                 prompt: prompt,
-                guestName: currentUser ? currentUser.name : null
+                guestName: currentUser && currentUser.name ? currentUser.name : null
             })
         })
         .then(res => res.json())
         .then(data => {
             hideTypingIndicator();
             if (data && data.message) {
+                // Render câu trả lời duy nhất từ server
                 appendMessageUI(data);
                 scrollToBottom();
             }
@@ -261,61 +343,69 @@
                 senderType: 'AI',
                 senderName: 'Trợ lý Rex AI 🤖',
                 message: 'Xin lỗi, kết nối tới máy chủ AI tạm thời gián đoạn. Bạn thử lại sau giây lát nhé!',
-                createdAt: 'Vừa xong'
+                createdAt: ''
             });
             scrollToBottom();
         });
     }
 
     function sendToCinema(text) {
-        if (!selectedCinemaId) {
-            alert('Vui lòng chọn cụm rạp để kết nối với Ban Quản lý rạp!');
-            cinemaSelect && cinemaSelect.focus();
+        if (!currentUser || !currentUser.authenticated) {
+            updateUiForCurrentTab();
             return;
         }
 
-        const tempMsg = {
-            id: 'temp_' + Date.now(),
-            senderType: 'CUSTOMER',
-            senderName: (currentUser && currentUser.name) ? currentUser.name : 'Bạn',
-            message: text,
-            createdAt: 'Vừa xong'
-        };
-        appendMessageUI(tempMsg);
-        scrollToBottom();
+        if (!selectedCinemaId) {
+            alert('Vui lòng chọn cụm rạp để kết nối với Ban Quản lý rạp!');
+            if (cinemaSelect) cinemaSelect.focus();
+            return;
+        }
 
         const csrf = getCsrfToken();
         const headers = { 'Content-Type': 'application/json' };
         if (csrf.token) headers[csrf.headerName] = csrf.token;
 
+        // CHỈ gửi payload lên Server, TUYỆT ĐỐI KHÔNG tự append vào DOM trước
+        // Tin nhắn sẽ được render chính xác 1 lần duy nhất khi WebSocket/API trả về
         fetch('/api/support/send', {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({
                 sessionId: sessionId,
                 cinemaId: selectedCinemaId,
-                message: text,
-                guestName: currentUser ? currentUser.name : null,
-                guestEmail: currentUser ? currentUser.email : null
+                message: text
             })
         })
-        .then(res => res.json())
+        .then(res => {
+            if (res.status === 401) {
+                currentUser = { authenticated: false };
+                updateUiForCurrentTab();
+                throw new Error('Vui lòng đăng nhập!');
+            }
+            return res.json();
+        })
         .then(saved => {
-            // Replace temp id with real id
-            const el = document.querySelector(`[data-msg-id="${tempMsg.id}"]`);
-            if (el && saved && saved.id) {
-                el.setAttribute('data-msg-id', saved.id);
+            if (saved && saved.id) {
+                // Kiểm tra nếu WebSocket chưa kịp append thì append
+                appendMessageUI(saved);
+                scrollToBottom();
             }
         })
-        .catch(() => {
-            alert('Không thể gửi tin nhắn. Vui lòng kiểm tra lại kết nối mạng!');
+        .catch(err => {
+            if (err.message !== 'Vui lòng đăng nhập!') {
+                alert('Không thể gửi tin nhắn. Vui lòng kiểm tra lại kết nối!');
+            }
         });
     }
 
-    // 5. Hiển thị tin nhắn lên UI
+    // 5. Hiển thị tin nhắn lên UI với cơ chế Deduplication nghiêm ngặt
     function appendMessageUI(msg) {
-        // Kiểm tra tránh trùng lặp
-        if (msg.id && document.querySelector(`[data-msg-id="${msg.id}"]`)) return;
+        if (!msg || !messagesContainer) return;
+
+        // CHỐNG TRÙNG LẶP: Nếu ID tin nhắn đã có trên giao diện thì bỏ qua ngay lập tức!
+        if (msg.id && messagesContainer.querySelector(`[data-msg-id="${msg.id}"]`)) {
+            return;
+        }
 
         const group = document.createElement('div');
         const type = (msg.senderType || 'CUSTOMER').toLowerCase();
@@ -335,13 +425,15 @@
         bubbleEl.className = 'rex-msg-bubble';
         bubbleEl.innerHTML = formatMarkdown(msg.message);
 
-        const timeEl = document.createElement('div');
-        timeEl.className = 'rex-msg-time';
-        timeEl.textContent = msg.createdAt || '';
-
         group.appendChild(senderEl);
         group.appendChild(bubbleEl);
-        if (msg.createdAt) group.appendChild(timeEl);
+
+        if (msg.createdAt) {
+            const timeEl = document.createElement('div');
+            timeEl.className = 'rex-msg-time';
+            timeEl.textContent = msg.createdAt;
+            group.appendChild(timeEl);
+        }
 
         messagesContainer.appendChild(group);
     }
@@ -381,24 +473,17 @@
         }
     }
 
-    // 6. Xử lý Markdown an toàn
     function formatMarkdown(text) {
         if (!text) return '';
-        // Escape HTML
         let escaped = text
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
 
-        // **in đậm**
         escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        // *in nghiêng*
         escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        // [title](url)
         escaped = escaped.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="rex-chat-link" target="_blank" rel="noopener">$1</a>');
-        // Gạch đầu dòng
         escaped = escaped.replace(/^\s*-\s+(.*)$/gm, '• $1');
-        // Xuống dòng
         escaped = escaped.replace(/\n/g, '<br>');
         return escaped;
     }
@@ -409,7 +494,6 @@
         if (metaToken && metaHeader) {
             return { token: metaToken.getAttribute('content'), headerName: metaHeader.getAttribute('content') };
         }
-        // Fallback đọc từ cookie XSRF-TOKEN
         const match = document.cookie.match(new RegExp('(^| )XSRF-TOKEN=([^;]+)'));
         if (match) {
             return { token: decodeURIComponent(match[2]), headerName: 'X-XSRF-TOKEN' };

@@ -74,16 +74,29 @@ public class SupportChatApiController {
     }
 
     @GetMapping("/history")
-    public List<SupportMessageDto> getHistory(@RequestParam String sessionId) {
-        return chatService.getHistory(sessionId);
+    public ResponseEntity<?> getHistory(@RequestParam(required = false) String sessionId, Authentication auth) {
+        User user = currentUser(auth);
+        if (user == null) {
+            // Chưa đăng nhập -> Trả về 401 Unauthorized (danh sách rỗng) để bảo mật tuyệt đối
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(List.of());
+        }
+        // Luôn ép buộc session ID theo user ID từ phiên đăng nhập, tuyệt đối không cho phép client giả mạo
+        String userSessionId = "user_" + user.getId();
+        return ResponseEntity.ok(chatService.getHistory(userSessionId));
     }
 
     @PostMapping("/send")
     public ResponseEntity<?> sendCustomerMessage(@RequestBody SendMessageRequest req, Authentication auth) {
         try {
             User user = currentUser(auth);
+            if (user == null) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Vui lòng đăng nhập để gửi tin nhắn hỗ trợ đến rạp!"));
+            }
+            // Khách hàng gửi tin nhắn bắt buộc dùng session gắn liền với tài khoản của chính mình
+            String userSessionId = "user_" + user.getId();
             SupportMessageDto sent = chatService.sendCustomerMessage(
-                    req.sessionId(), req.cinemaId(), req.message(), user, req.guestName(), req.guestEmail()
+                    userSessionId, req.cinemaId(), req.message(), user, user.getFullName(), user.getEmail()
             );
             return ResponseEntity.ok(sent);
         } catch (IllegalArgumentException ex) {
@@ -95,8 +108,10 @@ public class SupportChatApiController {
     public ResponseEntity<?> askAi(@RequestBody AiConsultRequest req, Authentication auth) {
         try {
             User user = currentUser(auth);
+            String targetSessionId = user != null ? ("user_" + user.getId()) : (req.sessionId() != null && !req.sessionId().isBlank() ? req.sessionId() : "guest_ai");
+            String senderName = user != null ? user.getFullName() : (req.guestName() != null ? req.guestName() : "Khách hàng");
             SupportMessageDto aiReply = chatService.askAi(
-                    req.sessionId(), req.prompt(), user, req.guestName()
+                    targetSessionId, req.prompt(), user, senderName
             );
             return ResponseEntity.ok(aiReply);
         } catch (IllegalArgumentException ex) {

@@ -6,6 +6,7 @@
 
     let activeSessionId = null;
     let stompClient = null;
+    let cinemaSubscription = null;
 
     // DOM Elements
     const convList = document.getElementById('adminConvList');
@@ -56,9 +57,12 @@
     }
 
     function onStompConnected(client) {
-        // Lắng nghe topic của rạp hiện tại hoặc topic tổng admin
+        if (cinemaSubscription) {
+            try { cinemaSubscription.unsubscribe(); } catch (e) {}
+            cinemaSubscription = null;
+        }
         const topic = window.CURRENT_CINEMA_ID ? `/topic/support/cinema/${window.CURRENT_CINEMA_ID}` : '/topic/support/admin';
-        client.subscribe(topic, message => {
+        cinemaSubscription = client.subscribe(topic, message => {
             try {
                 const data = JSON.parse(message.body);
                 handleIncomingMessage(data);
@@ -69,12 +73,9 @@
     function handleIncomingMessage(msg) {
         // 1. Nếu đang mở cuộc hội thoại này, render tin nhắn ngay
         if (activeSessionId && msg.sessionId === activeSessionId) {
-            const existing = document.querySelector(`[data-msg-id="${msg.id}"]`);
-            if (!existing) {
-                appendMessageUI(msg);
-                scrollToBottom();
-                markCurrentAsRead();
-            }
+            appendMessageUI(msg);
+            scrollToBottom();
+            markCurrentAsRead();
         }
 
         // 2. Cập nhật preview và badge ở cột trái
@@ -244,7 +245,8 @@
     }
 
     function appendMessageUI(msg) {
-        if (msg.id && document.querySelector(`[data-msg-id="${msg.id}"]`)) return;
+        if (!msg || !messagesArea) return;
+        if (msg.id && messagesArea.querySelector(`[data-msg-id="${msg.id}"]`)) return;
 
         const group = document.createElement('div');
         const type = (msg.senderType || 'CUSTOMER').toLowerCase();

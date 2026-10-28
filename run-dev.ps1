@@ -9,7 +9,7 @@ $env:COOKIE_SECURE = "false"
 
 # 2. MYSQL CONFIG
 # Luu y: Doi mat khau root MySQL phu hop voi may cua ban
-$env:DB_URL = "jdbc:mysql://localhost:3306/rex_chain_cinema?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh"
+$env:DB_URL = "jdbc:mysql://localhost:3306/rex_chain_cinema?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh&characterEncoding=UTF-8"
 $env:DB_USERNAME = "root"
 if (-not $env:DB_PASSWORD) { $env:DB_PASSWORD = "huy210906" }
 
