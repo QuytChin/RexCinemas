@@ -12,20 +12,20 @@
 </head>
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
-<main class="container-fluid admin-page-wrap pt-page pb-5">
-    <div class="admin-title">
+<main class="container-fluid admin-page-wrap pt-page pb-3">
+    <div class="admin-title mb-2">
         <div>
-            <p class="eyebrow">CHĂM SÓC KHÁCH HÀNG · 
+            <p class="eyebrow mb-1">CHĂM SÓC KHÁCH HÀNG · 
                 <span th:if="${lockedCinema != null}" th:text="${lockedCinema.name}" class="text-warning"></span>
                 <span th:if="${lockedCinema == null}" class="text-info">TOÀN HỆ THỐNG</span>
             </p>
-            <h1>Tin nhắn hỗ trợ trực tuyến</h1>
+            <h1 class="h3 mb-0">Tin nhắn hỗ trợ trực tuyến</h1>
         </div>
         <div th:replace="~{fragments/admin-nav :: adminNav}"></div>
     </div>
 
     <!-- 2-Column Chat Layout -->
-    <div class="admin-chat-layout mt-3">
+    <div class="admin-chat-layout mt-2">
         <!-- Cột trái: Danh sách cuộc hội thoại -->
         <div class="admin-chat-sidebar">
             <div class="admin-chat-sidebar-header">
