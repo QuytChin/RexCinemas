@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}">
+    <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : ''}">
+    <title>Hỗ trợ khách hàng - Rex Cinemas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container-fluid admin-page-wrap pt-page pb-5">
+    <div class="admin-title">
+        <div>
+            <p class="eyebrow">CHĂM SÓC KHÁCH HÀNG · 
+                <span th:if="${lockedCinema != null}" th:text="${lockedCinema.name}" class="text-warning"></span>
+                <span th:if="${lockedCinema == null}" class="text-info">TOÀN HỆ THỐNG</span>
+            </p>
+            <h1>Tin nhắn hỗ trợ trực tuyến</h1>
+        </div>
+        <div th:replace="~{fragments/admin-nav :: adminNav}"></div>
+    </div>
+
+    <!-- 2-Column Chat Layout -->
+    <div class="admin-chat-layout mt-3">
+        <!-- Cột trái: Danh sách cuộc hội thoại -->
+        <div class="admin-chat-sidebar">
+            <div class="admin-chat-sidebar-header">
+                <!-- Bộ lọc Rạp (Khóa nếu là Supervisor) -->
+                <div th:if="${lockedCinema == null}" class="mb-2">
+                    <form method="get" th:action="@{/admin/support}" id="adminCinemaFilterForm">
+                        <select name="cinemaId" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">-- Tất cả cụm rạp --</option>
+                            <option th:each="c : ${cinemas}" th:value="${c.id}" th:text="${c.name + ' (' + c.city + ')'}" th:selected="${selectedCinemaId == c.id}"></option>
+                        </select>
+                    </form>
+                </div>
+                <div th:if="${lockedCinema != null}" class="mb-2">
+                    <span class="badge bg-warning text-dark w-100 py-2">
+                        🔒 Cố định rạp: <span th:text="${lockedCinema.name}"></span>
+                    </span>
+                </div>
+                <!-- Ô tìm kiếm khách hàng -->
+                <input type="text" id="adminSearchConv" class="form-control form-control-sm" placeholder="Tìm theo tên hoặc email...">
+            </div>
+
+            <!-- Danh sách các hội thoại -->
+            <div id="adminConvList" class="admin-chat-list">
+                <div th:if="${#lists.isEmpty(conversations)}" class="p-4 text-center text-secondary">
+                    Chưa có cuộc trò chuyện nào.
+                </div>
+                <div th:each="conv : ${conversations}" class="admin-chat-item" 
+                     th:attr="data-session-id=${conv.sessionId}, data-cinema-id=${conv.cinemaId}"
+                     onclick="selectConversation(this)">
+                    <div class="admin-chat-avatar" th:text="${#strings.substring(conv.customerName, 0, 1)}">K</div>
+                    <div class="admin-chat-meta">
+                        <div class="admin-chat-name">
+                            <span th:text="${conv.customerName}">Nguyễn Văn A</span>
+                            <span class="admin-chat-time" th:text="${conv.lastMessageAt != null ? #temporals.format(conv.lastMessageAt, 'HH:mm dd/MM') : ''}"></span>
+                        </div>
+                        <div class="admin-chat-preview" th:text="${conv.lastMessage}">Nội dung tin nhắn...</div>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="admin-chat-cinema-badge" th:text="${conv.cinemaName != null ? conv.cinemaName : 'Rex Cinemas'}">Rex Q1</span>
+                            <span th:if="${conv.unreadCount > 0}" class="admin-chat-unread-badge" th:text="${conv.unreadCount}">1</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cột phải: Khung hội thoại chi tiết -->
+        <div class="admin-chat-main">
+            <!-- Header chi tiết -->
+            <div id="adminActiveConvHeader" class="admin-chat-header" style="display: none;">
+                <div>
+                    <h5 id="adminActiveCustomerName" class="mb-0 text-white">Khách hàng</h5>
+                    <small id="adminActiveCustomerEmail" class="text-secondary"></small> · 
+                    <small id="adminActiveCinemaName" class="text-warning"></small>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="markCurrentAsRead()">
+                        Đánh dấu đã đọc
+                    </button>
+                </div>
+            </div>
+
+            <!-- Placeholder khi chưa chọn hội thoại -->
+            <div id="adminChatPlaceholder" class="p-5 text-center text-secondary my-auto">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-3 text-secondary">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <h4>Chọn một cuộc trò chuyện</h4>
+                <p>Chọn khách hàng từ danh sách bên trái để xem nội dung và phản hồi trực tuyến.</p>
+            </div>
+
+            <!-- Vùng hiển thị tin nhắn -->
+            <div id="adminChatMessagesArea" class="admin-chat-messages-area" style="display: none;">
+            </div>
+
+            <!-- Cụm câu trả lời nhanh (Quick Responses) -->
+            <div id="adminQuickReplies" class="admin-quick-replies" style="display: none;">
+                <button type="button" class="admin-quick-reply-btn" onclick="insertQuickReply('Dạ chào bạn, rạp RexCinemas có thể hỗ trợ gì cho bạn ạ?')">👋 Chào hỏi</button>
+                <button type="button" class="admin-quick-reply-btn" onclick="insertQuickReply('Dạ bạn vui lòng cung cấp mã vé (VD: REX-...) để rạp kiểm tra nhanh nhé!')">🎫 Hỏi mã vé</button>
+                <button type="button" class="admin-quick-reply-btn" onclick="insertQuickReply('Dạ rạp đã tiếp nhận và xử lý xong trường hợp của bạn rồi ạ!')">✅ Xác nhận xử lý xong</button>
+                <button type="button" class="admin-quick-reply-btn" onclick="insertQuickReply('Suất chiếu sẽ bắt đầu đúng giờ, bạn vui lòng đến trước 15 phút để nhận vé/bắp nước nhé!')">⏰ Nhắc giờ chiếu</button>
+            </div>
+
+            <!-- Khung nhập phản hồi -->
+            <div id="adminChatInputArea" class="admin-chat-input-area" style="display: none;">
+                <textarea id="adminReplyInput" rows="2" placeholder="Nhập câu trả lời phản hồi khách hàng..."></textarea>
+                <button id="adminSendReplyBtn" type="button" class="btn btn-rex px-4" onclick="sendAdminReply()">
+                    GỬI PHẢN HỒI
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+<script th:inline="javascript">
+    window.CURRENT_CINEMA_ID = /*[[${selectedCinemaId}]]*/ null;
+    window.IS_SUPERVISOR = /*[[${lockedCinema != null}]]*/ false;
+</script>
+<script th:src="@{/js/admin-support.js}"></script>
+</body>
+</html>

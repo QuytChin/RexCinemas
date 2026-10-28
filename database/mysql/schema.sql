@@ -1,4 +1,4 @@
-﻿-- RexCinemas MySQL 8.0+ release schema.
+-- RexCinemas MySQL 8.0+ release schema.
 -- Generated from the active JPA/native-table model on 2026-10-21.
 -- This file creates structure only; it does not contain users, bookings, payments, or demo data.
 -- Import into a new database. Existing databases must be backed up and upgraded by an approved procedure.
@@ -709,6 +709,26 @@ CREATE TABLE `vouchers` (
   UNIQUE KEY `UK30ftp2biebbvpik8e49wlmady` (`code`),
   KEY `idx_vouchers_owner_user` (`owner_user_id`),
   CONSTRAINT `fk_vouchers_owner_user` FOREIGN KEY (`owner_user_id`) REFERENCES `app_users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE IF NOT EXISTS `support_messages` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `session_id` varchar(64) NOT NULL,
+  `customer_id` bigint DEFAULT NULL,
+  `customer_name` varchar(120) DEFAULT NULL,
+  `customer_email` varchar(150) DEFAULT NULL,
+  `cinema_id` bigint DEFAULT NULL,
+  `sender_type` varchar(20) NOT NULL,
+  `message` text NOT NULL,
+  `is_read` bit(1) NOT NULL DEFAULT b'0',
+  `created_at` datetime(6) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_support_session` (`session_id`),
+  KEY `idx_support_cinema_created` (`cinema_id`,`created_at`),
+  KEY `idx_support_customer` (`customer_id`),
+  CONSTRAINT `fk_support_messages_customer` FOREIGN KEY (`customer_id`) REFERENCES `app_users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_support_messages_cinema` FOREIGN KEY (`cinema_id`) REFERENCES `cinemas` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

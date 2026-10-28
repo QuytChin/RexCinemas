@@ -19,7 +19,7 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 @Configuration @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer{
- private static final String SEAT_TOPIC = "/topic/showtimes/\\d+/seats";
+ private static final String ALLOWED_TOPIC_REGEX = "^/topic/(showtimes/\\d+/seats|support/.*)$";
  private final String configuredOrigins;
  private final String paymentBaseUrl;
 
@@ -44,7 +44,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer{
 
  void validateInbound(StompCommand command, String destination) {
   if (StompCommand.SEND.equals(command)) throw new AccessDeniedException("Client STOMP SEND is not allowed");
-  if (StompCommand.SUBSCRIBE.equals(command) && !String.valueOf(destination).matches(SEAT_TOPIC))
+  if (StompCommand.SUBSCRIBE.equals(command) && !String.valueOf(destination).matches(ALLOWED_TOPIC_REGEX))
    throw new AccessDeniedException("STOMP destination is not allowed");
  }
 

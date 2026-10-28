@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="chatWidget">
+    <!-- Nút mở Chat Widget nổi (Floating Launcher) -->
+    <div id="rexChatLauncher" class="rex-chat-launcher" aria-label="Mở khung chat hỗ trợ">
+        <button id="rexChatOpenBtn" type="button" class="rex-chat-btn" title="Hỗ trợ & Trợ lý AI Rex">
+            <span class="rex-chat-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+            </span>
+            <span class="rex-chat-badge" id="rexChatUnreadBadge" style="display: none;">0</span>
+            <span class="rex-chat-ping"></span>
+        </button>
+    </div>
+
+    <!-- Hộp thoại Chat Widget -->
+    <div id="rexChatBox" class="rex-chat-box" style="display: none;">
+        <!-- Header -->
+        <div class="rex-chat-header">
+            <div class="rex-chat-title-group">
+                <div class="rex-chat-avatar">🤖</div>
+                <div>
+                    <h6 class="rex-chat-title mb-0">Rex Support &amp; AI</h6>
+                    <small class="rex-chat-status"><span class="rex-status-dot"></span> Sẵn sàng hỗ trợ 24/7</small>
+                </div>
+            </div>
+            <div class="rex-chat-actions">
+                <button type="button" id="rexChatCloseBtn" class="rex-chat-action-btn" aria-label="Thu nhỏ">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 2 Tab Chuyển đổi (Tab 1: AI, Tab 2: Rạp) -->
+        <div class="rex-chat-tabs">
+            <button type="button" id="rexTabAi" class="rex-chat-tab active" data-tab="ai">
+                <span class="rex-tab-icon">🤖</span> Trợ lý AI Tư vấn
+            </button>
+            <button type="button" id="rexTabCinema" class="rex-chat-tab" data-tab="cinema">
+                <span class="rex-tab-icon">👨‍💼</span> Chat với Rạp
+            </button>
+        </div>
+
+        <!-- Thanh chọn rạp (chỉ hiển thị khi ở Tab Chat với Rạp) -->
+        <div id="rexCinemaSelectBar" class="rex-cinema-select-bar" style="display: none;">
+            <label for="rexCinemaSelect" class="rex-select-label">Chi nhánh hỗ trợ:</label>
+            <select id="rexCinemaSelect" class="rex-cinema-select">
+                <option value="">-- Đang tải cụm rạp... --</option>
+            </select>
+        </div>
+
+        <!-- Thân Chat: Danh sách tin nhắn -->
+        <div id="rexChatMessages" class="rex-chat-messages">
+            <!-- Tin nhắn chào mừng mặc định -->
+            <div class="rex-msg-group ai">
+                <div class="rex-msg-sender">Trợ lý Rex AI 🤖</div>
+                <div class="rex-msg-bubble">
+                    Chào bạn! Mình là <strong>Trợ lý AI của RexCinemas</strong>. Bạn có thể hỏi mình về thể loại phim, gợi ý phim theo độ tuổi, giá vé hoặc bắp nước nhé!
+                </div>
+            </div>
+        </div>
+
+        <!-- Gợi ý nhanh (Quick Suggestions) cho Tab AI -->
+        <div id="rexQuickChips" class="rex-quick-chips">
+            <button type="button" class="rex-chip" data-prompt="Gợi ý phim hành động hot đang chiếu">🎬 Phim hành động</button>
+            <button type="button" class="rex-chip" data-prompt="Có phim nào xem cùng trẻ em gia đình không?">👨‍👩‍👧 Phim gia đình</button>
+            <button type="button" class="rex-chip" data-prompt="Gợi ý phim kinh dị 18+ rùng rợn">👻 Phim kinh dị</button>
+            <button type="button" class="rex-chip" data-prompt="Giá vé và combo bắp nước bao nhiêu?">🍿 Giá vé &amp; Bắp nước</button>
+        </div>
+
+        <!-- Thanh nhập tin nhắn -->
+        <div class="rex-chat-input-bar">
+            <textarea id="rexChatInput" rows="1" placeholder="Nhập tin nhắn hoặc câu hỏi..." aria-label="Tin nhắn"></textarea>
+            <button id="rexChatSendBtn" type="button" class="rex-send-btn" aria-label="Gửi">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- SockJS & STOMP scripts nếu trang chưa có -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+    <script th:src="@{/js/chat-widget.js}" defer></script>
+</th:block>
+</body>
+</html>

@@ -76,10 +76,12 @@ public class SecurityConfig {
                         .requestMatchers("/", "/error", "/login", "/register", "/policies", "/auth/**",
                                 "/css/**", "/js/**", "/images/**", "/ws/**",
                                 "/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook",
+                                "/api/support/**",
                                 "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/movies/**", "/schedule", "/articles/**",
                                 "/api/movies/**", "/api/showtimes/*/seats", "/api/snacks").permitAll()
                         .requestMatchers("/admin/checkin/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR", "STAFF")
+                        .requestMatchers("/admin/support/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR")
                         .requestMatchers("/admin/bookings/*/refund").hasAnyRole("ADMIN", "CINEMA_MANAGER")
                         .requestMatchers("/admin/bookings/**", "/admin/showtimes/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR")
                         .requestMatchers("/admin/users/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR")
