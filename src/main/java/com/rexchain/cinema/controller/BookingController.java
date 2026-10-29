@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -183,10 +184,15 @@ public class BookingController {
     }
 
     private Booking authorizedBooking(Long id, Authentication auth) {
-        Booking booking = bookings.findById(id).orElseThrow();
         User user = current(auth);
-        if (!booking.getUser().getId().equals(user.getId()) && user.getRole() == Role.CUSTOMER)
-            throw new IllegalStateException("Bạn không có quyền xem vé này");
+        // This route serves a customer's personal ticket page. Staff and other roles
+        // must use their role-specific workflows (such as check-in or admin booking tools).
+        if (user.getRole() != Role.CUSTOMER)
+            throw new AccessDeniedException("Bạn không có quyền xem vé này");
+
+        Booking booking = bookings.findById(id).orElseThrow();
+        if (booking.getUser() == null || !Objects.equals(booking.getUser().getId(), user.getId()))
+            throw new AccessDeniedException("Bạn không có quyền xem vé này");
         return booking;
     }
 

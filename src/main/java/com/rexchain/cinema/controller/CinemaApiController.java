@@ -161,14 +161,27 @@ public class CinemaApiController {
     @GetMapping("/payment-status/{bookingCode}")
     @Transactional
     public ResponseEntity<?> paymentStatus(@PathVariable String bookingCode, Authentication authentication) {
+        User user = current(authentication);
+        Booking candidate = bookings.findByBookingCode(bookingCode).orElse(null);
+        if (candidate == null) return ResponseEntity.notFound().build();
+        if (!canReadBooking(user, candidate)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Không có quyền xem booking này"));
+        }
+
         Booking booking;
         try { booking = bookingService.expireIfDue(bookingCode); }
         catch (IllegalArgumentException ex) { return ResponseEntity.notFound().build(); }
-        User user = current(authentication);
-        if (user.getRole() == Role.CUSTOMER && !booking.getUser().getId().equals(user.getId())) {
-            return ResponseEntity.status(403).body(Map.of("error", "Không có quyền xem booking này"));
-        }
         return ResponseEntity.ok(bookingJson(booking));
+    }
+
+    /**
+     * Payment status belongs to the customer who owns the ticket. Staff, supervisors,
+     * and administrators must use their role-specific tools instead of reading customer
+     * booking details through this customer-facing endpoint.
+     */
+    private boolean canReadBooking(User user, Booking booking) {
+        return user.getRole() == Role.CUSTOMER && booking.getUser() != null
+                && booking.getUser().getId().equals(user.getId());
     }
 
     @PostMapping("/bookings/checkout")

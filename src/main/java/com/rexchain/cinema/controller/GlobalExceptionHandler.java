@@ -8,6 +8,7 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -116,6 +117,22 @@ public class GlobalExceptionHandler {
         response.setStatus(HttpStatus.BAD_REQUEST.value());
         model.addAttribute("status", 400);
         model.addAttribute("message", msg);
+        model.addAttribute("path", request.getRequestURI());
+        return "error";
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public Object accessDenied(HttpServletRequest request, HttpServletResponse response, Model model) {
+        String message = "Bạn không có quyền truy cập tài nguyên này";
+        if (isApiRequest(request)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", HttpStatus.FORBIDDEN.value(), "error", message,
+                    "path", request.getRequestURI(), "timestamp", LocalDateTime.now()));
+        }
+
+        response.setStatus(HttpStatus.FORBIDDEN.value());
+        model.addAttribute("status", HttpStatus.FORBIDDEN.value());
+        model.addAttribute("message", message);
         model.addAttribute("path", request.getRequestURI());
         return "error";
     }
