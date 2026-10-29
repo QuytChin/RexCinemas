@@ -55,6 +55,20 @@ public class CinemaSetupService {
     }
 
     @Transactional
+    public Auditorium renameAuditorium(Long id, String name) {
+        Auditorium auditorium = auditoriums.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Phòng chiếu không tồn tại"));
+        String normalized = name == null ? "" : name.trim();
+        if (normalized.isBlank() || normalized.length() > 80)
+            throw new IllegalArgumentException("Tên phòng chiếu phải từ 1 đến 80 ký tự");
+        if (!auditorium.getName().equalsIgnoreCase(normalized)
+                && auditoriums.existsByCinemaIdAndNameIgnoreCase(auditorium.getCinema().getId(), normalized))
+            throw new IllegalArgumentException("Tên phòng chiếu đã tồn tại trong rạp");
+        auditorium.setName(normalized);
+        return auditoriums.save(auditorium);
+    }
+
+    @Transactional
     public void createShowtimeSeats(Showtime showtime) {
         List<Seat> baseSeats = seats.findByAuditoriumIdOrderBySeatRowAscSeatNumberAsc(showtime.getAuditorium().getId());
         java.util.ArrayList<ShowtimeSeat> generated = new java.util.ArrayList<>(baseSeats.size());

@@ -29,7 +29,11 @@ class DashboardAggregationQueryTest {
         assertThat(summary.getOrders()).isZero();
         assertThat(summary.getConfirmed()).isZero();
         assertThat(summary.getRevenue()).isZero();
+        BookingRepository.DashboardPaidSummary paid = bookings.summarizeDashboardPaid(from, to, null, null, null);
+        assertThat(paid.getBookings()).isZero();
+        assertThat(paid.getRevenue()).isZero();
         assertThat(bookings.summarizeDashboardBookingsByDay(from, to, null, null, null)).isEmpty();
+        assertThat(bookings.summarizeDashboardPaidByDay(from, to, null, null, null)).isEmpty();
         assertThat(bookings.countDashboardTicketsByDay(from, to, null, null, null)).isEmpty();
         assertThat(bookings.countDashboardTickets(from, to, null, null, null)).isZero();
         assertThat(bookings.findDashboardTopMovies(from, to, null, null, null, PageRequest.of(0, 5))).isEmpty();

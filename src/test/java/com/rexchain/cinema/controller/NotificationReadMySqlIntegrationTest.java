@@ -85,7 +85,7 @@ class NotificationReadMySqlIntegrationTest {
     @Test
     void cannotReadAnotherUsersNotification() throws Exception {
         AccountNotification otherNotification = notifications.findByUserIdOrderByCreatedAtDesc(other.getId(), org.springframework.data.domain.PageRequest.of(0, 1))
-                .getContent().getFirst();
+                .getContent().get(0);
         mvc.perform(post("/api/notifications/{id}/read", otherNotification.getId()).with(csrf()).cookie(cookie(owner)))
                 .andExpect(status().isNotFound());
         assertThat(notifications.countByUserIdAndReadAtPresentFalse(other.getId())).isEqualTo(1);

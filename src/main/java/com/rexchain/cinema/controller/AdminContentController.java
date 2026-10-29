@@ -7,11 +7,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.net.URI;
 
 @Controller
 @RequestMapping("/admin")
@@ -52,6 +55,10 @@ public class AdminContentController {
                      @RequestParam(required = false) String linkUrl,
                      @RequestParam(defaultValue = "0") int sortOrder,
                      @RequestParam(required = false) MultipartFile imageFile) throws Exception {
+        title = requiredText(title, "Tiêu đề sự kiện", 180);
+        label = optionalText(label, "Nhãn sự kiện", 80);
+        imageUrl = safeUrl(imageUrl, "Ảnh sự kiện", 600, true);
+        linkUrl = safeUrl(linkUrl, "Liên kết sự kiện", 600, true);
         Event event = id == null ? new Event() : events.findById(id).orElseThrow();
         event.setTitle(title);
         event.setLabel(label);
@@ -101,6 +108,11 @@ public class AdminContentController {
                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate publishDate,
                        @RequestParam(defaultValue = "0") int sortOrder,
                        @RequestParam(required = false) MultipartFile imageFile) throws Exception {
+        title = requiredText(title, "Tiêu đề bài viết", 220);
+        category = optionalText(category, "Chuyên mục", 80);
+        summary = optionalText(summary, "Tóm tắt", 500);
+        imageUrl = safeUrl(imageUrl, "Ảnh bài viết", 600, true);
+        linkUrl = safeUrl(linkUrl, "Liên kết bài viết", 600, true);
         Article article = id == null ? new Article() : articles.findById(id).orElseThrow();
         article.setTitle(title);
         article.setCategory(category);
@@ -150,6 +162,10 @@ public class AdminContentController {
                      @RequestParam(required = false) String thumbnailUrl,
                      @RequestParam(defaultValue = "0") int sortOrder,
                      @RequestParam(required = false) MultipartFile imageFile) throws Exception {
+        title = requiredText(title, "Tiêu đề media", 180);
+        videoUrl = requiredText(videoUrl, "Đường dẫn video", 800);
+        videoUrl = safeUrl(videoUrl, "Đường dẫn video", 800, false);
+        thumbnailUrl = safeUrl(thumbnailUrl, "Ảnh thu nhỏ", 600, true);
         MediaItem media = id == null ? new MediaItem() : mediaItems.findById(id).orElseThrow();
         media.setTitle(title);
         media.setType(type);
@@ -173,5 +189,44 @@ public class AdminContentController {
     String deleteMedia(@PathVariable Long id) {
         mediaItems.deleteById(id);
         return "redirect:/admin/media";
+    }
+
+    @ExceptionHandler({IllegalArgumentException.class, DataIntegrityViolationException.class})
+    String invalidContent(Exception ex, HttpServletRequest request, RedirectAttributes redirect) {
+        String path = request.getRequestURI();
+        String page = path.startsWith("/admin/events") ? "/admin/events"
+                : path.startsWith("/admin/articles") ? "/admin/articles" : "/admin/media";
+        redirect.addFlashAttribute("error", ex instanceof DataIntegrityViolationException
+                ? "Dữ liệu không hợp lệ hoặc trùng với nội dung đã có" : ex.getMessage());
+        return "redirect:" + page;
+    }
+
+    private static String requiredText(String value, String label, int maxLength) {
+        String text = optionalText(value, label, maxLength);
+        if (text == null) throw new IllegalArgumentException(label + " không được để trống");
+        return text;
+    }
+
+    private static String optionalText(String value, String label, int maxLength) {
+        if (value == null || value.isBlank()) return null;
+        String trimmed = value.trim();
+        if (trimmed.length() > maxLength)
+            throw new IllegalArgumentException(label + " không được vượt quá " + maxLength + " ký tự");
+        return trimmed;
+    }
+
+    private static String safeUrl(String value, String label, int maxLength, boolean allowRelative) {
+        String normalized = optionalText(value, label, maxLength);
+        if (normalized == null) return null;
+        if (allowRelative && normalized.startsWith("/") && !normalized.startsWith("//")) return normalized;
+        try {
+            URI uri = URI.create(normalized);
+            if (("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
+                    && uri.getHost() != null && !uri.getHost().isBlank()) return normalized;
+        } catch (IllegalArgumentException invalid) {
+            // The user gets the same safe, localized validation message below.
+        }
+        throw new IllegalArgumentException(label + " phải là URL http(s) hợp lệ"
+                + (allowRelative ? " hoặc đường dẫn nội bộ bắt đầu bằng /" : ""));
     }
 }

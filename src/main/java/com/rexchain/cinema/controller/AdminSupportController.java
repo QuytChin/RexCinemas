@@ -10,6 +10,7 @@ import com.rexchain.cinema.repository.UserRepository;
 import com.rexchain.cinema.service.SupportChatService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -47,6 +48,7 @@ public class AdminSupportController {
                                    Authentication auth,
                                    Model model) {
         User currentUser = currentUser(auth);
+        requireAssignedCinema(currentUser);
 
         // IDOR protection: Supervisor only views their assigned cinema
         if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR) {
@@ -75,6 +77,7 @@ public class AdminSupportController {
             @RequestParam(required = false) Long cinemaId,
             Authentication auth) {
         User currentUser = currentUser(auth);
+        requireAssignedCinema(currentUser);
         if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR) {
             cinemaId = currentUser.getCinema() != null ? currentUser.getCinema().getId() : -1L;
         }
@@ -83,7 +86,8 @@ public class AdminSupportController {
 
     @GetMapping("/api/history/{sessionId}")
     @ResponseBody
-    public List<SupportMessageDto> getSessionHistory(@PathVariable String sessionId) {
+    public List<SupportMessageDto> getSessionHistory(@PathVariable String sessionId, Authentication auth) {
+        requireConversationAccess(currentUser(auth), sessionId);
         return chatService.getHistory(sessionId);
     }
 
@@ -92,6 +96,7 @@ public class AdminSupportController {
     public ResponseEntity<?> sendReply(@RequestBody AdminReplyRequest req, Authentication auth) {
         try {
             User currentUser = currentUser(auth);
+            requireConversationAccess(currentUser, req.sessionId());
             SupportMessageDto replyDto = chatService.sendAdminReply(req.sessionId(), req.message(), currentUser);
             return ResponseEntity.ok(replyDto);
         } catch (IllegalArgumentException ex) {
@@ -101,13 +106,33 @@ public class AdminSupportController {
 
     @PostMapping("/api/mark-read")
     @ResponseBody
-    public ResponseEntity<?> markRead(@RequestBody MarkReadRequest req) {
+    public ResponseEntity<?> markRead(@RequestBody MarkReadRequest req, Authentication auth) {
+        requireConversationAccess(currentUser(auth), req.sessionId());
         chatService.markConversationAsRead(req.sessionId());
         return ResponseEntity.ok(Map.of("success", true));
     }
 
     private User currentUser(Authentication auth) {
-        if (auth == null || auth.getName() == null) return null;
-        return users.findByEmailIgnoreCase(auth.getName()).orElse(null);
+        if (auth == null || auth.getName() == null)
+            throw new AccessDeniedException("Không xác định được nhân viên hỗ trợ");
+        return users.findByEmailIgnoreCase(auth.getName())
+                .orElseThrow(() -> new AccessDeniedException("Tài khoản nhân viên không tồn tại"));
+    }
+
+    private void requireAssignedCinema(User user) {
+        if (user != null && user.getRole() == Role.SUPERVISOR && user.getCinema() == null)
+            throw new AccessDeniedException("Giám sát viên chưa được gán rạp");
+    }
+
+    private void requireConversationAccess(User user, String sessionId) {
+        requireAssignedCinema(user);
+        if (user == null) throw new AccessDeniedException("Không xác định được nhân viên hỗ trợ");
+        if (user.getRole() != Role.SUPERVISOR) return;
+        Long cinemaId = user.getCinema().getId();
+        List<SupportMessageDto> history = chatService.getHistory(sessionId);
+        boolean matches = history.stream().anyMatch(message -> cinemaId.equals(message.cinemaId()));
+        boolean otherCinema = history.stream().anyMatch(message -> message.cinemaId() != null
+                && !cinemaId.equals(message.cinemaId()));
+        if (!matches || otherCinema) throw new AccessDeniedException("Hội thoại không thuộc rạp được giao");
     }
 }

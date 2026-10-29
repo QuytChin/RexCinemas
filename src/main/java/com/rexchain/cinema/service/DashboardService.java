@@ -48,14 +48,19 @@ public class DashboardService {
 
         BookingRepository.DashboardSummary summary = bookings.summarizeDashboardBookings(
                 fromTime, toExclusive, cinemaId, movieId, paymentMethod);
+        // Order counts belong to the booking creation day. Cash revenue and sold
+        // tickets belong to the payment settlement day (Booking.paidAt).
+        BookingRepository.DashboardPaidSummary paid = bookings.summarizeDashboardPaid(
+                fromTime, toExclusive, cinemaId, movieId, paymentMethod);
         long bookingCount = summary.getOrders();
         long confirmed = summary.getConfirmed();
         long pending = summary.getPending();
         long cancelled = summary.getCancelled();
         long checkedIn = summary.getCheckedIn();
-        BigDecimal revenue = summary.getRevenue() == null ? BigDecimal.ZERO : summary.getRevenue();
-        BigDecimal aov = confirmed == 0 ? BigDecimal.ZERO
-                : revenue.divide(BigDecimal.valueOf(confirmed), 0, RoundingMode.HALF_UP);
+        BigDecimal revenue = paid.getRevenue() == null ? BigDecimal.ZERO : paid.getRevenue();
+        long paidBookings = paid.getBookings();
+        BigDecimal aov = paidBookings == 0 ? BigDecimal.ZERO
+                : revenue.divide(BigDecimal.valueOf(paidBookings), 0, RoundingMode.HALF_UP);
 
         long dayCount = Math.min(62, Duration.between(from.atStartOfDay(), to.plusDays(1).atStartOfDay()).toDays());
         LocalDate chartStart = dayCount >= 62 ? to.minusDays(61) : from;
@@ -65,6 +70,11 @@ public class DashboardService {
         Map<LocalDate, BookingRepository.DashboardDailyRow> metricsByDay = new HashMap<>();
         for (BookingRepository.DashboardDailyRow row : dailyRows) {
             metricsByDay.put(LocalDate.of(row.getYearValue(), row.getMonthValue(), row.getDayValue()), row);
+        }
+        Map<LocalDate, BookingRepository.DashboardPaidDay> revenueByDay = new HashMap<>();
+        for (BookingRepository.DashboardPaidDay row : bookings.summarizeDashboardPaidByDay(
+                chartFrom, toExclusive, cinemaId, movieId, paymentMethod)) {
+            revenueByDay.put(LocalDate.of(row.getYearValue(), row.getMonthValue(), row.getDayValue()), row);
         }
         Map<LocalDate, Long> ticketsByDay = new HashMap<>();
         for (BookingRepository.DashboardTicketDay row : bookings.countDashboardTicketsByDay(
@@ -81,8 +91,11 @@ public class DashboardService {
             long dp = row == null ? 0 : row.getPending();
             long dx = row == null ? 0 : row.getCancelled();
             long dt = ticketsByDay.getOrDefault(date, 0L);
-            BigDecimal dr = row == null || row.getRevenue() == null ? BigDecimal.ZERO : row.getRevenue();
-            BigDecimal daov = dc == 0 ? BigDecimal.ZERO : dr.divide(BigDecimal.valueOf(dc), 0, RoundingMode.HALF_UP);
+            BookingRepository.DashboardPaidDay paidDay = revenueByDay.get(date);
+            BigDecimal dr = paidDay == null || paidDay.getRevenue() == null ? BigDecimal.ZERO : paidDay.getRevenue();
+            long dayPayments = paidDay == null ? 0 : paidDay.getBookings();
+            BigDecimal daov = dayPayments == 0 ? BigDecimal.ZERO
+                    : dr.divide(BigDecimal.valueOf(dayPayments), 0, RoundingMode.HALF_UP);
             daily.add(new DailyMetric(date.format(df), orders, dc, dp, dx, dt, dr, daov));
         }
 

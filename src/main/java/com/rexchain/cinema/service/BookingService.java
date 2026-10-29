@@ -142,6 +142,7 @@ public class BookingService {
         User user = users.findById(userId).orElseThrow();
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(now)
+                || !showtime.getAuditorium().isActive()
                 || showtime.getAuditorium().getCinema() == null
                 || !showtime.getAuditorium().getCinema().isActive())
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");

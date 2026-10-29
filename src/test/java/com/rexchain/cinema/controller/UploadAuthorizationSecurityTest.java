@@ -54,4 +54,26 @@ class UploadAuthorizationSecurityTest {
                         .param("durationMinutes", "120"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @WithMockUser(roles = "STAFF")
+    void staffCannotChangeMoviesOrCinemas() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/admin/movies/1/toggle").with(csrf()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/admin/cinemas/1/toggle").with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPERVISOR")
+    void supervisorCannotChangeUnscopedContentOrVouchers() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/admin/events/1/toggle").with(csrf()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/admin/vouchers/1/toggle").with(csrf()))
+                .andExpect(status().isForbidden());
+    }
 }

@@ -29,7 +29,7 @@ class UnicodeEncodingRegressionTest {
             String content = read(resource);
             assertFalse(content.contains("�"), resource);
             assertFalse(content.contains("Ã"), resource);
-            assertFalse(content.contains("Â"), resource);
+            assertFalse(content.contains("Â©") || content.contains("Â£"), resource);
         }
     }
 

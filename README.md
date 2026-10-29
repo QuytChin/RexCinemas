@@ -28,9 +28,10 @@ Phần quản trị cung cấp các màn hình quản lý phim, rạp, phòng ch
 
 ### Phạm vi hiện tại
 
-- Role CUSTOMER phục vụ các luồng người dùng thông thường.
-- Role ADMIN truy cập các trang quản trị /admin/**.
-- CINEMA_MANAGER chỉ còn để tương thích dữ liệu cũ, không được cấp mới và không có quyền quản trị trong phiên bản hiện tại.
+- CUSTOMER sử dụng các luồng khách hàng thông thường.
+- STAFF chỉ được vào khu vực soát vé; SUPERVISOR được vào dashboard, lịch chiếu, booking, tài khoản và hỗ trợ của rạp được giao.
+- ADMIN quản trị toàn hệ thống. CINEMA_MANAGER chỉ còn tồn tại để tương thích dữ liệu cũ, không được cấp mới và không có quyền truy cập trang quản trị.
+- Mọi endpoint quản trị ngoài các ngoại lệ có phân quyền tường minh chỉ cho phép ADMIN.
 - Checkout hiện hỗ trợ phương thức BANK_QR; MoMo, VNPAY và thanh toán trực tiếp tại quầy chưa nằm trong phạm vi hỗ trợ.
 
 ## Tính năng chính
@@ -94,6 +95,7 @@ sequenceDiagram
 ### Nguyên tắc dữ liệu
 
 - database/mysql/schema.sql là schema hoàn chỉnh cho cài đặt mới.
+- database/mysql/upgrade-staff-supervisor.sql nâng cấp dữ liệu MySQL đang có, bổ sung quyền nhân viên và trạng thái phòng. Sao lưu trước khi chạy.
 - database/mysql/initial-data.sql chỉ chứa cấu hình Rewards và chính sách hạng tối thiểu.
 - Không đưa tài khoản, mật khẩu, booking, giao dịch hoặc dữ liệu demo vào schema phát hành.
 - Không chạy lại schema cài mới trên database đã có dữ liệu kinh doanh nếu chưa sao lưu và review.
@@ -128,7 +130,9 @@ Import schema và dữ liệu hệ thống tối thiểu:
 & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u <mysql-user> -p < database\mysql\initial-data.sql
 ~~~
 
-Schema hiện tạo 35 bảng, bao gồm dữ liệu người dùng, phim/rạp, booking, ghế, Rewards, OTP, thanh toán và audit. Nếu dùng tên database khác, thay tên ở các dòng CREATE DATABASE và USE trong hai file trước khi import.
+Schema hiện tạo 36 bảng, bao gồm dữ liệu người dùng, phim/rạp, booking, ghế, Rewards, OTP, thanh toán, chat và audit. Nếu dùng tên database khác, thay tên ở các dòng CREATE DATABASE và USE trước khi import.
+
+**Database đã có dữ liệu:** Không import lại `schema.sql`. Sao lưu database, rồi chạy `database/mysql/upgrade-staff-supervisor.sql` bằng MySQL CLI trước khi khởi động phiên bản này (`ddl-auto=validate`). Script hỗ trợ chạy lại mà không tạo trùng cột hoặc khóa ngoại.
 
 ### 3. Kiểm tra cấu hình
 
@@ -215,7 +219,8 @@ RexCinemas/
 ├── database/
 │   └── mysql/
 │       ├── schema.sql
-│       └── initial-data.sql
+│       ├── initial-data.sql
+│       └── upgrade-staff-supervisor.sql
 ├── src/
 │   ├── main/
 │   │   ├── java/com/rexchain/cinema/

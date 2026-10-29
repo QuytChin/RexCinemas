@@ -169,7 +169,7 @@ public class MembershipService {
         }
         List<MembershipTierPolicy> byRank = values.stream()
                 .sorted(Comparator.comparingInt(value -> value.getTier().ordinal())).toList();
-        MembershipTierPolicy member = byRank.getFirst();
+        MembershipTierPolicy member = byRank.get(0);
         if (member.getTier() != MembershipTier.MEMBER || !member.isActive() || member.getQualifyingThreshold() != 0) {
             throw new IllegalStateException("Chính sách MEMBER phải hoạt động và có ngưỡng 0 điểm");
         }

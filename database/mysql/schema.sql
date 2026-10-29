@@ -52,10 +52,11 @@ CREATE TABLE `app_users` (
   `national_id` varchar(12) DEFAULT NULL,
   `password` varchar(255) NOT NULL,
   `phone` varchar(30) DEFAULT NULL,
-  `role` enum('ADMIN','CINEMA_MANAGER','CUSTOMER') NOT NULL,
+  `role` enum('ADMIN','CINEMA_MANAGER','CUSTOMER','STAFF','SUPERVISOR') NOT NULL,
   `username` varchar(50) DEFAULT NULL,
   `version` bigint NOT NULL,
   `favorite_cinema_id` bigint DEFAULT NULL,
+  `cinema_id` bigint DEFAULT NULL,
   `gender` varchar(20) DEFAULT NULL,
   `tier_qualifying_points` int NOT NULL DEFAULT '0',
   `redeemed_points` int NOT NULL DEFAULT '0',
@@ -64,7 +65,9 @@ CREATE TABLE `app_users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_app_users_email` (`email`),
   KEY `idx_app_users_favorite_cinema` (`favorite_cinema_id`),
-  CONSTRAINT `FK6prfudfyeykl21b7q6ivil4hy` FOREIGN KEY (`favorite_cinema_id`) REFERENCES `cinemas` (`id`)
+  KEY `idx_app_users_cinema` (`cinema_id`),
+  CONSTRAINT `FK6prfudfyeykl21b7q6ivil4hy` FOREIGN KEY (`favorite_cinema_id`) REFERENCES `cinemas` (`id`),
+  CONSTRAINT `fk_app_users_cinema` FOREIGN KEY (`cinema_id`) REFERENCES `cinemas` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -88,6 +91,7 @@ CREATE TABLE `articles` (
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `auditoriums` (
   `id` bigint NOT NULL AUTO_INCREMENT,
+  `active` bit(1) NOT NULL DEFAULT b'1',
   `name` varchar(80) NOT NULL,
   `seats_per_row` int NOT NULL,
   `total_rows` int NOT NULL,

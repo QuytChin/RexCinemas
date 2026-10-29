@@ -27,7 +27,7 @@ class BookingUiRegressionTest {
                 "grid-column:${ss.seat.seatNumber};",
                 "#strings.toLowerCase(ss.seat.type.name())");
         assertThat(css).contains(
-                ".seat-row-grid{display:grid;grid-template-columns:repeat(var(--seat-columns),minmax(34px,1fr))",
+                ".seat-row-grid{display:grid;grid-template-columns:repeat(var(--seat-columns),minmax(0,1fr))",
                 ".seat.couple",
                 ".seat-dot.couple");
         assertThat(page).doesNotContain("seatNumber + 1", "seatNumber+1", "dummy", "fake");

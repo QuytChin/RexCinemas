@@ -79,6 +79,8 @@
                     <th scope="col">Số hàng</th>
                     <th scope="col">Ghế mỗi hàng</th>
                     <th scope="col">Sức chứa</th>
+                    <th scope="col">Trạng thái</th>
+                    <th scope="col">Thao tác</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -88,9 +90,24 @@
                     <td th:text="${a.totalRows}"></td>
                     <td th:text="${a.seatsPerRow}"></td>
                     <td><span class="admin-room-capacity" th:text="${a.totalRows * a.seatsPerRow + ' ghế'}"></span></td>
+                    <td th:text="${a.active ? 'Đang hoạt động' : 'Đã ẩn'}"></td>
+                    <td>
+                        <div class="d-flex flex-wrap gap-2">
+                            <form th:action="@{'/admin/auditoriums/' + ${a.id} + '/rename'}" method="post" class="d-flex gap-1">
+                                <input class="form-control form-control-sm" name="name" th:value="${a.name}"
+                                       maxlength="80" required aria-label="Tên phòng chiếu mới">
+                                <button class="btn btn-sm btn-outline-light" type="submit">Đổi tên</button>
+                            </form>
+                            <form th:action="@{'/admin/auditoriums/' + ${a.id} + '/toggle'}" method="post">
+                                <button class="btn btn-sm" type="submit"
+                                        th:classappend="${a.active ? ' btn-outline-warning' : ' btn-outline-success'}"
+                                        th:text="${a.active ? 'Ẩn phòng' : 'Mở lại'}"></button>
+                            </form>
+                        </div>
+                    </td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(auditoriums)}">
-                    <td colspan="5" class="admin-room-empty">Chưa có phòng chiếu phù hợp. Hãy thử xóa bộ lọc hoặc tạo phòng mới.</td>
+                    <td colspan="7" class="admin-room-empty">Chưa có phòng chiếu phù hợp. Hãy thử xóa bộ lọc hoặc tạo phòng mới.</td>
                 </tr>
                 </tbody>
             </table>

@@ -52,6 +52,7 @@ public class BookingController {
     String booking(@PathVariable Long showtimeId, Model model) {
         Showtime showtime = showtimes.findById(showtimeId).orElseThrow();
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(java.time.LocalDateTime.now())
+                || !showtime.getAuditorium().isActive()
                 || showtime.getAuditorium().getCinema() == null
                 || !showtime.getAuditorium().getCinema().isActive())
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
@@ -151,6 +152,7 @@ public class BookingController {
         }
         model.addAttribute("booking", booking);
         boolean open = booking.getShowtime().isActive()
+                && booking.getShowtime().getAuditorium().isActive()
                 && booking.getShowtime().getStartTime().isAfter(java.time.LocalDateTime.now())
                 && booking.getShowtime().getAuditorium().getCinema().isActive();
         model.addAttribute("rebookUrl", open ? "/booking/" + booking.getShowtime().getId()

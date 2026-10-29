@@ -154,7 +154,7 @@ public class AuthService {
         String normalizedIdentifier = identifier == null ? "" : identifier.trim().toLowerCase();
         List<User> matches = users.findAllByLoginIdentifier(normalizedIdentifier);
         if (matches.size() != 1) throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
-        User user = matches.getFirst();
+        User user = matches.get(0);
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getEmail(), password));
         return jwt.generate(user.getEmail(), user.getRole().name(), remember, user.getCredentialVersion());
     }

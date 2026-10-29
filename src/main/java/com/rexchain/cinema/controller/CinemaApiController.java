@@ -84,6 +84,7 @@ public class CinemaApiController {
         Showtime showtime = showtimes.findById(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Suất chiếu không tồn tại"));
         if (!showtime.isActive() || !showtime.getStartTime().isAfter(LocalDateTime.now())
+                || !showtime.getAuditorium().isActive()
                 || showtime.getAuditorium().getCinema() == null
                 || !showtime.getAuditorium().getCinema().isActive()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Suất chiếu không còn mở đặt vé");
@@ -281,7 +282,8 @@ public class CinemaApiController {
         x.put("paymentAllowed", b.getStatus() == BookingStatus.PENDING && b.getExpiresAt() != null
                 && b.getExpiresAt().isAfter(LocalDateTime.now()));
         Showtime bookedShowtime = b.getShowtime();
-        boolean open = bookedShowtime.isActive() && bookedShowtime.getStartTime().isAfter(LocalDateTime.now())
+        boolean open = bookedShowtime.isActive() && bookedShowtime.getAuditorium().isActive()
+                && bookedShowtime.getStartTime().isAfter(LocalDateTime.now())
                 && bookedShowtime.getAuditorium().getCinema().isActive();
         x.put("rebookUrl", open ? "/booking/" + bookedShowtime.getId()
                 : "/movies/" + bookedShowtime.getMovie().getId());

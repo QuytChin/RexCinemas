@@ -4,6 +4,7 @@ import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.config.SePayProperties;
 import com.rexchain.cinema.dto.PaymentSettingsUpdateRequest;
 import com.rexchain.cinema.dto.ManualRefundConfirmation;
+import org.springframework.security.access.AccessDeniedException;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -92,6 +93,7 @@ public class AdminController {
             Authentication auth,
             Model model) {
         User currentUser = currentUser(auth);
+        requireAssignedCinema(currentUser);
         if (currentUser != null && currentUser.getRole() == Role.STAFF) {
             return "redirect:/admin/checkin";
         }
@@ -443,10 +445,44 @@ public class AdminController {
         return "redirect:/admin/auditoriums";
     }
 
+    @PostMapping("/auditoriums/{id}/rename")
+    String auditoriumRename(@PathVariable Long id, @RequestParam String name, RedirectAttributes redirect) {
+        try {
+            setup.renameAuditorium(id, name);
+            redirect.addFlashAttribute("success", "Đã đổi tên phòng chiếu");
+        } catch (Exception ex) {
+            redirect.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/auditoriums";
+    }
+
+    @PostMapping("/auditoriums/{id}/toggle")
+    @Transactional
+    String auditoriumToggle(@PathVariable Long id, RedirectAttributes redirect) {
+        try {
+            Auditorium room = auditoriums.findByIdForUpdate(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Phòng chiếu không tồn tại"));
+            if (room.isActive()) {
+                for (Showtime showtime : showtimes.findByAuditoriumIdAndActiveTrueOrderByStartTimeAsc(id)) {
+                    if (!canHideShowtime(showtime)) {
+                        throw new IllegalStateException("Phòng có vé hoặc ghế đang được giữ; không thể ẩn");
+                    }
+                }
+            }
+            room.setActive(!room.isActive());
+            auditoriums.save(room);
+            redirect.addFlashAttribute("success", room.isActive() ? "Đã mở lại phòng chiếu" : "Đã ẩn phòng chiếu");
+        } catch (Exception ex) {
+            redirect.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/auditoriums";
+    }
+
     @GetMapping("/showtimes")
     String showtimes(@RequestParam(required = false) Long edit, @RequestParam Map<String, String> params,
                      HttpServletRequest request, Authentication auth, Model model) {
         User currentUser = currentUser(auth);
+        requireAssignedCinema(currentUser);
         var options = new AdminListSupport.Options("movie.title,auditorium.name", "active",
                 new String[]{"startTime", "basePrice", "id"}, new String[]{"movie", "auditorium.cinema"})
                 .withLabels("Hiển thị", "Tên phim, tên phòng");
@@ -455,11 +491,11 @@ public class AdminController {
             Long cinemaId = currentUser.getCinema().getId();
             page = lists.query(showtimes, params, options, (root, query, cb) ->
                     cb.equal(root.get("auditorium").get("cinema").get("id"), cinemaId));
-            model.addAttribute("auditoriums", auditoriums.findByCinemaIdOrderByNameAsc(cinemaId));
+            model.addAttribute("auditoriums", auditoriums.findByCinemaIdAndActiveTrueOrderByNameAsc(cinemaId));
             model.addAttribute("scopedSupervisorCinema", currentUser.getCinema());
         } else {
             page = lists.query(showtimes, params, options);
-            model.addAttribute("auditoriums", auditoriums.findAll());
+            model.addAttribute("auditoriums", auditoriums.findByActiveTrueOrderByNameAsc());
         }
         display(model, request, params, page, options, "showtimes", "true", "false");
         model.addAttribute("movies", movies.findAll());
@@ -486,6 +522,7 @@ public class AdminController {
             RedirectAttributes redirect) {
         try {
             User currentUser = currentUser(auth);
+            requireAssignedCinema(currentUser);
             Auditorium auditorium = auditoriums.findById(auditoriumId).orElseThrow();
             if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
                 if (!auditorium.getCinema().getId().equals(currentUser.getCinema().getId())) {
@@ -508,6 +545,8 @@ public class AdminController {
                     throw new IllegalArgumentException("Phim đang bị ẩn");
                 if (!auditorium.getCinema().isActive())
                     throw new IllegalArgumentException("Rạp đang bị ẩn");
+                if (!auditorium.isActive())
+                    throw new IllegalArgumentException("Phòng chiếu đang bị ẩn");
                 showtime.setMovie(movie);
                 showtime.setAuditorium(auditorium);
             }
@@ -536,6 +575,7 @@ public class AdminController {
     @PostMapping("/showtimes/{id}/delete")
     String showtimeDelete(@PathVariable Long id, Authentication auth, RedirectAttributes redirect) {
         User currentUser = currentUser(auth);
+        requireAssignedCinema(currentUser);
         Showtime showtime = showtimes.findById(id).orElseThrow();
         if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
             if (!showtime.getAuditorium().getCinema().getId().equals(currentUser.getCinema().getId())) {
@@ -555,6 +595,7 @@ public class AdminController {
     @PostMapping("/showtimes/{id}/toggle")
     String showtimeToggle(@PathVariable Long id, Authentication auth, RedirectAttributes redirect) {
         User currentUser = currentUser(auth);
+        requireAssignedCinema(currentUser);
         Showtime showtime = showtimes.findById(id).orElseThrow();
         if (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null) {
             if (!showtime.getAuditorium().getCinema().getId().equals(currentUser.getCinema().getId())) {
@@ -584,6 +625,7 @@ public class AdminController {
     @Transactional(readOnly = true)
     String bookings(@RequestParam Map<String, String> params, HttpServletRequest request, Authentication auth, Model model) {
         User currentUser = currentUser(auth);
+        requireAssignedCinema(currentUser);
         Long scopedCinemaId = (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null)
                 ? currentUser.getCinema().getId()
                 : null;
@@ -651,6 +693,7 @@ public class AdminController {
     @Transactional(readOnly = true)
     String users(@RequestParam Map<String, String> params, HttpServletRequest request, Authentication auth, Model model) {
         User currentUser = currentUser(auth);
+        requireAssignedCinema(currentUser);
         var options = new AdminListSupport.Options("fullName,email,username,phone", "role", "createdAt", "email", "fullName", "id")
                 .withLabels("Vai trò", "Tên, email, số điện thoại");
         Page<User> page;
@@ -662,7 +705,7 @@ public class AdminController {
             model.addAttribute("scopedSupervisorCinema", currentUser.getCinema());
         } else {
             page = lists.query(users, params, options);
-            model.addAttribute("roles", List.of(Role.CUSTOMER, Role.STAFF, Role.SUPERVISOR, Role.CINEMA_MANAGER, Role.ADMIN));
+            model.addAttribute("roles", List.of(Role.CUSTOMER, Role.STAFF, Role.SUPERVISOR, Role.ADMIN));
         }
         display(model, request, params, page, options, "users", List.of(Role.CUSTOMER, Role.STAFF, Role.SUPERVISOR, Role.CINEMA_MANAGER, Role.ADMIN));
         java.util.Map<Long, MembershipTier> memberTiers = new java.util.HashMap<>();
@@ -677,6 +720,7 @@ public class AdminController {
     }
 
     @PostMapping("/users/{id}/toggle")
+    @Transactional
     String toggleUser(@PathVariable Long id, Authentication auth, RedirectAttributes redirect) {
         try {
             User currentUser = currentUser(auth);
@@ -703,6 +747,19 @@ public class AdminController {
                 }
             }
 
+            // Check the limit while holding the same cinema lock used by role assignment.
+            // Otherwise a disabled supervisor could be re-enabled as a fourth active one.
+            if (!user.isEnabled() && user.getRole() == Role.SUPERVISOR) {
+                if (user.getCinema() == null) {
+                    throw new IllegalStateException("Giám sát viên chưa được gán rạp");
+                }
+                Long cinemaId = user.getCinema().getId();
+                cinemas.findByIdForUpdate(cinemaId).orElseThrow();
+                if (users.countByCinemaIdAndRoleAndEnabledTrue(cinemaId, Role.SUPERVISOR) >= 3) {
+                    throw new IllegalStateException("Rạp đã có đủ 3 giám sát viên đang hoạt động");
+                }
+            }
+
             user.setEnabled(!user.isEnabled());
             users.save(user);
             redirect.addFlashAttribute("success", (user.isEnabled() ? "Đã mở khóa " : "Đã khóa ") + user.getFullName());
@@ -721,6 +778,8 @@ public class AdminController {
         try {
             User currentUser = currentUser(auth);
             User user = users.findById(id).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng #" + id));
+            if (role == Role.CINEMA_MANAGER)
+                throw new IllegalArgumentException("Vai trò CINEMA_MANAGER cũ không được cấp mới");
 
             if (currentUser != null && currentUser.getId().equals(user.getId())) {
                 throw new IllegalStateException("Bạn không thể tự thay đổi vai trò của chính mình!");
@@ -926,8 +985,16 @@ public class AdminController {
     }
 
     private User currentUser(Authentication auth) {
-        if (auth == null || auth.getName() == null) return null;
-        return users.findByEmailIgnoreCase(auth.getName()).orElse(null);
+        if (auth == null || auth.getName() == null)
+            throw new AccessDeniedException("Không xác định được tài khoản quản trị");
+        return users.findByEmailIgnoreCase(auth.getName())
+                .orElseThrow(() -> new AccessDeniedException("Tài khoản quản trị không tồn tại"));
+    }
+
+    private void requireAssignedCinema(User user) {
+        if (user != null && user.getRole() == Role.SUPERVISOR && user.getCinema() == null) {
+            throw new AccessDeniedException("Tài khoản giám sát chưa được gán rạp");
+        }
     }
 
     private void display(Model model, HttpServletRequest request, Map<String, String> params,

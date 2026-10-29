@@ -15,9 +15,19 @@ class SchemaMigrationContractTest {
 
         assertThat(schema).contains("CHARACTER SET utf8mb4", "CREATE TABLE `bookings`", "CREATE TABLE `payment_transactions`",
                         "CREATE TABLE `otp_challenges`", "CREATE TABLE `membership_tier_policies`")
+                .contains("`cinema_id` bigint DEFAULT NULL", "'STAFF','SUPERVISOR'", "CREATE TABLE `auditoriums`",
+                        "`active` bit(1) NOT NULL DEFAULT b'1'")
                 .contains("CONSTRAINT")
                 .doesNotContainPattern("(?im)^\\s*(INSERT|DROP|TRUNCATE|DELETE)\\b");
         assertThat(schema.split("CREATE TABLE `", -1)).hasSize(36);
+    }
+
+    @Test
+    void existingMysqlUpgradePreservesDataAndAddsMissingRoleFields() throws IOException {
+        String upgrade = read("database/mysql/upgrade-staff-supervisor.sql");
+        assertThat(upgrade).contains("ALTER TABLE `app_users`", "SUPERVISOR", "idx_app_users_cinema",
+                "fk_app_users_cinema", "ALTER TABLE `auditoriums`");
+        assertThat(upgrade).doesNotContainPattern("(?im)^\\s*(DROP|TRUNCATE|DELETE)\\b");
     }
 
     @Test

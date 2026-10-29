@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Optional;
 public interface AuditoriumRepository extends JpaRepository<Auditorium,Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Auditorium>{
     List<Auditorium> findByCinemaIdOrderByNameAsc(Long cinemaId);
+    List<Auditorium> findByCinemaIdAndActiveTrueOrderByNameAsc(Long cinemaId);
+    List<Auditorium> findByActiveTrueOrderByNameAsc();
     boolean existsByCinemaIdAndNameIgnoreCase(Long cinemaId, String name);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

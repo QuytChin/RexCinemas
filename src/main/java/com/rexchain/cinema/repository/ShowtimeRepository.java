@@ -12,20 +12,20 @@ import java.util.List;
 
 public interface ShowtimeRepository extends JpaRepository<Showtime, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Showtime> {
     @Query("select s from Showtime s join fetch s.movie m join fetch s.auditorium a join fetch a.cinema c " +
-           "where s.active=true and m.active=true and c.active=true " +
+           "where s.active=true and m.active=true and a.active=true and c.active=true " +
            "and s.movie.id = :movieId and s.startTime > :after " +
            "order by s.startTime asc")
     List<Showtime> findPublicByMovieIdAndStartTimeAfterOrderByStartTimeAsc(@Param("movieId") Long movieId,
                                                                             @Param("after") LocalDateTime after);
 
     @Query("select s from Showtime s join fetch s.movie m join fetch s.auditorium a join fetch a.cinema c " +
-           "where s.active=true and m.active=true and c.active=true " +
+           "where s.active=true and m.active=true and a.active=true and c.active=true " +
            "and s.startTime > :after " +
            "order by s.startTime asc")
     List<Showtime> findPublicByStartTimeAfterOrderByStartTimeAsc(@Param("after") LocalDateTime after);
 
     @Query("select s from Showtime s join fetch s.movie m join fetch s.auditorium a join fetch a.cinema c " +
-           "where s.active=true and m.active=true and c.active=true and s.startTime > :after " +
+           "where s.active=true and m.active=true and a.active=true and c.active=true and s.startTime > :after " +
            "order by s.startTime asc")
     List<Showtime> findTopPublicByStartTimeAfter(@Param("after") LocalDateTime after, Pageable pageable);
     long countByActiveTrueAndStartTimeBetween(LocalDateTime from, LocalDateTime to);
@@ -34,7 +34,7 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long>, org.s
     List<Showtime> findByAuditoriumIdAndActiveTrueOrderByStartTimeAsc(Long auditoriumId);
 
     @Query("select s from Showtime s join fetch s.movie m join fetch s.auditorium a join fetch a.cinema c " +
-           "where s.active=true and m.active=true and c.active=true " +
+           "where s.active=true and m.active=true and a.active=true and c.active=true " +
            "and s.startTime >= :from and s.startTime < :to " +
            "and (:cinemaId is null or c.id = :cinemaId) " +
            "and (:movieId is null or m.id = :movieId) " +

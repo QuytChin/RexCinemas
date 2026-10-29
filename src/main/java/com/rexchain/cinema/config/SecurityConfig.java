@@ -80,14 +80,17 @@ public class SecurityConfig {
                                 "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/movies/**", "/schedule", "/articles/**",
                                 "/api/movies/**", "/api/showtimes/*/seats", "/api/snacks").permitAll()
-                        .requestMatchers("/admin/checkin/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR", "STAFF")
-                        .requestMatchers("/admin/support/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR")
-                        .requestMatchers("/admin/bookings/*/refund").hasAnyRole("ADMIN", "CINEMA_MANAGER")
-                        .requestMatchers("/admin/bookings/**", "/admin/showtimes/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR")
-                        .requestMatchers("/admin/users/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR")
+                        // Staff are redirected to check-in from the admin landing page; all
+                        // other admin actions require an explicit role-specific rule below.
+                        .requestMatchers("/admin", "/admin/").hasAnyRole("ADMIN", "SUPERVISOR", "STAFF")
+                        .requestMatchers("/admin/checkin/**").hasAnyRole("ADMIN", "SUPERVISOR", "STAFF")
+                        .requestMatchers("/admin/support/**").hasAnyRole("ADMIN", "SUPERVISOR")
+                        .requestMatchers("/admin/bookings/*/refund").hasRole("ADMIN")
+                        .requestMatchers("/admin/bookings/**", "/admin/showtimes/**").hasAnyRole("ADMIN", "SUPERVISOR")
+                        .requestMatchers("/admin/users/**").hasAnyRole("ADMIN", "SUPERVISOR")
                         .requestMatchers("/admin/payments/**", "/admin/late-payments/**", "/admin/rewards/**").hasRole("ADMIN")
-                        .requestMatchers("/admin/transactions/**").hasAnyRole("ADMIN", "CINEMA_MANAGER")
-                        .requestMatchers("/admin/**").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR", "STAFF")
+                        .requestMatchers("/admin/transactions/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives(

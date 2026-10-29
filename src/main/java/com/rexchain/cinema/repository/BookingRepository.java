@@ -46,6 +46,19 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
         Long getTickets();
     }
 
+    interface DashboardPaidSummary {
+        Long getBookings();
+        BigDecimal getRevenue();
+    }
+
+    interface DashboardPaidDay {
+        Integer getYearValue();
+        Integer getMonthValue();
+        Integer getDayValue();
+        Long getBookings();
+        BigDecimal getRevenue();
+    }
+
     interface DashboardLeaderboardRow {
         String getName();
         BigDecimal getRevenue();
@@ -109,6 +122,33 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
                                                 @Param("movieId") Long movieId,
                                                 @Param("paymentMethod") PaymentMethod paymentMethod);
 
+    @Query("select count(b) as bookings, coalesce(sum(b.totalAmount), 0) as revenue " +
+            "from Booking b join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED " +
+            "and b.paidAt >= :from and b.paidAt < :to " +
+            "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
+            "and (:paymentMethod is null or b.paymentMethod = :paymentMethod)")
+    DashboardPaidSummary summarizeDashboardPaid(@Param("from") LocalDateTime from,
+                                                @Param("to") LocalDateTime to,
+                                                @Param("cinemaId") Long cinemaId,
+                                                @Param("movieId") Long movieId,
+                                                @Param("paymentMethod") PaymentMethod paymentMethod);
+
+    @Query("select year(b.paidAt) as yearValue, month(b.paidAt) as monthValue, " +
+            "day(b.paidAt) as dayValue, count(b) as bookings, " +
+            "coalesce(sum(b.totalAmount), 0) as revenue " +
+            "from Booking b join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED " +
+            "and b.paidAt >= :from and b.paidAt < :to " +
+            "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
+            "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
+            "group by year(b.paidAt), month(b.paidAt), day(b.paidAt)")
+    List<DashboardPaidDay> summarizeDashboardPaidByDay(@Param("from") LocalDateTime from,
+                                                       @Param("to") LocalDateTime to,
+                                                       @Param("cinemaId") Long cinemaId,
+                                                       @Param("movieId") Long movieId,
+                                                       @Param("paymentMethod") PaymentMethod paymentMethod);
+
     @Query("select year(b.createdAt) as yearValue, month(b.createdAt) as monthValue, day(b.createdAt) as dayValue, " +
             "count(b) as orders, " +
             "coalesce(sum(case when b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED then 1 else 0 end), 0) as confirmed, " +
@@ -126,12 +166,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
                                                             @Param("movieId") Long movieId,
                                                             @Param("paymentMethod") PaymentMethod paymentMethod);
 
-    @Query("select year(b.createdAt) as yearValue, month(b.createdAt) as monthValue, day(b.createdAt) as dayValue, count(bs) as tickets " +
+    @Query("select year(b.paidAt) as yearValue, month(b.paidAt) as monthValue, day(b.paidAt) as dayValue, count(bs) as tickets " +
             "from Booking b join b.seats bs join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
-            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.createdAt >= :from and b.createdAt < :to " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.paidAt >= :from and b.paidAt < :to " +
             "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
             "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
-            "group by year(b.createdAt), month(b.createdAt), day(b.createdAt)")
+            "group by year(b.paidAt), month(b.paidAt), day(b.paidAt)")
     List<DashboardTicketDay> countDashboardTicketsByDay(@Param("from") LocalDateTime from,
                                                         @Param("to") LocalDateTime to,
                                                         @Param("cinemaId") Long cinemaId,
@@ -140,7 +180,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
 
     @Query("select count(bs) from BookingSeat bs join bs.booking b join b.showtime st join st.movie m " +
             "join st.auditorium a join a.cinema c " +
-            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.createdAt >= :from and b.createdAt < :to " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.paidAt >= :from and b.paidAt < :to " +
             "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
             "and (:paymentMethod is null or b.paymentMethod = :paymentMethod)")
     long countDashboardTickets(@Param("from") LocalDateTime from,
@@ -151,7 +191,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
 
     @Query("select m.title as name, coalesce(sum(b.totalAmount), 0) as revenue, count(b) as bookings " +
             "from Booking b join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
-            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.createdAt >= :from and b.createdAt < :to " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.paidAt >= :from and b.paidAt < :to " +
             "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
             "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
             "group by m.id, m.title order by sum(b.totalAmount) desc")
@@ -164,7 +204,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
 
     @Query("select c.name as name, coalesce(sum(b.totalAmount), 0) as revenue, count(b) as bookings " +
             "from Booking b join b.showtime st join st.movie m join st.auditorium a join a.cinema c " +
-            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.createdAt >= :from and b.createdAt < :to " +
+            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED and b.paidAt >= :from and b.paidAt < :to " +
             "and (:cinemaId is null or c.id = :cinemaId) and (:movieId is null or m.id = :movieId) " +
             "and (:paymentMethod is null or b.paymentMethod = :paymentMethod) " +
             "group by c.id, c.name order by sum(b.totalAmount) desc")

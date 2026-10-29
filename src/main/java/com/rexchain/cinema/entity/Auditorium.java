@@ -10,10 +10,12 @@ public class Auditorium {
     @Column(nullable=false, length=80) private String name;
     @Column(nullable=false) private int totalRows;
     @Column(nullable=false) private int seatsPerRow;
+    @Column(nullable=false) private boolean active = true;
     @ManyToOne(fetch=FetchType.LAZY, optional=false) @JoinColumn(name="cinema_id") private Cinema cinema;
     public Long getId(){return id;} public void setId(Long id){this.id=id;}
     public String getName(){return name;} public void setName(String v){this.name=v;}
     public int getTotalRows(){return totalRows;} public void setTotalRows(int v){this.totalRows=v;}
     public int getSeatsPerRow(){return seatsPerRow;} public void setSeatsPerRow(int v){this.seatsPerRow=v;}
+    public boolean isActive(){return active;} public void setActive(boolean v){this.active=v;}
     public Cinema getCinema(){return cinema;} public void setCinema(Cinema v){this.cinema=v;}
 }

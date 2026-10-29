@@ -20,7 +20,8 @@ class OtpPersistenceContractTest {
         String sql = Files.readString(Path.of("database/mysql/schema.sql"), StandardCharsets.UTF_8)
                 .toLowerCase(java.util.Locale.ROOT);
         assertThat(sql).contains("otp_challenges", "otp_rate_limits");
-        assertThat(sql).doesNotMatch("(?s).*\\b(drop|truncate|delete)\\b.*");
+        // Foreign keys may legitimately specify ON DELETE SET NULL.
+        assertThat(sql).doesNotContainPattern("(?im)^\\s*(drop|truncate|delete)\\s+");
     }
 
     @Test
