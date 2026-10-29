@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -101,12 +102,29 @@ class BookingTicketAccessTest {
     @Test
     void staffCannotReadAnotherCustomersPaymentStatus() {
         Booking booking = booking(owner(7L));
+        booking.setExpiresAt(LocalDateTime.now().minusMinutes(1));
         when(users.findByEmailIgnoreCase("staff@example.com")).thenReturn(Optional.of(actor(70L, Role.STAFF)));
         when(bookings.findByBookingCode("REX1")).thenReturn(Optional.of(booking));
 
         ResponseEntity<?> response = controller.paymentStatus("REX1", authentication("staff@example.com"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(String.valueOf(response.getBody())).doesNotContain("REX1", "75000", "bookingCode", "totalAmount");
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.PENDING);
+        verify(bookingService, never()).expireIfDue("REX1");
+    }
+
+    @Test
+    void customerCannotReadAnotherCustomersPaymentStatus() {
+        Booking booking = booking(owner(7L));
+        when(users.findByEmailIgnoreCase("intruder@example.com"))
+                .thenReturn(Optional.of(actor(9L, Role.CUSTOMER)));
+        when(bookings.findByBookingCode("REX1")).thenReturn(Optional.of(booking));
+
+        ResponseEntity<?> response = controller.paymentStatus("REX1", authentication("intruder@example.com"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(String.valueOf(response.getBody())).doesNotContain("REX1", "75000", "bookingCode", "totalAmount");
         verify(bookingService, never()).expireIfDue("REX1");
     }
 
@@ -134,6 +152,40 @@ class BookingTicketAccessTest {
         ResponseEntity<?> response = controller.paymentStatus("REX1", authentication("owner@example.com"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(bookingService).expireIfDue("REX1");
+    }
+
+    @Test
+    void ownerCanPollConfirmedPaymentStatus() {
+        User owner = owner(7L);
+        when(users.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(owner));
+        Booking booking = booking(owner);
+        booking.setStatus(BookingStatus.CONFIRMED);
+        when(bookings.findByBookingCode("REX1")).thenReturn(Optional.of(booking));
+        when(bookingService.expireIfDue("REX1")).thenReturn(booking);
+
+        ResponseEntity<?> response = controller.paymentStatus("REX1", authentication("owner@example.com"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(((Map<?, ?>) response.getBody()).get("status")).isEqualTo("CONFIRMED");
+        verify(bookingService).expireIfDue("REX1");
+    }
+
+    @Test
+    void ownerCanPollExpiredPaymentStatus() {
+        User owner = owner(7L);
+        when(users.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(owner));
+        Booking booking = booking(owner);
+        booking.setStatus(BookingStatus.EXPIRED);
+        booking.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+        when(bookings.findByBookingCode("REX1")).thenReturn(Optional.of(booking));
+        when(bookingService.expireIfDue("REX1")).thenReturn(booking);
+
+        ResponseEntity<?> response = controller.paymentStatus("REX1", authentication("owner@example.com"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(((Map<?, ?>) response.getBody()).get("status")).isEqualTo("EXPIRED");
+        verify(bookingService).expireIfDue("REX1");
     }
 
     @Test
@@ -146,6 +198,31 @@ class BookingTicketAccessTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         verify(bookingService, never()).expireIfDue("REX1");
+    }
+
+    @Test
+    void cinemaManagerCannotReadAnotherCustomersPaymentStatus() {
+        Booking booking = booking(owner(7L));
+        when(users.findByEmailIgnoreCase("manager@example.com"))
+                .thenReturn(Optional.of(actor(2L, Role.CINEMA_MANAGER)));
+        when(bookings.findByBookingCode("REX1")).thenReturn(Optional.of(booking));
+
+        ResponseEntity<?> response = controller.paymentStatus("REX1", authentication("manager@example.com"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(String.valueOf(response.getBody())).doesNotContain("REX1", "75000", "bookingCode", "totalAmount");
+        verify(bookingService, never()).expireIfDue("REX1");
+    }
+
+    @Test
+    void unknownBookingCodeReturnsNotFoundWithoutExpiringAnything() {
+        when(users.findByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(owner(7L)));
+        when(bookings.findByBookingCode("MISSING")).thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = controller.paymentStatus("MISSING", authentication("owner@example.com"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        verify(bookingService, never()).expireIfDue(anyString());
     }
 
     private static Authentication authentication(String email) {
