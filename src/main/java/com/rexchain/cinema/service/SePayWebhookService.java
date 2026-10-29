@@ -23,6 +23,8 @@ import java.time.format.DateTimeParseException;
 
 @Service
 public class SePayWebhookService {
+    private static final List<BookingStatus> RECONCILABLE_STATUSES =
+            List.of(BookingStatus.PENDING, BookingStatus.EXPIRED, BookingStatus.CANCELLED);
     private final BookingRepository bookings;
     private final BookingService bookingService;
     private final SePayProperties properties;
@@ -192,12 +194,17 @@ public class SePayWebhookService {
 
     private Booking findByContent(String content) {
         if (blank(content)) return null;
-        String normalized = content.toUpperCase(Locale.ROOT);
-        return List.of(BookingStatus.PENDING, BookingStatus.EXPIRED, BookingStatus.CANCELLED).stream()
-                .flatMap(status -> bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, status).stream())
-                .filter(b -> b.getPaymentReference() != null
-                        && normalized.contains(b.getPaymentReference().toUpperCase(Locale.ROOT)))
-                .findFirst().orElse(null);
+        java.util.Set<String> tokens = new java.util.LinkedHashSet<>();
+        for (String token : content.split("[^A-Za-z0-9]+")) {
+            if (token.length() >= 6 && token.length() <= 40) tokens.add(token.toUpperCase(Locale.ROOT));
+            if (tokens.size() >= 40) break;
+        }
+        for (String token : tokens) {
+            Booking candidate = bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, token)
+                    .orElse(null);
+            if (candidate != null && RECONCILABLE_STATUSES.contains(candidate.getStatus())) return candidate;
+        }
+        return null;
     }
 
     private String last4(String value) {
@@ -216,6 +223,12 @@ public class SePayWebhookService {
     private LocalDateTime bankRecordedAt(String raw) {
         String value = trim(raw);
         if (value == null) return null;
+        // Offset-aware payloads must be converted to the server zone; parsing them as
+        // wall-clock time shifted "paid on time" decisions by the provider offset.
+        try {
+            return java.time.OffsetDateTime.parse(value, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    .atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDateTime();
+        } catch (DateTimeParseException ignored) { }
         for (DateTimeFormatter formatter : List.of(DateTimeFormatter.ISO_LOCAL_DATE_TIME,
                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
                 DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))) {

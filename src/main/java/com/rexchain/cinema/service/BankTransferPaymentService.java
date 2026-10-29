@@ -41,11 +41,10 @@ public class BankTransferPaymentService {
         return qr.newPaymentReference(prefix, exists);
     }
 
-    public int paymentTimeoutMinutes() {
-        int configured = settings.current().getPaymentTimeoutMinutes();
-        return configured > 0 ? configured : 5;
-    }
-
+    /**
+     * The checkout window is a fixed platform rule ({@link SeatReservationService#CHECKOUT_HOLD_MINUTES}),
+     * so no per-environment value is read here anymore.
+     */
     public BankTransferSnapshot snapshot(Booking booking) {
         requireReady();
         PaymentSettingsDto value = settings.current();

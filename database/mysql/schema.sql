@@ -205,6 +205,7 @@ CREATE TABLE `bookings` (
   KEY `idx_bookings_status_created_at` (`status`,`created_at`),
   KEY `idx_bookings_user_created_at` (`user_id`,`created_at`),
   KEY `idx_bookings_payment_reference` (`payment_method`,`payment_reference`),
+  KEY `idx_bookings_status_expires_at` (`status`,`expires_at`),
   KEY `FKc7q4u7vleq90vlvy8c7lmwtyl` (`showtime_id`),
   CONSTRAINT `FKc7q4u7vleq90vlvy8c7lmwtyl` FOREIGN KEY (`showtime_id`) REFERENCES `showtimes` (`id`),
   CONSTRAINT `FKqferkk98p42soamfn02tqt6sm` FOREIGN KEY (`user_id`) REFERENCES `app_users` (`id`)

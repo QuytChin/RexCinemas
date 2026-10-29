@@ -26,6 +26,9 @@ import java.util.stream.Collectors;
 @Service
 public class SeatReservationService {
 
+    /** Fixed checkout window per customer and showtime; changing seats never extends it. */
+    public static final int CHECKOUT_HOLD_MINUTES = 5;
+
     private final ShowtimeSeatRepository seats;
     private final ShowtimeRepository showtimes;
     private final com.rexchain.cinema.repository.BookingSeatRepository bookingSeats;
@@ -122,14 +125,14 @@ public class SeatReservationService {
     }
 
     private LocalDateTime checkoutExpiresAt(Long userId, Showtime showtime, LocalDateTime now) {
-        if (holdSessions == null) return now.plusMinutes(5);
+        if (holdSessions == null) return now.plusMinutes(CHECKOUT_HOLD_MINUTES);
         SeatHoldSession session = holdSessions.findByUserIdAndShowtimeIdForUpdate(userId, showtime.getId())
                 .orElse(null);
         if (session == null) {
             session = new SeatHoldSession();
             session.setUserId(userId);
             session.setShowtime(showtime);
-            session.setExpiresAt(now.plusMinutes(5));
+            session.setExpiresAt(now.plusMinutes(CHECKOUT_HOLD_MINUTES));
             holdSessions.save(session);
             return session.getExpiresAt();
         }
@@ -143,7 +146,7 @@ public class SeatReservationService {
         // Existing installations may still have sessions left by completed bookings.
         // A finished booking created during this five-minute cycle consumes the session;
         // releasing seats without a booking does not start a new clock.
-        LocalDateTime cycleStart = deadline.minusMinutes(5);
+        LocalDateTime cycleStart = deadline.minusMinutes(CHECKOUT_HOLD_MINUTES);
         if (session.getCreatedAt() != null && session.getCreatedAt().isAfter(cycleStart))
             cycleStart = session.getCreatedAt();
         boolean finished = bookings != null && bookings.existsByUserIdAndShowtimeIdAndStatusInAndCreatedAtBetween(
@@ -154,7 +157,7 @@ public class SeatReservationService {
             SeatHoldSession next = new SeatHoldSession();
             next.setUserId(userId);
             next.setShowtime(showtime);
-            next.setExpiresAt(now.plusMinutes(5));
+            next.setExpiresAt(now.plusMinutes(CHECKOUT_HOLD_MINUTES));
             holdSessions.save(next);
             return next.getExpiresAt();
         }

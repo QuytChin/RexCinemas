@@ -114,7 +114,7 @@ public class BookingController {
                 return "redirect:/payment/" + booking.getId() + "/start";
             return "redirect:/bookings/" + booking.getId() + "?success";
         } catch (Exception ex) {
-            service.releaseOwnHolds(user.getId(), showtimeId, ids);
+            service.releaseUnconfirmedHolds(user.getId(), showtimeId, ids);
             model.addAttribute("error", safeMessage(ex, "Không thể tạo booking") + ". Ghế đã được trả lại, vui lòng chọn lại.");
             loadBooking(model, showtimeId);
             return "booking/seat-map";
@@ -210,6 +210,14 @@ public class BookingController {
         model.addAttribute("seatGridColumns", seatGridColumns);
         model.addAttribute("combos", combos.findByActiveTrueOrderByIdAsc());
         model.addAttribute("sepayEnabled", bankTransferPaymentService.isReady());
+        // Defaults required by the seat-map template for a fresh checkout.
+        // Resume values are populated by a payment/rebooking flow when needed.
+        model.addAttribute("resumeCheckout", false);
+        model.addAttribute("resumeSeatIds", List.of());
+        model.addAttribute("resumeHoldDeadlineEpochMillis", 0L);
+        model.addAttribute("resumeServerNowEpochMillis", 0L);
+        model.addAttribute("resumeComboQuantities", Map.of());
+        model.addAttribute("resumeVoucherCode", "");
     }
 
     private User current(Authentication auth) {

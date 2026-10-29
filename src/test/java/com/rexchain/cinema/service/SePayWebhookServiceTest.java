@@ -62,8 +62,8 @@ class SePayWebhookServiceTest {
     void nullCodeResolvesPaymentReferenceFromContent() {
         Booking booking = bookingWithReference("REXELEL7PKS", BookingStatus.PENDING, BigDecimal.valueOf(2_000));
         when(bookings.findBySepayTransactionId("999002")).thenReturn(Optional.empty());
-        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.PENDING))
-                .thenReturn(List.of(booking));
+        when(bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, "REXELEL7PKS"))
+                .thenReturn(Optional.of(booking));
 
         service.process(new SePayWebhookRequest(
                 "999002", "MBBank", "2026-10-13T10:00:00", "0000501454103", null,
@@ -79,8 +79,8 @@ class SePayWebhookServiceTest {
         when(bookings.findBySepayTransactionId("tx-content-fallback")).thenReturn(Optional.empty());
         when(bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, "WRONG"))
                 .thenReturn(Optional.empty());
-        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.PENDING))
-                .thenReturn(List.of(booking));
+        when(bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, "REXELEL7PKS"))
+                .thenReturn(Optional.of(booking));
 
         service.process(new SePayWebhookRequest(
                 "tx-content-fallback", "MBBank", null, "0000501454103", null,
@@ -90,14 +90,26 @@ class SePayWebhookServiceTest {
     }
 
     @Test
+    void contentContainingOnlyAPartialReferenceTokenDoesNotSettleABooking() {
+        when(bookings.findBySepayTransactionId("tx-substring")).thenReturn(Optional.empty());
+        when(bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, "REXELEL7PKSX"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.process(new SePayWebhookRequest(
+                "tx-substring", "MBBank", null, "0000501454103", null,
+                null, "TEST-REXELEL7PKSX-CHUYEN TIEN", "in", BigDecimal.valueOf(2_000), null)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(bookingService);
+    }
+
+    @Test
     void contentWithoutKnownPaymentReferenceIsRejected() {
         when(bookings.findBySepayTransactionId("tx-no-reference")).thenReturn(Optional.empty());
-        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.PENDING))
-                .thenReturn(List.of());
-        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.EXPIRED))
-                .thenReturn(List.of());
-        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.CANCELLED))
-                .thenReturn(List.of());
+        when(bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, "BOOKING"))
+                .thenReturn(Optional.empty());
+        when(bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, "CHUYEN"))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.process(new SePayWebhookRequest(
                 "tx-no-reference", "MBBank", null, "0123456789", null,

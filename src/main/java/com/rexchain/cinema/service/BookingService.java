@@ -96,6 +96,18 @@ public class BookingService {
         seatReservationService.releaseOwnHolds(userId, showtimeId, ids);
     }
 
+    /**
+     * Cleanup used by controller error paths. A failure raised after the booking was
+     * committed must not free seats that the created PENDING booking still owns.
+     */
+    @Transactional
+    public void releaseUnconfirmedHolds(Long userId, Long showtimeId, List<Long> ids) {
+        boolean pendingExists = bookings.existsByUserIdAndShowtimeIdAndStatusInAndExpiresAtAfter(
+                userId, showtimeId, List.of(BookingStatus.PENDING), LocalDateTime.now());
+        if (pendingExists) return;
+        seatReservationService.releaseOwnHolds(userId, showtimeId, ids);
+    }
+
     @Transactional(readOnly = true)
     public boolean isHoldActive(Long userId, Long showtimeId, List<Long> ids, long deadlineEpochMillis) {
         return seatReservationService.isHoldActive(userId, showtimeId, ids, deadlineEpochMillis);
@@ -206,21 +218,15 @@ public class BookingService {
         if (!online)
             booking.setPaidAt(now);
         if (online) {
-            int timeoutMinutes = method == PaymentMethod.BANK_QR && bankTransferPaymentService != null
-                    ? bankTransferPaymentService.paymentTimeoutMinutes()
-                    : 15;
-            LocalDateTime expiresAt = now.plusMinutes(timeoutMinutes);
-            if (method == PaymentMethod.BANK_QR) {
-                // The seat hold starts when the customer clicks "Giữ ghế & tiếp tục".
-                // Do not restart the payment clock when the booking is confirmed.
-                expiresAt = list.stream()
-                        .map(ShowtimeSeat::getHoldUntil)
-                        .filter(Objects::nonNull)
-                        .min(Comparator.naturalOrder())
-                        .orElseThrow(() -> new IllegalStateException("Phiên giữ ghế không hợp lệ"));
-                if (!expiresAt.isAfter(now))
-                    throw new IllegalStateException("Phiên giữ ghế đã hết hạn");
-            }
+            // The checkout window is the fixed seat hold created when the customer clicked
+            // "Giữ ghế & tiếp tục". Confirming never restarts or extends that clock.
+            LocalDateTime expiresAt = list.stream()
+                    .map(ShowtimeSeat::getHoldUntil)
+                    .filter(Objects::nonNull)
+                    .min(Comparator.naturalOrder())
+                    .orElseThrow(() -> new IllegalStateException("Phiên giữ ghế không hợp lệ"));
+            if (!expiresAt.isAfter(now))
+                throw new IllegalStateException("Phiên giữ ghế đã hết hạn");
             booking.setExpiresAt(expiresAt);
         }
         booking = bookings.save(booking);

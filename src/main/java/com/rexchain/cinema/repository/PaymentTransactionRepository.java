@@ -9,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.sql.ResultSet;
 import java.time.LocalDate;
@@ -87,16 +88,17 @@ public class PaymentTransactionRepository {
             args.add(value); args.add(value); args.add(value); args.add(value);
         }
         Long total = jdbc.queryForObject("SELECT COUNT(*)" + where, Long.class, args.toArray());
-        String field = switch (page.getSort().iterator().next().getProperty()) {
+        Sort.Order order = page.getSort().isSorted() ? page.getSort().iterator().next() : null;
+        String field = order == null ? "received_at" : switch (order.getProperty()) {
             case "amount" -> "amount";
             case "status" -> "status";
             case "id" -> "id";
             default -> "received_at";
         };
-        String direction = page.getSort().iterator().next().isAscending() ? "ASC" : "DESC";
-        String order = " ORDER BY " + field + " " + direction + ("id".equals(field) ? "" : ", id DESC");
+        String direction = order != null && order.isAscending() ? "ASC" : "DESC";
+        String orderBy = " ORDER BY " + field + " " + direction + ("id".equals(field) ? "" : ", id DESC");
         args.add(page.getPageSize()); args.add(page.getOffset());
-        List<PaymentTransactionDto> rows = jdbc.query("SELECT *" + where + order + " LIMIT ? OFFSET ?", this::map, args.toArray());
+        List<PaymentTransactionDto> rows = jdbc.query("SELECT *" + where + orderBy + " LIMIT ? OFFSET ?", this::map, args.toArray());
         return new PageImpl<>(rows, page, total == null ? 0 : total);
     }
 

@@ -80,6 +80,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
             BookingStatus status, LocalDateTime from, LocalDateTime to);
     boolean existsByUserIdAndShowtimeIdAndStatusInAndCreatedAtBetween(Long userId, Long showtimeId,
             Collection<BookingStatus> statuses, LocalDateTime from, LocalDateTime to);
+    boolean existsByUserIdAndShowtimeIdAndStatusInAndExpiresAtAfter(Long userId, Long showtimeId,
+            Collection<BookingStatus> statuses, LocalDateTime after);
     boolean existsByShowtimeIdAndStatusNot(Long showtimeId, BookingStatus status);
     boolean existsByShowtimeIdAndStatusIn(Long showtimeId, Collection<BookingStatus> statuses);
     List<Booking> findTop20ByCheckedInAtIsNotNullOrderByCheckedInAtDesc();

@@ -267,9 +267,10 @@ public class PaymentService {
         seatReservationService.finishCheckout(booking.getUser().getId(), booking.getShowtime().getId(),
                 booking.getExpiresAt());
         booking.setStatus(BookingStatus.EXPIRED);
-        // A pending booking may already have reserved combo stock and voucher usage.
-        // Release all temporary resources atomically with the status transition.
-        releaseConfirmedResources(booking);
+        // A PENDING booking only ever reserved seats: combo stock and voucher usage are
+        // decremented at settlement. Releasing them here inflated stock and refunded
+        // voucher quota for orders that never consumed either.
+        seatReservationService.releaseBookingSeats(booking);
         return bookings.save(booking);
     }
 

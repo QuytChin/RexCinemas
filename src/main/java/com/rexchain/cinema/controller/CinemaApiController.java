@@ -211,7 +211,7 @@ public class CinemaApiController {
             }
             return ResponseEntity.ok(body);
         } catch (Exception ex) {
-            bookingService.releaseOwnHolds(user.getId(), request.showtimeId(), request.seatIds());
+            bookingService.releaseUnconfirmedHolds(user.getId(), request.showtimeId(), request.seatIds());
             String message = ex instanceof IllegalArgumentException || ex instanceof IllegalStateException
                     ? Objects.requireNonNullElse(ex.getMessage(), "Không thể tạo booking") : "Không thể tạo booking";
             HttpStatus status = ex instanceof IllegalArgumentException || ex instanceof IllegalStateException

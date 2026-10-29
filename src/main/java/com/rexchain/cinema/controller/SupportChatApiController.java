@@ -108,7 +108,7 @@ public class SupportChatApiController {
     public ResponseEntity<?> askAi(@RequestBody AiConsultRequest req, Authentication auth) {
         try {
             User user = currentUser(auth);
-            String targetSessionId = user != null ? ("user_" + user.getId()) : (req.sessionId() != null && !req.sessionId().isBlank() ? req.sessionId() : "guest_ai");
+            String targetSessionId = user != null ? ("user_" + user.getId()) : guestSessionId(req.sessionId());
             String senderName = user != null ? user.getFullName() : (req.guestName() != null ? req.guestName() : "Khách hàng");
             SupportMessageDto aiReply = chatService.askAi(
                     targetSessionId, req.prompt(), user, senderName
@@ -117,6 +117,18 @@ public class SupportChatApiController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
+    }
+
+    /**
+     * Guests may only write to their own ephemeral AI channel. Accepting an arbitrary
+     * session id let anonymous callers inject messages into another account's thread.
+     */
+    private String guestSessionId(String requested) {
+        if (requested == null || requested.isBlank()) return "guest_ai";
+        String value = requested.trim();
+        if (!value.matches("guest_[A-Za-z0-9_-]{1,59}"))
+            throw new IllegalArgumentException("Phiên trò chuyện không hợp lệ");
+        return value;
     }
 
     private User currentUser(Authentication auth) {

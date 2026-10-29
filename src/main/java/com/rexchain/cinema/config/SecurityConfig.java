@@ -59,6 +59,8 @@ public class SecurityConfig {
     SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwt,
                                     AuthenticationProvider authenticationProvider,
                                     NotFoundAwareAuthenticationEntryPoint authenticationEntryPoint,
+                                    com.rexchain.cinema.security.JwtService jwtService,
+                                    com.rexchain.cinema.service.AccessTokenRevocationService revocations,
                                     @Value("${app.cookie.secure:true}") boolean secureCookie) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookieCustomizer(cookie -> cookie.sameSite("Lax").path("/").secure(secureCookie));
@@ -68,9 +70,13 @@ public class SecurityConfig {
                 .csrfTokenRepository(csrfRepository)
                 .csrfTokenRequestHandler(csrfHandler)
                 .ignoringRequestMatchers("/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook", "/ws/**")
+                // Only a verified, non-revoked bearer token may bypass CSRF; the header
+                // alone is attacker-controlled and must not disable the protection.
                 .ignoringRequestMatchers(request -> {
                     String authorization = request.getHeader("Authorization");
-                    return authorization != null && authorization.startsWith("Bearer ");
+                    if (authorization == null || !authorization.startsWith("Bearer ")) return false;
+                    String token = authorization.substring("Bearer ".length()).trim();
+                    return !token.isEmpty() && jwtService.valid(token) && !revocations.isRevoked(token);
                 }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/error", "/login", "/register", "/policies", "/auth/**",

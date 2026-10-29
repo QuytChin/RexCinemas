@@ -146,6 +146,30 @@ class PaymentServiceTest {
     }
 
     @Test
+    void expiryNeverRestoresComboStockOrVoucherQuotaThatWasNeverReserved() {
+        User user = new User(); user.setId(7L);
+        Booking booking = new Booking();
+        booking.setBookingCode("REX-STOCK"); booking.setUser(user); booking.setStatus(BookingStatus.PENDING);
+        booking.setPaymentMethod(PaymentMethod.BANK_QR);
+        Showtime showtime = new Showtime(); showtime.setId(11L); booking.setShowtime(showtime);
+        booking.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+        ComboProduct combo = new ComboProduct(); combo.setId(31L); combo.setStockQuantity(5);
+        BookingCombo line = new BookingCombo();
+        line.setBooking(booking); line.setCombo(combo); line.setQuantity(2);
+        booking.getCombos().add(line);
+        booking.setVoucherCode("TEST10");
+        when(bookings.findByBookingCodeForUpdate("REX-STOCK")).thenReturn(Optional.of(booking));
+        when(bookings.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Booking result = service.expireIfDue("REX-STOCK");
+
+        assertThat(result.getStatus()).isEqualTo(BookingStatus.EXPIRED);
+        assertThat(combo.getStockQuantity()).isEqualTo(5);
+        verifyNoInteractions(combos, vouchers);
+        verify(reservations).releaseBookingSeats(booking);
+    }
+
+    @Test
     void manualRefundRequiresEvidenceAndIsIdempotentAfterConfirmation() {
         when(bookings.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
         User customer = new User();

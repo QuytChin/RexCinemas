@@ -63,8 +63,8 @@ class SePayWebhookControllerTest {
         booking.setStatus(BookingStatus.PENDING);
         booking.setTotalAmount(BigDecimal.valueOf(2_000));
         when(bookings.findBySepayTransactionId("999002")).thenReturn(java.util.Optional.empty());
-        when(bookings.findByPaymentMethodAndStatus(PaymentMethod.BANK_QR, BookingStatus.PENDING))
-                .thenReturn(java.util.List.of(booking));
+        when(bookings.findByPaymentMethodAndPaymentReference(PaymentMethod.BANK_QR, "REXELEL7PKS"))
+                .thenReturn(java.util.Optional.of(booking));
 
         SePayProperties realProperties = new SePayProperties();
         realProperties.setApiKey("test-api-key");

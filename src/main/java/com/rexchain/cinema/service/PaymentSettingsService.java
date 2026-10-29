@@ -34,7 +34,8 @@ public class PaymentSettingsService {
         value.setEnabled(request.isEnabled()); value.setBankName(clean(request.getBankName()));
         value.setBankCode(clean(request.getBankCode())); value.setBankAccount(clean(request.getBankAccount()));
         value.setAccountHolder(clean(request.getAccountHolder())); value.setDefaultAccount(request.isDefaultAccount());
-        value.setPaymentTimeoutMinutes(request.getPaymentTimeoutMinutes()); value.setPaymentPrefix(clean(request.getPaymentPrefix()));
+        value.setPaymentTimeoutMinutes(SeatReservationService.CHECKOUT_HOLD_MINUTES);
+        value.setPaymentPrefix(clean(request.getPaymentPrefix()));
         value.setPaymentDescriptionTemplate(clean(request.getPaymentDescriptionTemplate()));
         return repository.save(value, actor);
     }
@@ -50,7 +51,10 @@ public class PaymentSettingsService {
         if (request.getBankName() == null || request.getBankName().trim().length() > 120 || request.getBankName().trim().isEmpty()) throw new IllegalArgumentException("Vui lòng chọn ngân hàng");
         if (request.getBankCode() == null || !request.getBankCode().trim().matches("[A-Za-z0-9]{3,20}")) throw new IllegalArgumentException("Mã ngân hàng/BIN không hợp lệ");
         if (request.getBankAccount() == null || !request.getBankAccount().trim().matches("[0-9]{6,30}")) throw new IllegalArgumentException("Số tài khoản phải có từ 6 đến 30 chữ số");
-        if (request.getPaymentTimeoutMinutes() < 1 || request.getPaymentTimeoutMinutes() > 1440) throw new IllegalArgumentException("Thời hạn thanh toán phải từ 1 đến 1.440 phút");
+        if (request.getPaymentTimeoutMinutes() != 0
+                && request.getPaymentTimeoutMinutes() != SeatReservationService.CHECKOUT_HOLD_MINUTES)
+            throw new IllegalArgumentException("Thời hạn giữ chỗ là quy tắc cố định "
+                    + SeatReservationService.CHECKOUT_HOLD_MINUTES + " phút, không cấu hình được");
         if (request.getPaymentPrefix() == null || !request.getPaymentPrefix().trim().matches("[A-Za-z0-9]{2,20}")) throw new IllegalArgumentException("Tiền tố mã thanh toán không hợp lệ");
         if (request.getPaymentDescriptionTemplate() == null || request.getPaymentDescriptionTemplate().trim().length() > 120) throw new IllegalArgumentException("Mẫu nội dung chuyển khoản không hợp lệ");
     }
