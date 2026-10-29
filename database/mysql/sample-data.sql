@@ -199,68 +199,29 @@ SELECT 3, r.row_letter, c.col_num,
 FROM (SELECT 'A' AS row_letter UNION SELECT 'B' UNION SELECT 'C' UNION SELECT 'D' UNION SELECT 'E' UNION SELECT 'F') r
 CROSS JOIN (SELECT 1 AS col_num UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8) c;
 
--- 13. SHOWTIMES (Suat chieu tu 7 ngay truoc den 7 ngay toi, luon moi va active!)
+-- 13. SHOWTIMES (Suat chieu tu hom nay den 5 ngay toi, luon moi va active!)
 DELETE FROM `showtimes` WHERE `id` > 0;
 
 INSERT INTO `showtimes` (`id`, `movie_id`, `auditorium_id`, `start_time`, `end_time`, `base_price`, `active`)
 VALUES
-    -- 6 ngay truoc (de test Bieu do lap day & Doanh thu 7 ngay qua)
-    (101, 1, 1, CONCAT(CURDATE() - INTERVAL 6 DAY, ' 14:00:00'), CONCAT(CURDATE() - INTERVAL 6 DAY, ' 16:05:00'), 85000.00, 1),
-    (102, 1, 2, CONCAT(CURDATE() - INTERVAL 6 DAY, ' 19:30:00'), CONCAT(CURDATE() - INTERVAL 6 DAY, ' 21:35:00'), 95000.00, 1),
-    (103, 3, 1, CONCAT(CURDATE() - INTERVAL 6 DAY, ' 20:00:00'), CONCAT(CURDATE() - INTERVAL 6 DAY, ' 21:58:00'), 95000.00, 1),
-
-    -- 5 ngay truoc
-    (104, 1, 1, CONCAT(CURDATE() - INTERVAL 5 DAY, ' 10:30:00'), CONCAT(CURDATE() - INTERVAL 5 DAY, ' 12:35:00'), 85000.00, 1),
-    (105, 2, 2, CONCAT(CURDATE() - INTERVAL 5 DAY, ' 15:00:00'), CONCAT(CURDATE() - INTERVAL 5 DAY, ' 16:52:00'), 85000.00, 1),
-    (106, 1, 1, CONCAT(CURDATE() - INTERVAL 5 DAY, ' 19:00:00'), CONCAT(CURDATE() - INTERVAL 5 DAY, ' 21:05:00'), 95000.00, 1),
-    (107, 3, 2, CONCAT(CURDATE() - INTERVAL 5 DAY, ' 20:15:00'), CONCAT(CURDATE() - INTERVAL 5 DAY, ' 22:13:00'), 95000.00, 1),
-
-    -- 4 ngay truoc
-    (108, 4, 3, CONCAT(CURDATE() - INTERVAL 4 DAY, ' 13:30:00'), CONCAT(CURDATE() - INTERVAL 4 DAY, ' 15:15:00'), 85000.00, 1),
-    (109, 1, 2, CONCAT(CURDATE() - INTERVAL 4 DAY, ' 18:30:00'), CONCAT(CURDATE() - INTERVAL 4 DAY, ' 20:35:00'), 95000.00, 1),
-    (110, 2, 1, CONCAT(CURDATE() - INTERVAL 4 DAY, ' 19:45:00'), CONCAT(CURDATE() - INTERVAL 4 DAY, ' 21:37:00'), 90000.00, 1),
-
-    -- 3 ngay truoc
-    (111, 1, 1, CONCAT(CURDATE() - INTERVAL 3 DAY, ' 14:30:00'), CONCAT(CURDATE() - INTERVAL 3 DAY, ' 16:35:00'), 85000.00, 1),
-    (112, 3, 2, CONCAT(CURDATE() - INTERVAL 3 DAY, ' 17:30:00'), CONCAT(CURDATE() - INTERVAL 3 DAY, ' 19:28:00'), 90000.00, 1),
-    (113, 1, 2, CONCAT(CURDATE() - INTERVAL 3 DAY, ' 20:00:00'), CONCAT(CURDATE() - INTERVAL 3 DAY, ' 22:05:00'), 95000.00, 1),
-    (114, 4, 1, CONCAT(CURDATE() - INTERVAL 3 DAY, ' 20:30:00'), CONCAT(CURDATE() - INTERVAL 3 DAY, ' 22:15:00'), 90000.00, 1),
-
-    -- 2 ngay truoc
-    (115, 2, 1, CONCAT(CURDATE() - INTERVAL 2 DAY, ' 11:00:00'), CONCAT(CURDATE() - INTERVAL 2 DAY, ' 12:52:00'), 85000.00, 1),
-    (116, 1, 2, CONCAT(CURDATE() - INTERVAL 2 DAY, ' 15:30:00'), CONCAT(CURDATE() - INTERVAL 2 DAY, ' 17:35:00'), 90000.00, 1),
-    (117, 1, 1, CONCAT(CURDATE() - INTERVAL 2 DAY, ' 19:15:00'), CONCAT(CURDATE() - INTERVAL 2 DAY, ' 21:20:00'), 95000.00, 1),
-    (118, 3, 2, CONCAT(CURDATE() - INTERVAL 2 DAY, ' 20:30:00'), CONCAT(CURDATE() - INTERVAL 2 DAY, ' 22:28:00'), 95000.00, 1),
-
-    -- 1 ngay truoc (Hom qua)
-    (119, 4, 1, CONCAT(CURDATE() - INTERVAL 1 DAY, ' 13:00:00'), CONCAT(CURDATE() - INTERVAL 1 DAY, ' 14:45:00'), 85000.00, 1),
-    (120, 1, 2, CONCAT(CURDATE() - INTERVAL 1 DAY, ' 16:00:00'), CONCAT(CURDATE() - INTERVAL 1 DAY, ' 18:05:00'), 90000.00, 1),
-    (121, 1, 1, CONCAT(CURDATE() - INTERVAL 1 DAY, ' 19:00:00'), CONCAT(CURDATE() - INTERVAL 1 DAY, ' 21:05:00'), 95000.00, 1),
-    (122, 2, 2, CONCAT(CURDATE() - INTERVAL 1 DAY, ' 20:00:00'), CONCAT(CURDATE() - INTERVAL 1 DAY, ' 21:52:00'), 90000.00, 1),
-    (123, 3, 1, CONCAT(CURDATE() - INTERVAL 1 DAY, ' 21:30:00'), CONCAT(CURDATE() - INTERVAL 1 DAY, ' 23:28:00'), 90000.00, 1),
-
     -- HOM NAY (CURDATE())
-    (201, 1, 1, CONCAT(CURDATE(), ' 09:30:00'), CONCAT(CURDATE(), ' 11:35:00'), 80000.00, 1),
-    (202, 2, 2, CONCAT(CURDATE(), ' 11:00:00'), CONCAT(CURDATE(), ' 12:52:00'), 80000.00, 1),
-    (203, 3, 1, CONCAT(CURDATE(), ' 13:30:00'), CONCAT(CURDATE(), ' 15:28:00'), 85000.00, 1),
-    (204, 4, 3, CONCAT(CURDATE(), ' 14:15:00'), CONCAT(CURDATE(), ' 16:00:00'), 85000.00, 1),
-    (205, 1, 2, CONCAT(CURDATE(), ' 16:30:00'), CONCAT(CURDATE(), ' 18:35:00'), 90000.00, 1),
-    (206, 2, 1, CONCAT(CURDATE(), ' 18:00:00'), CONCAT(CURDATE(), ' 19:52:00'), 95000.00, 1),
-    (207, 1, 1, CONCAT(CURDATE(), ' 20:30:00'), CONCAT(CURDATE(), ' 22:35:00'), 95000.00, 1),
-    (208, 3, 2, CONCAT(CURDATE(), ' 21:00:00'), CONCAT(CURDATE(), ' 22:58:00'), 95000.00, 1),
+    (1, 1, 1, CONCAT(CURDATE(), ' 10:00:00'), CONCAT(CURDATE(), ' 12:05:00'), 85000.00, 1),
+    (2, 2, 2, CONCAT(CURDATE(), ' 13:30:00'), CONCAT(CURDATE(), ' 15:22:00'), 85000.00, 1),
+    (3, 3, 1, CONCAT(CURDATE(), ' 16:30:00'), CONCAT(CURDATE(), ' 18:28:00'), 95000.00, 1),
+    (4, 1, 2, CONCAT(CURDATE(), ' 19:30:00'), CONCAT(CURDATE(), ' 21:35:00'), 95000.00, 1),
+    (5, 4, 3, CONCAT(CURDATE(), ' 20:15:00'), CONCAT(CURDATE(), ' 22:00:00'), 85000.00, 1),
 
     -- NGAY MAI (CURDATE() + 1)
-    (209, 1, 1, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 10:00:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 12:05:00'), 85000.00, 1),
-    (210, 4, 2, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 13:00:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 14:45:00'), 85000.00, 1),
-    (211, 2, 1, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 15:30:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 17:22:00'), 90000.00, 1),
-    (212, 1, 2, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 18:30:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 20:35:00'), 95000.00, 1),
-    (213, 3, 1, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 20:00:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 21:58:00'), 95000.00, 1),
+    (6, 1, 1, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 10:30:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 12:35:00'), 85000.00, 1),
+    (7, 2, 1, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 14:00:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 15:52:00'), 85000.00, 1),
+    (8, 3, 2, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 17:00:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 18:58:00'), 95000.00, 1),
+    (9, 4, 2, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 19:45:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 21:30:00'), 95000.00, 1),
+    (10, 1, 3, CONCAT(CURDATE() + INTERVAL 1 DAY, ' 20:30:00'), CONCAT(CURDATE() + INTERVAL 1 DAY, ' 22:35:00'), 85000.00, 1),
 
     -- NGAY KIA (CURDATE() + 2)
-    (214, 1, 1, CONCAT(CURDATE() + INTERVAL 2 DAY, ' 10:30:00'), CONCAT(CURDATE() + INTERVAL 2 DAY, ' 12:35:00'), 85000.00, 1),
-    (215, 2, 2, CONCAT(CURDATE() + INTERVAL 2 DAY, ' 14:00:00'), CONCAT(CURDATE() + INTERVAL 2 DAY, ' 15:52:00'), 85000.00, 1),
-    (216, 1, 2, CONCAT(CURDATE() + INTERVAL 2 DAY, ' 19:15:00'), CONCAT(CURDATE() + INTERVAL 2 DAY, ' 21:20:00'), 95000.00, 1),
-    (217, 4, 1, CONCAT(CURDATE() + INTERVAL 2 DAY, ' 20:30:00'), CONCAT(CURDATE() + INTERVAL 2 DAY, ' 22:15:00'), 95000.00, 1);
+    (11, 2, 1, CONCAT(CURDATE() + INTERVAL 2 DAY, ' 13:00:00'), CONCAT(CURDATE() + INTERVAL 2 DAY, ' 14:52:00'), 85000.00, 1),
+    (12, 1, 2, CONCAT(CURDATE() + INTERVAL 2 DAY, ' 16:15:00'), CONCAT(CURDATE() + INTERVAL 2 DAY, ' 18:20:00'), 95000.00, 1),
+    (13, 3, 1, CONCAT(CURDATE() + INTERVAL 2 DAY, ' 19:00:00'), CONCAT(CURDATE() + INTERVAL 2 DAY, ' 20:58:00'), 95000.00, 1);
 
 -- 14. GENERATE SHOWTIME SEATS (Nap ghe cho tung suat chieu voi gia dung quy tac)
 DELETE FROM `showtime_seats` WHERE `id` > 0;
@@ -279,49 +240,10 @@ SELECT
 FROM `showtimes` st
 JOIN `seats` s ON s.auditorium_id = st.auditorium_id;
 
--- 15. TAO BOOKING DA BAN CHO SUAT QUA KHU (De Bang phan tich lap day & Doanh thu co du lieu that)
-DELETE FROM `booking_seats` WHERE `booking_id` IN (1001, 1002, 1003, 1004, 1005, 1006, 1007);
-DELETE FROM `bookings` WHERE `id` IN (1001, 1002, 1003, 1004, 1005, 1006, 1007);
-
--- Suat 102 (Hanh Trinh Anh Sang): Ban 50 ghe (71.4%)
-UPDATE `showtime_seats` SET `status` = 'BOOKED' WHERE `showtime_id` = 102 AND `seat_id` IN (SELECT `id` FROM (SELECT `id` FROM `seats` WHERE `auditorium_id` = 2 LIMIT 50) t);
-INSERT INTO `bookings` (`id`, `booking_code`, `user_id`, `showtime_id`, `total_amount`, `seat_amount`, `combo_amount`, `discount_amount`, `status`, `payment_method`, `created_at`, `version`, `points_awarded`, `earned_points`, `points_reversed`)
-VALUES (1001, 'REX-HTAS-102', 3, 102, 5250000.00, 5250000.00, 0, 0, 'CONFIRMED', 'VNPAY', CONCAT(CURDATE() - INTERVAL 6 DAY, ' 18:00:00'), 0, 1, 525, 0);
-INSERT INTO `booking_seats` (`booking_id`, `showtime_seat_id`, `seat_label`, `price`, `ticket_code`, `checked_in`)
-SELECT 1001, ss.id, CONCAT(s.seat_row, s.seat_number), ss.price, CONCAT('TK102-', ss.id), 1 FROM `showtime_seats` ss JOIN `seats` s ON s.id = ss.seat_id WHERE ss.showtime_id = 102 AND ss.status = 'BOOKED';
-
--- Suat 106 (Hanh Trinh Anh Sang): Ban 48 ghe (80.0%)
-UPDATE `showtime_seats` SET `status` = 'BOOKED' WHERE `showtime_id` = 106 AND `seat_id` IN (SELECT `id` FROM (SELECT `id` FROM `seats` WHERE `auditorium_id` = 1 LIMIT 48) t);
-INSERT INTO `bookings` (`id`, `booking_code`, `user_id`, `showtime_id`, `total_amount`, `seat_amount`, `combo_amount`, `discount_amount`, `status`, `payment_method`, `created_at`, `version`, `points_awarded`, `earned_points`, `points_reversed`)
-VALUES (1002, 'REX-HTAS-106', 3, 106, 5040000.00, 5040000.00, 0, 0, 'CONFIRMED', 'SEPAY', CONCAT(CURDATE() - INTERVAL 5 DAY, ' 17:30:00'), 0, 1, 504, 0);
-INSERT INTO `booking_seats` (`booking_id`, `showtime_seat_id`, `seat_label`, `price`, `ticket_code`, `checked_in`)
-SELECT 1002, ss.id, CONCAT(s.seat_row, s.seat_number), ss.price, CONCAT('TK106-', ss.id), 1 FROM `showtime_seats` ss JOIN `seats` s ON s.id = ss.seat_id WHERE ss.showtime_id = 106 AND ss.status = 'BOOKED';
-
--- Suat 107 (Ke Gac Dem): Ban 45 ghe (64.2%)
-UPDATE `showtime_seats` SET `status` = 'BOOKED' WHERE `showtime_id` = 107 AND `seat_id` IN (SELECT `id` FROM (SELECT `id` FROM `seats` WHERE `auditorium_id` = 2 LIMIT 45) t);
-INSERT INTO `bookings` (`id`, `booking_code`, `user_id`, `showtime_id`, `total_amount`, `seat_amount`, `combo_amount`, `discount_amount`, `status`, `payment_method`, `created_at`, `version`, `points_awarded`, `earned_points`, `points_reversed`)
-VALUES (1004, 'REX-KGD-107', 3, 107, 4725000.00, 4725000.00, 0, 0, 'CONFIRMED', 'SEPAY', CONCAT(CURDATE() - INTERVAL 5 DAY, ' 19:15:00'), 0, 1, 472, 0);
-INSERT INTO `booking_seats` (`booking_id`, `showtime_seat_id`, `seat_label`, `price`, `ticket_code`, `checked_in`)
-SELECT 1004, ss.id, CONCAT(s.seat_row, s.seat_number), ss.price, CONCAT('TK107-', ss.id), 1 FROM `showtime_seats` ss JOIN `seats` s ON s.id = ss.seat_id WHERE ss.showtime_id = 107 AND ss.status = 'BOOKED';
-
--- Suat 110 (Mua He Khong Ten): Ban 22 ghe (36.6%)
-UPDATE `showtime_seats` SET `status` = 'BOOKED' WHERE `showtime_id` = 110 AND `seat_id` IN (SELECT `id` FROM (SELECT `id` FROM `seats` WHERE `auditorium_id` = 1 LIMIT 22) t);
-INSERT INTO `bookings` (`id`, `booking_code`, `user_id`, `showtime_id`, `total_amount`, `seat_amount`, `combo_amount`, `discount_amount`, `status`, `payment_method`, `created_at`, `version`, `points_awarded`, `earned_points`, `points_reversed`)
-VALUES (1006, 'REX-MHKT-110', 3, 110, 2178000.00, 2178000.00, 0, 0, 'CONFIRMED', 'SEPAY', CONCAT(CURDATE() - INTERVAL 4 DAY, ' 18:00:00'), 0, 1, 217, 0);
-INSERT INTO `booking_seats` (`booking_id`, `showtime_seat_id`, `seat_label`, `price`, `ticket_code`, `checked_in`)
-SELECT 1006, ss.id, CONCAT(s.seat_row, s.seat_number), ss.price, CONCAT('TK110-', ss.id), 1 FROM `showtime_seats` ss JOIN `seats` s ON s.id = ss.seat_id WHERE ss.showtime_id = 110 AND ss.status = 'BOOKED';
-
--- Suat 114 (Nha Co Hai Nguoi): Ban 20 ghe (33.3%)
-UPDATE `showtime_seats` SET `status` = 'BOOKED' WHERE `showtime_id` = 114 AND `seat_id` IN (SELECT `id` FROM (SELECT `id` FROM `seats` WHERE `auditorium_id` = 1 LIMIT 20) t);
-INSERT INTO `bookings` (`id`, `booking_code`, `user_id`, `showtime_id`, `total_amount`, `seat_amount`, `combo_amount`, `discount_amount`, `status`, `payment_method`, `created_at`, `version`, `points_awarded`, `earned_points`, `points_reversed`)
-VALUES (1007, 'REX-NCHG-114', 3, 114, 1980000.00, 1980000.00, 0, 0, 'CONFIRMED', 'VNPAY', CONCAT(CURDATE() - INTERVAL 3 DAY, ' 19:30:00'), 0, 1, 198, 0);
-INSERT INTO `booking_seats` (`booking_id`, `showtime_seat_id`, `seat_label`, `price`, `ticket_code`, `checked_in`)
-SELECT 1007, ss.id, CONCAT(s.seat_row, s.seat_number), ss.price, CONCAT('TK114-', ss.id), 1 FROM `showtime_seats` ss JOIN `seats` s ON s.id = ss.seat_id WHERE ss.showtime_id = 114 AND ss.status = 'BOOKED';
-
--- Danh dau 1 vai ghe da duoc dat truoc o suat toi nay de test UI so do ghe sinh dong
+-- Danh dau 1 vai ghe da duoc dat truoc de test UI so do ghe sinh dong
 UPDATE `showtime_seats` 
 SET `status` = 'BOOKED' 
-WHERE `showtime_id` IN (207, 208) AND `seat_id` IN (
+WHERE `showtime_id` IN (1, 2, 4) AND `seat_id` IN (
     SELECT `id` FROM (SELECT `id` FROM `seats` WHERE `seat_row` = 'D' AND `seat_number` IN (4, 5)) tmp
 );
 
