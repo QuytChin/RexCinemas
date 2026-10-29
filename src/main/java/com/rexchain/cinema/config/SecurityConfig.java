@@ -88,7 +88,16 @@ public class SecurityConfig {
                                 "/api/movies/**", "/api/showtimes/*/seats", "/api/snacks").permitAll()
                         // Staff are redirected to check-in from the admin landing page; all
                         // other admin actions require an explicit role-specific rule below.
-                        .requestMatchers("/admin", "/admin/").hasAnyRole("ADMIN", "SUPERVISOR", "STAFF")
+                        .requestMatchers("/admin", "/admin/").hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR", "STAFF")
+                        // Chain managers may inspect operational lists and reports only.
+                        // Keep write methods and edit/new routes under the rules below.
+                        .requestMatchers(HttpMethod.GET,
+                                "/admin/movies", "/admin/cinemas", "/admin/auditoriums",
+                                "/admin/transactions", "/admin/transactions/*")
+                                .hasAnyRole("ADMIN", "CINEMA_MANAGER")
+                        .requestMatchers(HttpMethod.GET,
+                                "/admin/showtimes", "/admin/showtimes/api/occupancy", "/admin/bookings")
+                                .hasAnyRole("ADMIN", "CINEMA_MANAGER", "SUPERVISOR")
                         .requestMatchers("/admin/checkin/**").hasAnyRole("ADMIN", "SUPERVISOR", "STAFF")
                         .requestMatchers("/admin/support/**").hasAnyRole("ADMIN", "SUPERVISOR")
                         .requestMatchers("/admin/bookings/*/refund").hasRole("ADMIN")

@@ -14,6 +14,7 @@ import com.rexchain.cinema.entity.PaymentMethod;
 import com.rexchain.cinema.entity.Cinema;
 import com.rexchain.cinema.entity.Auditorium;
 import com.rexchain.cinema.entity.Showtime;
+import com.rexchain.cinema.entity.Role;
 import com.rexchain.cinema.repository.MovieRepository;
 import com.rexchain.cinema.repository.UserRepository;
 import com.rexchain.cinema.repository.BookingRepository;
@@ -53,6 +54,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.hamcrest.Matchers.is;
 
 @SpringBootTest
@@ -188,10 +190,162 @@ class AdminPaginationIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "CINEMA_MANAGER")
-    void legacyCinemaManagerRoleCannotAccessAdminPages() throws Exception {
-        mvc.perform(get("/admin/movies")).andExpect(status().isForbidden());
-        mvc.perform(get("/admin/users")).andExpect(status().isForbidden());
+    @WithMockUser(username = "manager@rexchain.vn", roles = "CINEMA_MANAGER")
+    void cinemaManagerCanViewChainDashboardAndReadOnlyOperationalLists() throws Exception {
+        createUser("manager@rexchain.vn", Role.CINEMA_MANAGER, null);
+        List<Cinema> chain = createChainBookingData();
+
+        var dashboard = mvc.perform(get("/admin"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("cinemaCount", "revenue", "topCinemas", "recentBookings"))
+                .andReturn();
+        assertThat(dashboard.getModelAndView().getModel().get("cinemaCount")).isEqualTo(2L);
+        assertThat((BigDecimal) dashboard.getModelAndView().getModel().get("revenue"))
+                .isEqualByComparingTo("350");
+        assertThat((List<?>) dashboard.getModelAndView().getModel().get("topCinemas")).hasSize(2);
+
+        var filtered = mvc.perform(get("/admin").param("cinemaId", chain.get(0).getId().toString()))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat((BigDecimal) filtered.getModelAndView().getModel().get("revenue"))
+                .isEqualByComparingTo("100");
+
+        for (String path : List.of("/admin/movies", "/admin/cinemas", "/admin/auditoriums",
+                "/admin/showtimes", "/admin/showtimes/api/occupancy", "/admin/bookings",
+                "/admin/transactions")) {
+            mvc.perform(get(path)).andExpect(status().isOk());
+        }
+        mvc.perform(get("/admin/transactions/1")).andExpect(status().isNotFound());
+
+        String moviesHtml = mvc.perform(get("/admin/movies")).andReturn().getResponse().getContentAsString();
+        String cinemasHtml = mvc.perform(get("/admin/cinemas")).andReturn().getResponse().getContentAsString();
+        String roomsHtml = mvc.perform(get("/admin/auditoriums")).andReturn().getResponse().getContentAsString();
+        String showtimesHtml = mvc.perform(get("/admin/showtimes")).andReturn().getResponse().getContentAsString();
+        String bookingsHtml = mvc.perform(get("/admin/bookings")).andReturn().getResponse().getContentAsString();
+        assertThat(moviesHtml).doesNotContain("/admin/movies/new", "/admin/movies/save", "/toggle");
+        assertThat(cinemasHtml).doesNotContain("/admin/cinemas/new", "/admin/cinemas/save", "/toggle");
+        assertThat(roomsHtml).doesNotContain("/admin/auditoriums/save", "/rename", "/toggle");
+        assertThat(showtimesHtml).doesNotContain("/admin/showtimes/save", "/toggle", "+ Xếp lịch");
+        assertThat(bookingsHtml).doesNotContain("/admin/checkin", "/refund", "/cancel", "/bookings/");
+    }
+
+    @Test
+    @WithMockUser(username = "manager@rexchain.vn", roles = "CINEMA_MANAGER")
+    void cinemaManagerCannotInvokeAdminMutationsDirectly() throws Exception {
+        createUser("manager@rexchain.vn", Role.CINEMA_MANAGER, null);
+        for (String path : List.of("/admin/movies/save", "/admin/cinemas/save", "/admin/auditoriums/save",
+                "/admin/showtimes/save", "/admin/bookings/1/cancel", "/admin/bookings/1/refund",
+                "/admin/users/1/role", "/admin/users/1/toggle", "/admin/payments/save",
+                "/admin/rewards/settings")) {
+            mvc.perform(post(path).with(csrf()).param("role", "ADMIN"))
+                    .andExpect(status().isForbidden());
+        }
+        for (String path : List.of("/admin/users", "/admin/payments", "/admin/late-payments",
+                "/admin/rewards", "/admin/checkin", "/admin/support")) {
+            mvc.perform(get(path)).andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
+    @WithMockUser(username = "supervisor@rexchain.vn", roles = "SUPERVISOR")
+    void supervisorDashboardAndBookingDataRemainScopedToAssignedCinema() throws Exception {
+        List<Cinema> chain = createChainBookingData();
+        createUser("supervisor@rexchain.vn", Role.SUPERVISOR, chain.get(0));
+
+        var dashboard = mvc.perform(get("/admin").param("cinemaId", chain.get(1).getId().toString()))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat((BigDecimal) dashboard.getModelAndView().getModel().get("revenue"))
+                .isEqualByComparingTo("100");
+
+        String html = mvc.perform(get("/admin/bookings")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(html).contains("REX_TEST_CHAIN_BOOKING_1").doesNotContain("REX_TEST_CHAIN_BOOKING_2");
+        mvc.perform(get("/admin/showtimes")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminStillHasDashboardAndSensitiveAdministrationRoutes() throws Exception {
+        mvc.perform(get("/admin")).andExpect(status().isOk());
+        mvc.perform(get("/admin/users")).andExpect(status().isOk());
+        mvc.perform(get("/admin/payments")).andExpect(status().isOk());
+        mvc.perform(get("/admin/rewards")).andExpect(status().isOk());
+    }
+
+    @Test
+    void anonymousCannotOpenAdminDashboard() throws Exception {
+        mvc.perform(get("/admin")).andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    @WithMockUser(username = "staff@rexchain.vn", roles = "STAFF")
+    void staffDashboardStillRedirectsToCheckInOnly() throws Exception {
+        createUser("staff@rexchain.vn", Role.STAFF, null);
+        mvc.perform(get("/admin")).andExpect(status().is3xxRedirection())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl("/admin/checkin"));
+    }
+
+    private User createUser(String email, Role role, Cinema cinema) {
+        User user = new User();
+        user.setEmail(email);
+        user.setFullName("REX_TEST_" + role.name());
+        user.setPassword("unused-test-hash");
+        user.setRole(role);
+        user.setCinema(cinema);
+        return users.saveAndFlush(user);
+    }
+
+    private List<Cinema> createChainBookingData() {
+        Cinema first = new Cinema();
+        first.setName("REX_TEST_CHAIN_CINEMA_1");
+        first.setCity("Test City");
+        first.setAddress("REX_TEST_CHAIN_ADDRESS_1");
+        Cinema second = new Cinema();
+        second.setName("REX_TEST_CHAIN_CINEMA_2");
+        second.setCity("Test City");
+        second.setAddress("REX_TEST_CHAIN_ADDRESS_2");
+        cinemas.saveAllAndFlush(List.of(first, second));
+
+        Movie movie = new Movie();
+        movie.setTitle("REX_TEST_CHAIN_MOVIE");
+        movie.setDescription("Isolated chain dashboard test");
+        movie.setDurationMinutes(100);
+        movies.saveAndFlush(movie);
+
+        User customer = users.findByEmailIgnoreCase("user").orElseThrow();
+        List<Cinema> chain = List.of(first, second);
+        List<BigDecimal> amounts = List.of(new BigDecimal("100"), new BigDecimal("250"));
+        List<Booking> testBookings = new ArrayList<>();
+        for (int index = 0; index < chain.size(); index++) {
+            Cinema cinema = chain.get(index);
+            Auditorium room = new Auditorium();
+            room.setName("REX_TEST_CHAIN_ROOM_" + (index + 1));
+            room.setCinema(cinema);
+            room.setTotalRows(1);
+            room.setSeatsPerRow(10);
+            auditoriums.saveAndFlush(room);
+
+            Showtime showtime = new Showtime();
+            showtime.setMovie(movie);
+            showtime.setAuditorium(room);
+            showtime.setStartTime(LocalDateTime.now().plusDays(1));
+            showtime.setBasePrice(amounts.get(index));
+            showtimes.saveAndFlush(showtime);
+
+            Booking booking = new Booking();
+            booking.setBookingCode("REX_TEST_CHAIN_BOOKING_" + (index + 1));
+            booking.setUser(customer);
+            booking.setShowtime(showtime);
+            booking.setTotalAmount(amounts.get(index));
+            booking.setPaymentMethod(PaymentMethod.BANK_QR);
+            booking.setStatus(BookingStatus.CONFIRMED);
+            booking.setPaidAt(LocalDateTime.now());
+            booking.setCreatedAt(LocalDateTime.now());
+            testBookings.add(booking);
+        }
+        bookings.saveAllAndFlush(testBookings);
+        return chain;
     }
 
     @Test
@@ -241,8 +395,9 @@ class AdminPaginationIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(username = "admin", roles = "ADMIN")
     void allAdminListTemplatesRenderWithEmptyResults() throws Exception {
+        createUser("admin", Role.ADMIN, null);
         for (String path : List.of("users", "bookings", "payments", "transactions", "late-payments", "checkin",
                 "rewards", "showtimes", "movies", "cinemas", "auditoriums", "combos", "vouchers",
                 "reviews", "events", "articles", "media")) {

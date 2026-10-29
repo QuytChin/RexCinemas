@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
 <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
     <meta charset="UTF-8">
@@ -16,7 +16,7 @@
         <div><p class="eyebrow">MOVIE MANAGEMENT</p><h1>Quản lý phim</h1></div>
     </header>
     <div th:replace="~{fragments/admin-list :: filters}"></div>
-    <div class="admin-movies-actions"><a class="btn btn-rex ui-btn ui-btn--primary" th:href="@{/admin/movies/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm phim</span></a></div>
+    <div class="admin-movies-actions" sec:authorize="hasRole('ADMIN')"><a class="btn btn-rex ui-btn ui-btn--primary" th:href="@{/admin/movies/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm phim</span></a></div>
     <div class="table-responsive mt-4">
         <table class="table table-dark table-hover align-middle">
             <thead>
@@ -53,8 +53,8 @@
                     <span class="badge" th:classappend="${m.active ? 'bg-primary' : 'bg-dark text-muted'}" th:text="${m.active ? 'Đang bật' : 'Đã ẩn'}"></span>
                 </td>
                 <td class="text-end">
-                    <a class="btn btn-sm btn-outline-light me-1" th:href="@{'/admin/movies/' + ${m.id} + '/edit'}">Sửa</a>
-                    <form class="d-inline" th:action="@{'/admin/movies/' + ${m.id} + '/toggle'}" method="post">
+                    <a sec:authorize="hasRole('ADMIN')" class="btn btn-sm btn-outline-light me-1" th:href="@{'/admin/movies/' + ${m.id} + '/edit'}">Sửa</a>
+                    <form sec:authorize="hasRole('ADMIN')" class="d-inline" th:action="@{'/admin/movies/' + ${m.id} + '/toggle'}" method="post">
                         <button class="btn btn-sm" th:classappend="${m.active ? 'btn-outline-danger' : 'btn-outline-success'}" th:text="${m.active ? 'Ẩn' : 'Bật lại'}"></button>
                     </form>
                 </td>

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import com.rexchain.cinema.entity.Role;
 import com.rexchain.cinema.entity.User;
 import com.rexchain.cinema.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 
 @Controller
 @RequestMapping("/admin/checkin")
@@ -42,16 +43,27 @@ public class CheckInController {
         User currentUser = (auth != null && auth.getName() != null)
                 ? users.findByEmailIgnoreCase(auth.getName()).orElse(null)
                 : null;
+        if (currentUser == null) {
+            throw new AccessDeniedException("Không xác định được tài khoản soát vé");
+        }
+        boolean cinemaScoped = currentUser.getRole() == Role.STAFF || currentUser.getRole() == Role.SUPERVISOR;
+        if (cinemaScoped && (currentUser.getCinema() == null || currentUser.getCinema().getId() == null
+                || !currentUser.getCinema().isActive())) {
+            throw new AccessDeniedException("Tài khoản chưa được gán vào rạp đang hoạt động");
+        }
+        if (!cinemaScoped && currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Tài khoản không có quyền xem lịch sử soát vé");
+        }
         var page = lists.query(bookings, params, options, (root, query, cb) -> {
             var predicate = cb.isNotNull(root.get("checkedInAt"));
-            if (currentUser != null && (currentUser.getRole() == Role.STAFF || currentUser.getRole() == Role.SUPERVISOR) && currentUser.getCinema() != null) {
+            if (cinemaScoped) {
                 var cinemaId = currentUser.getCinema().getId();
                 return cb.and(predicate, cb.equal(root.get("showtime").get("auditorium").get("cinema").get("id"), cinemaId));
             }
             return predicate;
         });
         model.addAttribute("recentCheckins", page.getContent());
-        if (currentUser != null && currentUser.getCinema() != null) {
+        if (cinemaScoped) {
             model.addAttribute("operatorCinema", currentUser.getCinema());
         }
         lists.present(model, page, params, options, request);

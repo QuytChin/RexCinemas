@@ -9,6 +9,7 @@ import com.rexchain.cinema.repository.CinemaRepository;
 import com.rexchain.cinema.repository.UserRepository;
 import com.rexchain.cinema.security.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,14 +31,19 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwt;
+    private final LoginRateLimiter loginRateLimiter;
+    private final String dummyPasswordHash;
 
     public AuthService(UserRepository users, CinemaRepository cinemas, PasswordEncoder passwordEncoder,
-                       AuthenticationManager authenticationManager, JwtService jwt) {
+                       AuthenticationManager authenticationManager, JwtService jwt,
+                       LoginRateLimiter loginRateLimiter) {
         this.users = users;
         this.cinemas = cinemas;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwt = jwt;
+        this.loginRateLimiter = loginRateLimiter;
+        this.dummyPasswordHash = passwordEncoder.encode(java.util.UUID.randomUUID().toString());
     }
 
     public void validateRegistrationData(RegisterRequest request) {
@@ -147,15 +153,47 @@ public class AuthService {
     }
 
     public String login(String identifier, String password) {
-        return login(identifier, password, false);
+        return login(identifier, password, false, "unknown");
     }
 
     public String login(String identifier, String password, boolean remember) {
-        String normalizedIdentifier = identifier == null ? "" : identifier.trim().toLowerCase();
-        List<User> matches = users.findAllByLoginIdentifier(normalizedIdentifier);
-        if (matches.size() != 1) throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
-        User user = matches.get(0);
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getEmail(), password));
-        return jwt.generate(user.getEmail(), user.getRole().name(), remember, user.getCredentialVersion());
+        return login(identifier, password, remember, "unknown");
+    }
+
+    public String login(String identifier, String password, boolean remember, String clientIp) {
+        LoginRateLimiter.IpReservation ipReservation = loginRateLimiter.begin(clientIp);
+        LoginRateLimiter.Attempt attempt = null;
+        boolean completed = false;
+        try {
+            String normalizedIdentifier = identifier == null ? "" : identifier.trim().toLowerCase(java.util.Locale.ROOT);
+            List<User> matches = users.findAllByLoginIdentifier(normalizedIdentifier);
+            String throttleIdentity = matches.size() == 1
+                    ? "account:" + matches.get(0).getId()
+                    : "identifier:" + normalizedIdentifier;
+            attempt = loginRateLimiter.attach(throttleIdentity, ipReservation);
+            if (matches.size() != 1) {
+                passwordEncoder.matches(password == null ? "" : password, dummyPasswordHash);
+                loginRateLimiter.failed(attempt);
+                completed = true;
+                throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
+            }
+            User user = matches.get(0);
+            try {
+                authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getEmail(), password));
+            } catch (AuthenticationException failure) {
+                loginRateLimiter.failed(attempt);
+                completed = true;
+                throw new org.springframework.security.authentication.BadCredentialsException("Invalid credentials");
+            }
+            String token = jwt.generate(user.getEmail(), user.getRole().name(), remember, user.getCredentialVersion());
+            loginRateLimiter.succeeded(attempt);
+            completed = true;
+            return token;
+        } finally {
+            if (!completed) {
+                if (attempt == null) loginRateLimiter.cancelled(ipReservation);
+                else loginRateLimiter.cancelled(attempt);
+            }
+        }
     }
 }

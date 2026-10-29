@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
 <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
     <meta charset="UTF-8">
@@ -19,7 +19,7 @@
         </div>
     </header>
     <div th:replace="~{fragments/admin-list :: filters}"></div>
-    <div class="admin-cinemas-actions" th:if="${!#lists.isEmpty(cinemas)}"><a class="btn btn-rex ui-btn ui-btn--primary admin-cinema-add" th:href="@{/admin/cinemas/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm rạp</span></a></div>
+    <div class="admin-cinemas-actions" sec:authorize="hasRole('ADMIN')" th:if="${!#lists.isEmpty(cinemas)}"><a class="btn btn-rex ui-btn ui-btn--primary admin-cinema-add" th:href="@{/admin/cinemas/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm rạp</span></a></div>
     <section class="row g-4 admin-cinema-grid" aria-label="Danh sách rạp">
         <div class="col-md-6 col-xxl-4" th:each="c:${cinemas}">
             <article class="ui-card admin-cinema-card">
@@ -31,7 +31,7 @@
                     <p class="admin-cinema-card-address"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#map-pin"></use></svg><span th:text="${c.address}"></span></p>
                     <p class="admin-cinema-card-city"><span>Thành phố</span><strong th:text="${c.city}"></strong></p>
                 </div>
-                <footer class="admin-cinema-actions">
+                <footer class="admin-cinema-actions" sec:authorize="hasRole('ADMIN')">
                     <a class="btn btn-outline-light ui-btn ui-btn--secondary" th:href="@{'/admin/cinemas/'+${c.id}+'/edit'}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#pencil"></use></svg><span>Sửa</span></a>
                     <form th:action="@{'/admin/cinemas/'+${c.id}+'/toggle'}" method="post">
                         <button class="btn ui-btn" th:classappend="${c.active ? ' btn-outline-danger ui-btn--danger' : ' btn-outline-success ui-btn--success'}" type="submit"><svg class="ui-icon" aria-hidden="true"><use th:attr="href=${c.active ? '/images/icons.svg#eye-off' : '/images/icons.svg#eye'}"></use></svg><span th:text="${c.active ? 'Ẩn' : 'Hiện'}"></span></button>
@@ -39,7 +39,7 @@
                 </footer>
             </article>
         </div>
-        <div class="col-12" th:if="${#lists.isEmpty(cinemas)}"><div class="ui-empty-state"><svg class="ui-icon ui-empty-state__icon" aria-hidden="true"><use href="/images/icons.svg#building-2"></use></svg><h2>Chưa có rạp nào</h2><p>Thêm rạp đầu tiên để bắt đầu cấu hình phòng chiếu và lịch chiếu.</p><a class="btn btn-rex ui-btn ui-btn--primary" th:href="@{/admin/cinemas/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm rạp</span></a></div></div>
+        <div class="col-12" th:if="${#lists.isEmpty(cinemas)}"><div class="ui-empty-state"><svg class="ui-icon ui-empty-state__icon" aria-hidden="true"><use href="/images/icons.svg#building-2"></use></svg><h2>Chưa có rạp nào</h2><p>Thêm rạp đầu tiên để bắt đầu cấu hình phòng chiếu và lịch chiếu.</p><a sec:authorize="hasRole('ADMIN')" class="btn btn-rex ui-btn ui-btn--primary" th:href="@{/admin/cinemas/new}"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#plus"></use></svg><span>Thêm rạp</span></a></div></div>
     </section>
 <div th:replace="~{fragments/admin-list :: pager}"></div></main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

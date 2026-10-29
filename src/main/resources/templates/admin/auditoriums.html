@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
 <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
     <meta charset="UTF-8">
@@ -24,7 +24,7 @@
     <div class="alert alert-success admin-room-alert" role="status" th:if="${success}" th:text="${success}"></div>
     <div class="alert alert-danger admin-room-alert" role="alert" th:if="${error}" th:text="${error}"></div>
 
-    <section class="admin-room-create" aria-labelledby="admin-room-create-title">
+    <section sec:authorize="hasRole('ADMIN')" class="admin-room-create" aria-labelledby="admin-room-create-title">
         <div class="admin-room-section-heading">
             <div>
                 <h2 id="admin-room-create-title">Tạo phòng chiếu</h2>
@@ -80,7 +80,7 @@
                     <th scope="col">Ghế mỗi hàng</th>
                     <th scope="col">Sức chứa</th>
                     <th scope="col">Trạng thái</th>
-                    <th scope="col">Thao tác</th>
+                    <th sec:authorize="hasRole('ADMIN')" scope="col">Thao tác</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -91,7 +91,7 @@
                     <td th:text="${a.seatsPerRow}"></td>
                     <td><span class="admin-room-capacity" th:text="${a.totalRows * a.seatsPerRow + ' ghế'}"></span></td>
                     <td th:text="${a.active ? 'Đang hoạt động' : 'Đã ẩn'}"></td>
-                    <td>
+                    <td sec:authorize="hasRole('ADMIN')">
                         <div class="d-flex flex-wrap gap-2">
                             <form th:action="@{'/admin/auditoriums/' + ${a.id} + '/rename'}" method="post" class="d-flex gap-1">
                                 <input class="form-control form-control-sm" name="name" th:value="${a.name}"
@@ -107,7 +107,7 @@
                     </td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(auditoriums)}">
-                    <td colspan="7" class="admin-room-empty">Chưa có phòng chiếu phù hợp. Hãy thử xóa bộ lọc hoặc tạo phòng mới.</td>
+                    <td colspan="7" class="admin-room-empty">Chưa có phòng chiếu phù hợp.</td>
                 </tr>
                 </tbody>
             </table>

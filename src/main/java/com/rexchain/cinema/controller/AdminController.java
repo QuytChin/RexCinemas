@@ -731,6 +731,7 @@ public class AdminController {
     String toggleUser(@PathVariable Long id, Authentication auth, RedirectAttributes redirect) {
         try {
             User currentUser = currentUser(auth);
+            requireUserAdministrationRole(currentUser);
             User user = users.findById(id).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng #" + id));
 
             if (currentUser != null && currentUser.getId().equals(user.getId())) {
@@ -747,10 +748,6 @@ public class AdminController {
                 }
                 if (user.getCinema() == null || !user.getCinema().getId().equals(currentUser.getCinema().getId())) {
                     throw new IllegalStateException("Nhân viên này không thuộc cụm rạp do bạn quản lý!");
-                }
-            } else if (currentUser != null && currentUser.getRole() == Role.CINEMA_MANAGER) {
-                if (user.getRole() == Role.ADMIN) {
-                    throw new IllegalStateException("Tổng quản lý không có quyền khóa tài khoản Quản trị hệ thống (ADMIN)!");
                 }
             }
 
@@ -770,6 +767,8 @@ public class AdminController {
             user.setEnabled(!user.isEnabled());
             users.save(user);
             redirect.addFlashAttribute("success", (user.isEnabled() ? "Đã mở khóa " : "Đã khóa ") + user.getFullName());
+        } catch (AccessDeniedException ex) {
+            throw ex;
         } catch (Exception ex) {
             redirect.addFlashAttribute("error", ex.getMessage());
         }
@@ -784,6 +783,7 @@ public class AdminController {
                     RedirectAttributes redirect) {
         try {
             User currentUser = currentUser(auth);
+            requireUserAdministrationRole(currentUser);
             User user = users.findById(id).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng #" + id));
             if (role == Role.CINEMA_MANAGER)
                 throw new IllegalArgumentException("Vai trò CINEMA_MANAGER cũ không được cấp mới");
@@ -818,12 +818,6 @@ public class AdminController {
                     throw new IllegalArgumentException("Giám sát rạp chỉ được phép phân quyền STAFF hoặc thu hồi về CUSTOMER!");
                 }
             } else {
-                if (currentUser != null && currentUser.getRole() == Role.CINEMA_MANAGER) {
-                    if (user.getRole() == Role.ADMIN || role == Role.ADMIN) {
-                        throw new IllegalStateException("Tổng quản lý không có quyền thăng cấp hoặc hạ cấp tài khoản ADMIN!");
-                    }
-                }
-
                 if (role == Role.SUPERVISOR) {
                     if (cinemaId == null) {
                         throw new IllegalArgumentException("Vui lòng chọn cụm rạp cho Giám sát viên (SUPERVISOR)!");
@@ -856,6 +850,8 @@ public class AdminController {
 
             users.save(user);
             redirect.addFlashAttribute("success", "Đã cập nhật vai trò " + role.name() + " cho " + user.getFullName());
+        } catch (AccessDeniedException ex) {
+            throw ex;
         } catch (Exception ex) {
             redirect.addFlashAttribute("error", ex.getMessage());
         }
@@ -996,6 +992,12 @@ public class AdminController {
             throw new AccessDeniedException("Không xác định được tài khoản quản trị");
         return users.findByEmailIgnoreCase(auth.getName())
                 .orElseThrow(() -> new AccessDeniedException("Tài khoản quản trị không tồn tại"));
+    }
+
+    private void requireUserAdministrationRole(User user) {
+        if (user.getRole() != Role.ADMIN && user.getRole() != Role.SUPERVISOR) {
+            throw new AccessDeniedException("Bạn không có quyền quản lý tài khoản người dùng");
+        }
     }
 
     private void requireAssignedCinema(User user) {

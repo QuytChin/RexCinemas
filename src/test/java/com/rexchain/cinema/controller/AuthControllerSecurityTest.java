@@ -8,6 +8,7 @@ import com.rexchain.cinema.security.CustomUserDetailsService;
 import com.rexchain.cinema.security.JwtAuthenticationFilter;
 import com.rexchain.cinema.security.JwtService;
 import com.rexchain.cinema.service.AuthService;
+import com.rexchain.cinema.service.LoginRateLimitException;
 import com.rexchain.cinema.service.OtpRateLimitException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -158,7 +159,7 @@ class AuthControllerSecurityTest {
     @Test
     void invalidCredentialsReturnVietnameseErrorOnCustomPage() throws Exception {
         doThrow(new BadCredentialsException("Invalid credentials"))
-                .when(authService).login("rexmember", "wrong-password", false);
+                .when(authService).login("rexmember", "wrong-password", false, "127.0.0.1");
 
         mockMvc.perform(post("/auth/login")
                         .with(csrf())
@@ -171,8 +172,21 @@ class AuthControllerSecurityTest {
     }
 
     @Test
+    void webLoginRateLimitReturns429AndRetryAfter() throws Exception {
+        doThrow(new LoginRateLimitException(900)).when(authService)
+                .login("member@example.invalid", "secret", false, "127.0.0.1");
+
+        mockMvc.perform(post("/auth/login").with(csrf())
+                        .param("identifier", "member@example.invalid").param("password", "secret"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "900"))
+                .andExpect(view().name("auth/login"))
+                .andExpect(model().attribute("error", "Đăng nhập tạm thời bị giới hạn. Vui lòng thử lại sau."));
+    }
+
+    @Test
     void validCredentialsIssueJwtCookieAndRedirect() throws Exception {
-        when(authService.login("member@rexchain.vn", "secret", true)).thenReturn("signed-jwt");
+        when(authService.login("member@rexchain.vn", "secret", true, "127.0.0.1")).thenReturn("signed-jwt");
         when(jwtService.expirationMs(true)).thenReturn(2_592_000_000L);
 
         mockMvc.perform(post("/auth/login")
@@ -192,7 +206,7 @@ class AuthControllerSecurityTest {
 
     @Test
     void secureRequestIssuesSecureCookie() throws Exception {
-        when(authService.login("member@rexchain.vn", "secret", false)).thenReturn("signed-jwt");
+        when(authService.login("member@rexchain.vn", "secret", false, "127.0.0.1")).thenReturn("signed-jwt");
         when(jwtService.expirationMs(false)).thenReturn(86_400_000L);
 
         mockMvc.perform(post("/auth/login").secure(true).with(csrf())
@@ -204,13 +218,25 @@ class AuthControllerSecurityTest {
 
     @Test
     void forwardedHttpsRequestIssuesSecureCookie() throws Exception {
-        when(authService.login("member@rexchain.vn", "secret", false)).thenReturn("signed-jwt");
+        when(authService.login("member@rexchain.vn", "secret", false, "127.0.0.1")).thenReturn("signed-jwt");
         when(jwtService.expirationMs(false)).thenReturn(86_400_000L);
 
         mockMvc.perform(post("/auth/login").header("X-Forwarded-Proto", "https").with(csrf())
                         .param("identifier", "member@rexchain.vn").param("password", "secret"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(header().string("Set-Cookie", containsString("Secure")));
+    }
+
+    @Test
+    void apiLoginRateLimitReturns429AndRetryAfter() throws Exception {
+        doThrow(new LoginRateLimitException(600)).when(authService)
+                .login("member@example.invalid", "secret", false, "127.0.0.1");
+
+        mockMvc.perform(post("/api/auth/login").contentType("application/json")
+                        .content("{\"identifier\":\"member@example.invalid\",\"password\":\"secret\"}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "600"))
+                .andExpect(jsonPath("$.error").value("Đăng nhập tạm thời bị giới hạn. Vui lòng thử lại sau."));
     }
 
     @Test

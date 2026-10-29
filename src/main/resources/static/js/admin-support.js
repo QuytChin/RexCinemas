@@ -215,30 +215,12 @@
                 if (!Array.isArray(convs) || convs.length === 0) return;
                 convList.innerHTML = '';
                 convs.forEach(c => {
-                    const item = document.createElement('div');
-                    item.className = 'admin-chat-item' + (c.sessionId === activeSessionId ? ' active' : '');
-                    item.setAttribute('data-session-id', c.sessionId);
-                    if (c.cinemaId) item.setAttribute('data-cinema-id', c.cinemaId);
-                    item.onclick = function () { selectConversation(item); };
-
-                    const initial = (c.customerName || 'K').substring(0, 1).toUpperCase();
                     const timeStr = c.lastMessageAt ? formatTime(c.lastMessageAt) : '';
-
-                    item.innerHTML = `
-                        <div class="admin-chat-avatar">${initial}</div>
-                        <div class="admin-chat-meta">
-                            <div class="admin-chat-name">
-                                <span>${c.customerName || 'Khách vãng lai'}</span>
-                                <span class="admin-chat-time">${timeStr}</span>
-                            </div>
-                            <div class="admin-chat-preview">${escapeHtml(c.lastMessage || '')}</div>
-                            <div class="d-flex align-items-center justify-content-between">
-                                <span class="admin-chat-cinema-badge">${c.cinemaName || 'Rex Cinemas'}</span>
-                                ${c.unreadCount > 0 ? `<span class="admin-chat-unread-badge">${c.unreadCount}</span>` : ''}
-                            </div>
-                        </div>
-                    `;
-                    convList.appendChild(item);
+                    convList.appendChild(buildConversationItem(c, {
+                        active: c.sessionId === activeSessionId,
+                        timeLabel: timeStr,
+                        onSelect: selectConversation
+                    }));
                 });
             })
             .catch(() => {});
@@ -266,7 +248,7 @@
 
         const bubbleEl = document.createElement('div');
         bubbleEl.className = 'rex-msg-bubble';
-        bubbleEl.innerHTML = formatMarkdown(msg.message);
+        renderMessage(bubbleEl, msg.message);
 
         const timeEl = document.createElement('div');
         timeEl.className = 'rex-msg-time';
@@ -299,20 +281,39 @@
         }
     }
 
-    function formatMarkdown(text) {
-        if (!text) return '';
-        let escaped = escapeHtml(text);
-        escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        escaped = escaped.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="rex-chat-link" target="_blank" rel="noopener">$1</a>');
-        escaped = escaped.replace(/^\s*-\s+(.*)$/gm, '• $1');
-        escaped = escaped.replace(/\n/g, '<br>');
-        return escaped;
+    // Chat text is untrusted (customer, staff, AI). It is always rendered as DOM
+    // text nodes by the shared renderer so it can never become markup.
+    function renderMessage(element, text) {
+        if (window.RexChatRender) {
+            window.RexChatRender.renderInto(element, text);
+            return;
+        }
+        element.textContent = text || '';
     }
 
-    function escapeHtml(text) {
-        if (!text) return '';
-        return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    function buildConversationItem(conversation, options) {
+        if (window.RexChatRender) return window.RexChatRender.createConversationItem(conversation, options);
+        // Fail closed: a minimal text-only row if the shared renderer is missing.
+        const conv = conversation || {};
+        const opts = options || {};
+        const item = document.createElement('div');
+        item.className = 'admin-chat-item' + (opts.active ? ' active' : '');
+        if (conv.sessionId) item.setAttribute('data-session-id', conv.sessionId);
+        if (conv.cinemaId) item.setAttribute('data-cinema-id', conv.cinemaId);
+        if (typeof opts.onSelect === 'function') {
+            item.addEventListener('click', function () { opts.onSelect(item); });
+        }
+        const nameRow = document.createElement('div');
+        nameRow.className = 'admin-chat-name';
+        const nameEl = document.createElement('span');
+        nameEl.textContent = conv.customerName || 'Khách vãng lai';
+        nameRow.appendChild(nameEl);
+        const cinemaBadge = document.createElement('span');
+        cinemaBadge.className = 'admin-chat-cinema-badge';
+        cinemaBadge.textContent = conv.cinemaName || 'Rex Cinemas';
+        item.appendChild(nameRow);
+        item.appendChild(cinemaBadge);
+        return item;
     }
 
     function getCsrfToken() {

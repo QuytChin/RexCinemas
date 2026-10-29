@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
 <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bookings</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" th:href="@{/css/app.css}"></head>
 <body><div th:replace="~{fragments/header :: header}"></div>
@@ -7,8 +7,8 @@
     <div class="admin-title"><div><p class="eyebrow">ORDERS & GATE</p><h1>Quản lý đặt vé</h1></div><div th:replace="~{fragments/admin-nav :: adminNav}"></div></div>
     <div th:replace="~{fragments/admin-list :: filters}"></div>
     <div class="alert alert-success mt-3" th:if="${success}" th:text="${success}"></div><div class="alert alert-danger mt-3" th:if="${error}" th:text="${error}"></div>
-    <div class="d-flex justify-content-end mb-3"><a class="btn btn-rex" th:href="@{/admin/checkin}">▣ MỞ MÁY QUÉT QR</a></div>
-    <div class="table-responsive"><table class="table table-dark table-hover align-middle"><thead><tr><th>Mã đặt vé</th><th>Khách hàng</th><th>Phim / Rạp</th><th>Ghế + Combo</th><th>Thanh toán</th><th>Tổng tiền</th><th>Vé / Check-in</th><th class="text-end">Thao tác</th></tr></thead><tbody>
+    <div class="d-flex justify-content-end mb-3" sec:authorize="!hasRole('CINEMA_MANAGER')"><a class="btn btn-rex" th:href="@{/admin/checkin}">▣ MỞ MÁY QUÉT QR</a></div>
+    <div class="table-responsive"><table class="table table-dark table-hover align-middle"><thead><tr><th>Mã đặt vé</th><th>Khách hàng</th><th>Phim / Rạp</th><th>Ghế + Combo</th><th>Thanh toán</th><th>Tổng tiền</th><th>Vé / Check-in</th><th sec:authorize="!hasRole('CINEMA_MANAGER')" class="text-end">Thao tác</th></tr></thead><tbody>
         <tr th:each="b:${bookings}">
             <td><strong th:text="${b.bookingCode}"></strong><div class="small text-secondary" th:text="${#temporals.format(b.createdAt,'dd/MM HH:mm')}"></div></td>
             <td><span th:text="${b.user.fullName}"></span><div class="small text-secondary" th:text="${b.user.email}"></div></td>
@@ -24,7 +24,7 @@
                 <div class="small text-secondary mt-1" th:if="${b.status.name()=='REFUND_PENDING'}">Chưa xác nhận tiền đã về khách</div>
                 <div class="small text-info mt-1" th:if="${b.refundedAt!=null}" th:text="${'Mã chứng từ: '+b.refundReference}"></div>
             </td>
-            <td>
+            <td sec:authorize="!hasRole('CINEMA_MANAGER')">
                 <div class="d-grid gap-2">
                     <a class="btn btn-sm btn-outline-light" th:href="@{'/bookings/'+${b.id}}">Xem vé / QR</a>
                     <form th:if="${b.status.name()=='REFUND_PENDING'}" th:action="@{'/admin/bookings/'+${b.id}+'/refund'}" method="post" class="border border-warning rounded p-2 small" onsubmit="return confirm('Chỉ tiếp tục khi bạn đã chuyển khoản hoàn tiền thủ công và có mã chứng từ. Xác nhận?')">

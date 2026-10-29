@@ -9,7 +9,9 @@ import com.rexchain.cinema.repository.CinemaRepository;
 import com.rexchain.cinema.service.AuthService;
 import com.rexchain.cinema.service.OtpRateLimitException;
 import com.rexchain.cinema.security.JwtService;
+import com.rexchain.cinema.security.LoginClientIpResolver;
 import com.rexchain.cinema.service.AccessTokenRevocationService;
+import com.rexchain.cinema.service.LoginRateLimitException;
 import com.rexchain.cinema.service.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -37,12 +39,14 @@ public class AuthController {
     private final AccessTokenRevocationService revocations;
     private final PasswordResetService passwordReset;
     private final boolean secureCookie;
+    private final String trustedLoginProxyIps;
 
     public AuthController(AuthService auth, CinemaRepository cinemas,
                           com.rexchain.cinema.service.OtpService otpService,
                           JwtService jwt, AccessTokenRevocationService revocations,
                           PasswordResetService passwordReset,
-                          @Value("${app.cookie.secure:false}") boolean secureCookie) {
+                          @Value("${app.cookie.secure:false}") boolean secureCookie,
+                          @Value("${app.auth.login.trusted-proxy-ips:}") String trustedLoginProxyIps) {
         this.auth = auth;
         this.cinemas = cinemas;
         this.otpService = otpService;
@@ -50,6 +54,7 @@ public class AuthController {
         this.revocations = revocations;
         this.passwordReset = passwordReset;
         this.secureCookie = secureCookie;
+        this.trustedLoginProxyIps = trustedLoginProxyIps;
     }
 
     @GetMapping({"/login", "/auth/login"})
@@ -161,8 +166,16 @@ public class AuthController {
                      @RequestParam(required = false) String returnUrl,
                      HttpServletRequest request, HttpServletResponse response, Model model) {
         try {
-            addCookie(response, auth.login(identifier, password, remember), remember, secureRequest(request));
+            addCookie(response, auth.login(identifier, password, remember,
+                    LoginClientIpResolver.resolve(request, trustedLoginProxyIps)), remember, secureRequest(request));
             return "redirect:" + safeReturnUrl(returnUrl);
+        } catch (LoginRateLimitException ex) {
+            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+            response.setHeader("Retry-After", Long.toString(ex.getRetryAfterSeconds()));
+            model.addAttribute("error", ex.getMessage());
+            model.addAttribute("returnUrl", safeReturnUrl(returnUrl));
+            model.addAttribute("identifier", identifier == null ? "" : identifier.trim());
+            return "auth/login";
         } catch (Exception ex) {
             model.addAttribute("error", "Thông tin đăng nhập hoặc mật khẩu không đúng");
             model.addAttribute("returnUrl", safeReturnUrl(returnUrl));
@@ -191,9 +204,14 @@ public class AuthController {
     @ResponseBody
     ResponseEntity<?> apiLogin(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest, HttpServletResponse response) {
         try {
-            String token = auth.login(request.identifier(), request.password());
+            String token = auth.login(request.identifier(), request.password(), false,
+                    LoginClientIpResolver.resolve(servletRequest, trustedLoginProxyIps));
             addCookie(response, token, false, secureRequest(servletRequest));
             return ResponseEntity.ok(Map.of("token", token));
+        } catch (LoginRateLimitException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", Long.toString(ex.getRetryAfterSeconds()))
+                    .body(Map.of("error", ex.getMessage()));
         } catch (Exception ex) {
             return ResponseEntity.status(401).body(Map.of("error", "Sai thông tin đăng nhập"));
         }

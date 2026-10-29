@@ -423,7 +423,7 @@
 
         const bubbleEl = document.createElement('div');
         bubbleEl.className = 'rex-msg-bubble';
-        bubbleEl.innerHTML = formatMarkdown(msg.message);
+        renderMessage(bubbleEl, msg.message);
 
         group.appendChild(senderEl);
         group.appendChild(bubbleEl);
@@ -473,19 +473,14 @@
         }
     }
 
-    function formatMarkdown(text) {
-        if (!text) return '';
-        let escaped = text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-
-        escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        escaped = escaped.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="rex-chat-link" target="_blank" rel="noopener">$1</a>');
-        escaped = escaped.replace(/^\s*-\s+(.*)$/gm, '• $1');
-        escaped = escaped.replace(/\n/g, '<br>');
-        return escaped;
+    // Chat text is untrusted (customer, staff, external AI). It is rendered as DOM
+    // text nodes only, so message content can never become markup.
+    function renderMessage(element, text) {
+        if (window.RexChatRender) {
+            window.RexChatRender.renderInto(element, text);
+            return;
+        }
+        element.textContent = text || '';
     }
 
     function getCsrfToken() {

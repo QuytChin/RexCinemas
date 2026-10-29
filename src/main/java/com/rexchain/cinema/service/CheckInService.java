@@ -10,6 +10,7 @@ import com.rexchain.cinema.entity.Role;
 import com.rexchain.cinema.entity.User;
 import com.rexchain.cinema.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,10 +32,6 @@ public class CheckInService {
     private final BookingRepository bookings;
     private final BookingSeatRepository bookingSeats;
     private final UserRepository users;
-
-    public CheckInService(BookingRepository bookings, BookingSeatRepository bookingSeats) {
-        this(bookings, bookingSeats, null);
-    }
 
     @Autowired
     public CheckInService(BookingRepository bookings, BookingSeatRepository bookingSeats, UserRepository users) {
@@ -209,20 +206,29 @@ public class CheckInService {
     }
 
     private CheckInResult validateBookingStatus(Booking booking, LocalDateTime now, String operatorEmail) {
-        if (users != null && operatorEmail != null && !operatorEmail.isBlank()) {
-            User operator = users.findByEmailIgnoreCase(operatorEmail).orElse(null);
-            if (operator != null && (operator.getRole() == Role.STAFF || operator.getRole() == Role.SUPERVISOR)) {
-                if (operator.getCinema() != null) {
-                    Long ticketCinemaId = booking.getShowtime().getAuditorium().getCinema().getId();
-                    if (!operator.getCinema().getId().equals(ticketCinemaId)) {
-                        String ticketCinemaName = booking.getShowtime().getAuditorium().getCinema().getName();
-                        String opCinemaName = operator.getCinema().getName();
-                        return emptyResult(false, "WRONG_CINEMA",
-                                "Vé này thuộc cụm rạp " + ticketCinemaName + ". Bạn chỉ có quyền soát vé tại cụm rạp "
-                                        + opCinemaName + "!");
-                    }
-                }
+        if (operatorEmail == null || operatorEmail.isBlank()) {
+            throw new AccessDeniedException("Không xác định được tài khoản nhân viên soát vé");
+        }
+        User operator = users.findByEmailIgnoreCase(operatorEmail)
+                .orElseThrow(() -> new AccessDeniedException("Tài khoản soát vé không tồn tại"));
+
+        if (operator.getRole() == Role.STAFF || operator.getRole() == Role.SUPERVISOR) {
+            if (operator.getCinema() == null || operator.getCinema().getId() == null
+                    || !operator.getCinema().isActive()) {
+                throw new AccessDeniedException("Tài khoản chưa được gán vào rạp đang hoạt động");
             }
+
+            var ticketCinema = booking.getShowtime().getAuditorium().getCinema();
+            if (ticketCinema == null || ticketCinema.getId() == null || !ticketCinema.isActive()) {
+                throw new AccessDeniedException("Không thể xác định rạp hợp lệ của vé");
+            }
+            if (!operator.getCinema().getId().equals(ticketCinema.getId())) {
+                return emptyResult(false, "WRONG_CINEMA",
+                        "Vé này thuộc cụm rạp " + ticketCinema.getName() + ". Bạn chỉ có quyền soát vé tại cụm rạp "
+                                + operator.getCinema().getName() + "!");
+            }
+        } else if (operator.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Tài khoản không có quyền soát vé");
         }
 
         if (booking.getStatus() == BookingStatus.PENDING)
