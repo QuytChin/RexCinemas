@@ -69,12 +69,12 @@
                 </div>
             </div>
 
-            <!-- Thẻ gợi ý thông minh thời gian thực (1 dòng thanh mảnh, tiện lợi) -->
+            <!-- Thẻ gợi ý thông minh thời gian thực (rõ ràng, dễ đọc) -->
             <div id="movieSchedulingInsightCard" class="mt-2 py-2 px-3 border border-warning-subtle" style="display: none; background: #1e293b; border-radius: 8px;">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 small">
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2 flex-wrap" style="font-size: 13px;">
                         <span>💡</span>
-                        <strong id="insightMovieTitle" class="text-warning">Tên phim</strong>
+                        <strong id="insightMovieTitle" class="text-warning" style="font-size: 14px;">Tên phim</strong>
                         <span id="insightOccupancyBadge" class="badge bg-success">0% lấp đầy</span>
                         <span class="text-secondary">·</span>
                         <span id="insightTickets" class="text-light">0/0 vé</span>
@@ -83,7 +83,7 @@
                         <span class="text-secondary">·</span>
                         <span id="insightRecommendation" class="text-info fw-semibold">Gợi ý</span>
                     </div>
-                    <div>
+                    <div style="font-size: 13px;">
                         <span class="text-secondary">Giờ đông khách nhất:</span>
                         <strong id="insightPeakSlot" class="text-warning ms-1">Chưa có</strong>
                     </div>
@@ -92,13 +92,13 @@
         </form>
     </section>
 
-    <!-- 2. KHỐI TRỢ LÝ XẾP LỊCH: HIỆU SUẤT & TỶ LỆ LẤP ĐẦY GHẾ (Gọn gàng, có thể Thu gọn/Mở rộng) -->
+    <!-- 2. KHỐI TRỢ LÝ XẾP LỊCH: HIỆU SUẤT & TỶ LỆ LẤP ĐẦY GHẾ (Gọn gàng, chữ to rõ ràng) -->
     <div class="card border border-secondary border-opacity-25 mb-4" th:if="${movieOccupancies != null and !movieOccupancies.isEmpty()}" style="background: #0f172a; border-radius: 10px;">
         <!-- Header có nút ẩn/hiện -->
         <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between" style="background: #1e293b; cursor: pointer;" onclick="toggleOccupancyTable()">
             <div class="d-flex align-items-center gap-2">
                 <span class="fs-6">📊</span>
-                <strong class="text-white small">Hiệu suất &amp; Tỷ lệ lấp đầy ghế (7 ngày qua)</strong>
+                <strong class="text-white" style="font-size: 14px;">Hiệu suất &amp; Tỷ lệ lấp đầy ghế (7 ngày qua)</strong>
                 <span class="badge bg-secondary text-light small" style="font-size: 11px;" th:text="${movieOccupancies.size() + ' phim'}">6 phim</span>
                 <span class="badge bg-success-subtle text-success small d-none d-md-inline" style="font-size: 11px;">Phim &gt; 70% lấp đầy nên ưu tiên phòng lớn &amp; giờ tối</span>
             </div>
@@ -107,57 +107,57 @@
             </div>
         </div>
 
-        <!-- Bảng compact tinh giản, giới hạn độ cao không choán màn hình -->
-        <div id="occupancyTableCollapse" style="max-height: 230px; overflow-y: auto;">
-            <table class="table table-dark table-sm table-hover align-middle mb-0" style="font-size: 12px; background: transparent;">
-                <thead class="sticky-top border-bottom border-secondary border-opacity-50 text-secondary" style="background: #1e293b; font-size: 11px;">
+        <!-- Bảng compact tinh giản, poster và chữ to rõ ràng -->
+        <div id="occupancyTableCollapse" style="max-height: 270px; overflow-y: auto;">
+            <table class="table table-dark table-hover align-middle mb-0" style="font-size: 13px; background: transparent;">
+                <thead class="sticky-top border-bottom border-secondary border-opacity-50 text-secondary" style="background: #1e293b; font-size: 12px;">
                     <tr>
-                        <th class="ps-3 py-2">Phim đang chiếu</th>
+                        <th class="ps-3 py-2" style="min-width: 220px;">Phim đang chiếu</th>
                         <th class="py-2">Suất / Doanh thu 7N</th>
                         <th class="py-2">Vé / Sức chứa</th>
-                        <th class="py-2" style="min-width: 140px;">Tỷ lệ lấp đầy ghế</th>
+                        <th class="py-2" style="min-width: 150px;">Tỷ lệ lấp đầy ghế</th>
                         <th class="py-2">Giờ vàng</th>
-                        <th class="py-2">Khuyến nghị xếp lịch</th>
+                        <th class="py-2" style="min-width: 200px;">Khuyến nghị xếp lịch</th>
                         <th class="pe-3 py-2 text-end">Chọn</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="mOcc : ${movieOccupancies}" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        <td class="ps-3 py-1">
+                    <tr th:each="mOcc : ${movieOccupancies}" style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <td class="ps-3 py-2">
                             <div class="d-flex align-items-center gap-2">
-                                <img class="rounded" style="width: 24px; height: 34px; object-fit: cover;" 
+                                <img class="rounded" style="width: 36px; height: 48px; object-fit: cover; box-shadow: 0 2px 6px rgba(0,0,0,0.5);" 
                                      th:src="${@cinemaArtwork.imageUrl(mOcc.posterUrl, 'movie')}" 
                                      data-image-fallback="movie" th:alt="${mOcc.movieTitle}">
                                 <div>
-                                    <strong class="text-white d-block" style="font-size: 12px;" th:text="${mOcc.movieTitle}">Tên phim</strong>
-                                    <span class="text-secondary" style="font-size: 10px;" th:text="${mOcc.durationMinutes + 'p · ' + mOcc.ageRating}"></span>
+                                    <strong class="text-white d-block" style="font-size: 14px; line-height: 1.3;" th:text="${mOcc.movieTitle}">Tên phim</strong>
+                                    <span class="text-secondary" style="font-size: 12px;" th:text="${mOcc.durationMinutes + ' phút · ' + mOcc.ageRating}"></span>
                                 </div>
                             </div>
                         </td>
-                        <td class="py-1">
-                            <span class="badge bg-secondary-subtle text-light" style="font-size: 10px;" th:text="${mOcc.showtimeCount + ' suất'}">0 suất</span>
+                        <td class="py-2">
+                            <span class="badge bg-secondary-subtle text-light" style="font-size: 11px;" th:text="${mOcc.showtimeCount + ' suất'}">0 suất</span>
                             <span class="text-secondary">·</span>
-                            <strong class="text-warning" th:text="${#numbers.formatDecimal(mOcc.revenue, 0, 'COMMA', 0, 'POINT') + 'đ'}">0đ</strong>
+                            <strong class="text-warning" style="font-size: 13px;" th:text="${#numbers.formatDecimal(mOcc.revenue, 0, 'COMMA', 0, 'POINT') + 'đ'}">0đ</strong>
                         </td>
-                        <td class="py-1 text-light">
-                            <span th:text="${mOcc.soldTickets + '/' + mOcc.totalCapacity}">0/0</span>
+                        <td class="py-2 text-light" style="font-size: 13px;">
+                            <strong th:text="${mOcc.soldTickets}">0</strong><span class="text-secondary" th:text="' / ' + ${mOcc.totalCapacity}">/0</span>
                         </td>
-                        <td class="py-1">
+                        <td class="py-2">
                             <div class="d-flex align-items-center gap-2">
-                                <div class="progress flex-grow-1" style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px;">
+                                <div class="progress flex-grow-1" style="height: 7px; background: rgba(255,255,255,0.12); border-radius: 4px;">
                                     <div class="progress-bar" role="progressbar" 
                                          th:style="'width: ' + ${mOcc.occupancyRate} + '%; background: ' + (${mOcc.occupancyRate >= 70 ? '#10b981' : (mOcc.occupancyRate >= 40 ? '#facc15' : '#64748b')})">
                                     </div>
                                 </div>
-                                <span class="badge" style="font-size: 10px; min-width: 42px;" th:classappend="${mOcc.badgeClass}" th:text="${mOcc.occupancyRate + '%'}">0%</span>
+                                <span class="badge" style="font-size: 11px; min-width: 44px;" th:classappend="${mOcc.badgeClass}" th:text="${mOcc.occupancyRate + '%'}">0%</span>
                             </div>
                         </td>
-                        <td class="py-1 text-secondary" style="font-size: 11px;" th:text="${mOcc.peakHourSlot}">Chưa có</td>
-                        <td class="py-1" style="font-size: 11px;">
-                            <span class="text-light" th:text="${mOcc.recommendation}">Khuyến nghị</span>
+                        <td class="py-2 text-secondary" style="font-size: 12px;" th:text="${mOcc.peakHourSlot}">Chưa có</td>
+                        <td class="py-2" style="font-size: 12px;">
+                            <span class="text-light fw-medium" th:text="${mOcc.recommendation}">Khuyến nghị</span>
                         </td>
-                        <td class="pe-3 py-1 text-end">
-                            <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" style="font-size: 11px;"
+                        <td class="pe-3 py-2 text-end">
+                            <button type="button" class="btn btn-sm btn-outline-warning py-1 px-2" style="font-size: 12px; font-weight: 600;"
                                     th:onclick="'selectMovieForShowtime(' + ${mOcc.movieId} + ')'"
                                     title="Chọn phim này lên form">
                                 + Xếp lịch
@@ -191,7 +191,7 @@
             <tbody>
                 <tr th:each="s:${showtimes}">
                     <td>
-                        <strong class="text-white" th:text="${s.movie.title}">Tên phim</strong>
+                        <strong class="text-white" style="font-size: 14px;" th:text="${s.movie.title}">Tên phim</strong>
                     </td>
                     <td th:text="${s.auditorium.cinema.name+' / '+s.auditorium.name}"></td>
                     <td class="text-warning fw-semibold" th:text="${#temporals.format(s.startTime,'HH:mm dd/MM/yyyy')}"></td>
