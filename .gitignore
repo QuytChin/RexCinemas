@@ -13,3 +13,6 @@ backups/mysql/*.sql
 .project
 .classpath
 .settings/
+
+application-local.properties
+src/main/resources/application-local.properties

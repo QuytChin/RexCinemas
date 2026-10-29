@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.rexchain.cinema.config.GrokProperties;
 import com.rexchain.cinema.entity.Cinema;
 import com.rexchain.cinema.entity.Movie;
 import com.rexchain.cinema.entity.MovieStatus;
@@ -13,6 +12,7 @@ import com.rexchain.cinema.repository.MovieRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -31,16 +31,35 @@ public class AiMovieConsultantService {
 
     private final MovieRepository movies;
     private final CinemaRepository cinemas;
-    private final GrokProperties grokProperties;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
+
+    @Value("${app.grok.enabled:true}")
+    private boolean grokEnabled = true;
+
+    @Value("${app.grok.api-key:}")
+    private String grokApiKey = "";
+
+    @Value("${app.grok.api-url:https://api.x.ai/v1/chat/completions}")
+    private String grokApiUrl = "https://api.x.ai/v1/chat/completions";
+
+    @Value("${app.grok.model:grok-2-latest}")
+    private String grokModel = "grok-2-latest";
+
+    @Value("${app.grok.timeout-seconds:15}")
+    private int grokTimeoutSeconds = 15;
+
+    @Value("${app.grok.temperature:0.7}")
+    private double grokTemperature = 0.7;
+
+    @Value("${app.grok.max-tokens:800}")
+    private int grokMaxTokens = 800;
 
     @Autowired
     public AiMovieConsultantService(MovieRepository movies,
                                     CinemaRepository cinemas,
-                                    GrokProperties grokProperties,
                                     ObjectMapper objectMapper) {
-        this(movies, cinemas, grokProperties, objectMapper,
+        this(movies, cinemas, objectMapper,
                 HttpClient.newBuilder()
                         .connectTimeout(Duration.ofSeconds(10))
                         .build());
@@ -48,14 +67,24 @@ public class AiMovieConsultantService {
 
     AiMovieConsultantService(MovieRepository movies,
                              CinemaRepository cinemas,
-                             GrokProperties grokProperties,
                              ObjectMapper objectMapper,
                              HttpClient httpClient) {
         this.movies = movies;
         this.cinemas = cinemas;
-        this.grokProperties = grokProperties;
         this.objectMapper = objectMapper;
         this.httpClient = httpClient;
+    }
+
+    public boolean isGrokConfigured() {
+        return grokEnabled && grokApiKey != null && !grokApiKey.trim().isBlank();
+    }
+
+    public void setGrokConfig(boolean enabled, String apiKey, String model) {
+        this.grokEnabled = enabled;
+        this.grokApiKey = apiKey != null ? apiKey.trim() : "";
+        if (model != null && !model.isBlank()) {
+            this.grokModel = model;
+        }
     }
 
     public String consult(String prompt) {
@@ -68,7 +97,7 @@ public class AiMovieConsultantService {
                 .toList();
 
         // 1. Nếu Grok API đã được cấu hình API Key, ưu tiên gọi Grok AI
-        if (grokProperties != null && grokProperties.isConfigured()) {
+        if (isGrokConfigured()) {
             try {
                 String grokAnswer = callGrok(prompt.trim(), allActiveMovies);
                 if (grokAnswer != null && !grokAnswer.isBlank()) {
@@ -91,9 +120,9 @@ public class AiMovieConsultantService {
         String systemPrompt = buildSystemPrompt(activeMovies, activeCinemas);
 
         ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("model", grokProperties.getModel());
-        payload.put("temperature", grokProperties.getTemperature());
-        payload.put("max_tokens", grokProperties.getMaxTokens());
+        payload.put("model", grokModel);
+        payload.put("temperature", grokTemperature);
+        payload.put("max_tokens", grokMaxTokens);
 
         ArrayNode messagesArray = payload.putArray("messages");
 
@@ -107,13 +136,13 @@ public class AiMovieConsultantService {
 
         String jsonBody = objectMapper.writeValueAsString(payload);
 
-        int timeoutSec = grokProperties.getTimeoutSeconds() > 0 ? grokProperties.getTimeoutSeconds() : 15;
+        int timeoutSec = grokTimeoutSeconds > 0 ? grokTimeoutSeconds : 15;
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(grokProperties.getApiUrl()))
+                .uri(URI.create(grokApiUrl))
                 .timeout(Duration.ofSeconds(timeoutSec))
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
-                .header("Authorization", "Bearer " + grokProperties.getApiKey())
+                .header("Authorization", "Bearer " + grokApiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
 

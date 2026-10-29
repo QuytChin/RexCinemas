@@ -1,7 +1,6 @@
 package com.rexchain.cinema.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rexchain.cinema.config.GrokProperties;
 import com.rexchain.cinema.entity.AgeRating;
 import com.rexchain.cinema.entity.Cinema;
 import com.rexchain.cinema.entity.Movie;
@@ -41,13 +40,11 @@ class AiMovieConsultantServiceTest {
     @Mock
     private HttpResponse<String> httpResponse;
 
-    private GrokProperties grokProperties;
     private ObjectMapper objectMapper;
     private AiMovieConsultantService consultantService;
 
     @BeforeEach
     void setUp() {
-        grokProperties = new GrokProperties();
         objectMapper = new ObjectMapper();
 
         Movie m1 = new Movie();
@@ -73,7 +70,6 @@ class AiMovieConsultantServiceTest {
         consultantService = new AiMovieConsultantService(
                 movieRepository,
                 cinemaRepository,
-                grokProperties,
                 objectMapper,
                 httpClient
         );
@@ -82,7 +78,7 @@ class AiMovieConsultantServiceTest {
     @Test
     @DisplayName("Khi Grok chưa cấu hình API key -> Tự động dùng bộ quy tắc (Rule-based) trả lời giá vé")
     void shouldFallbackToRuleBasedWhenGrokNotConfigured() {
-        grokProperties.setApiKey("");
+        consultantService.setGrokConfig(true, "", "grok-2-latest");
 
         String reply = consultantService.consult("Giá vé xem phim bao nhiêu tiền?");
 
@@ -94,7 +90,7 @@ class AiMovieConsultantServiceTest {
     @Test
     @DisplayName("Khi hỏi về bắp nước combo -> Trả lời menu combo bắp nước")
     void shouldAnswerPopcornCombo() {
-        grokProperties.setApiKey("");
+        consultantService.setGrokConfig(true, "", "grok-2-latest");
 
         String reply = consultantService.consult("Có combo bắp nước nào ngon không?");
 
@@ -106,9 +102,7 @@ class AiMovieConsultantServiceTest {
     @Test
     @DisplayName("Khi Grok đã cấu hình API key -> Gửi request tới Grok API và trả về nội dung AI tạo")
     void shouldCallGrokApiWhenConfigured() throws Exception {
-        grokProperties.setEnabled(true);
-        grokProperties.setApiKey("xai-test-api-key-12345");
-        grokProperties.setModel("grok-2-latest");
+        consultantService.setGrokConfig(true, "xai-test-api-key-12345", "grok-2-latest");
 
         String grokJsonResponse = """
             {
@@ -139,8 +133,7 @@ class AiMovieConsultantServiceTest {
     @Test
     @DisplayName("Khi Grok API bị lỗi mạng hoặc HTTP 500 -> Tự động fallback sang Rule-based mượt mà")
     void shouldFallbackToRuleBasedOnGrokApiError() throws Exception {
-        grokProperties.setEnabled(true);
-        grokProperties.setApiKey("xai-test-api-key-12345");
+        consultantService.setGrokConfig(true, "xai-test-api-key-12345", "grok-2-latest");
 
         when(httpResponse.statusCode()).thenReturn(500);
         when(httpResponse.body()).thenReturn("Internal Server Error");
@@ -156,8 +149,7 @@ class AiMovieConsultantServiceTest {
     @Test
     @DisplayName("Khi Grok HttpClient ném ngoại lệ kết nối -> Fallback sang Rule-based không làm gián đoạn")
     void shouldFallbackToRuleBasedOnHttpClientException() throws Exception {
-        grokProperties.setEnabled(true);
-        grokProperties.setApiKey("xai-test-api-key-12345");
+        consultantService.setGrokConfig(true, "xai-test-api-key-12345", "grok-2-latest");
 
         when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
                 .thenThrow(new IOException("Connection timed out"));
