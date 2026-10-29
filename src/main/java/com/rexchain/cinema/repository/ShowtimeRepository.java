@@ -43,4 +43,11 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long>, org.s
                                 @Param("to") LocalDateTime to,
                                 @Param("cinemaId") Long cinemaId,
                                 @Param("movieId") Long movieId);
+
+    @Query("select s from Showtime s join fetch s.movie m join fetch s.auditorium a join fetch a.cinema c " +
+           "where s.active=true and s.startTime >= :from and s.startTime < :to " +
+           "and (:cinemaId is null or c.id = :cinemaId)")
+    List<Showtime> findShowtimesForOccupancy(@Param("from") LocalDateTime from,
+                                            @Param("to") LocalDateTime to,
+                                            @Param("cinemaId") Long cinemaId);
 }

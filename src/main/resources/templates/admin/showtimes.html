@@ -1,19 +1,292 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head>
-<link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Suất chiếu</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" th:href="@{/css/app.css}"></head>
-<body><div th:replace="~{fragments/header :: header}"></div>
-<main class="container-fluid admin-page-wrap pt-page pb-5">
-    <div class="admin-title"><div><p class="eyebrow">LÊN LỊCH</p><h1>Suất chiếu</h1></div><div th:replace="~{fragments/admin-nav :: adminNav}"></div></div>
+    <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Quản lý suất chiếu - Rex Cinemas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: header}"></div>
+<main class="container-fluid admin-page-wrap pt-page pb-4">
+    <!-- Tiêu đề trang -->
+    <div class="admin-title mb-3">
+        <div>
+            <p class="eyebrow mb-1">ĐIỀU PHỐI LỊCH CHIẾU</p>
+            <h1 class="h3 mb-0 text-white">Quản lý suất chiếu</h1>
+        </div>
+        <div th:replace="~{fragments/admin-nav :: adminNav}"></div>
+    </div>
+
+    <!-- Thông báo kết quả -->
+    <div class="alert alert-success py-2 px-3 mb-3 small" th:if="${success}" th:text="${success}"></div>
+    <div class="alert alert-danger py-2 px-3 mb-3 small" th:if="${error}" th:text="${error}"></div>
+
+    <!-- 1. FORM TẠO / SỬA SUẤT CHIẾU (Ưu tiên hiển thị ngay đầu trang, dễ thao tác) -->
+    <section class="ui-card p-3 mb-3" style="background: #111827; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;">
+        <form id="showtimeForm" th:action="@{/admin/showtimes/save}" method="post">
+            <input type="hidden" name="id" th:value="${editShowtime.id}">
+            
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                <span class="text-white fw-bold d-flex align-items-center gap-2">
+                    <span class="text-warning">⚡</span> 
+                    <span th:text="${editShowtime.id==null?'Tạo suất chiếu mới':'Chỉnh sửa suất chiếu'}">Tạo suất chiếu mới</span>
+                </span>
+                <span th:if="${scopedSupervisorCinema != null}" class="badge bg-warning text-dark py-1 px-2">
+                    🔒 Rạp: <span th:text="${scopedSupervisorCinema.name}"></span>
+                </span>
+            </div>
+
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small text-secondary mb-1" for="showtimeMovieSelect">Chọn phim *</label>
+                    <select id="showtimeMovieSelect" class="form-select form-select-sm" name="movieId" th:disabled="${editShowtime.id!=null}" onchange="onMovieSelectChanged(this.value)" required>
+                        <option value="">-- Chọn phim --</option>
+                        <option th:each="m:${movies}" th:value="${m.id}" th:text="${m.title}" th:selected="${editShowtime.movie!=null and editShowtime.movie.id==m.id}"></option>
+                    </select>
+                    <input th:if="${editShowtime.id!=null}" type="hidden" name="movieId" th:value="${editShowtime.movie.id}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-secondary mb-1">Phòng chiếu *</label>
+                    <select class="form-select form-select-sm" name="auditoriumId" th:disabled="${editShowtime.id!=null}" required>
+                        <option value="">-- Chọn phòng chiếu --</option>
+                        <option th:each="a:${auditoriums}" th:value="${a.id}" th:text="${a.cinema.name+' - '+a.name + ' (' + (a.totalRows * a.seatsPerRow) + ' ghế)'}" th:selected="${editShowtime.auditorium!=null and editShowtime.auditorium.id==a.id}"></option>
+                    </select>
+                    <input th:if="${editShowtime.id!=null}" type="hidden" name="auditoriumId" th:value="${editShowtime.auditorium.id}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-secondary mb-1" for="showtime-start">Giờ bắt đầu *</label>
+                    <input id="showtime-start" class="form-control form-control-sm" type="datetime-local" name="startTime" required th:value="${editShowtime.startTime!=null?#temporals.format(editShowtime.startTime,'yyyy-MM-dd''T''HH:mm'):''}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-secondary mb-1" for="showtime-price">Giá vé chuẩn *</label>
+                    <input id="showtime-price" class="form-control form-control-sm" type="number" name="basePrice" min="1000" step="1000" th:value="${editShowtime.basePrice!=null?editShowtime.basePrice:75000}" required>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-rex btn-sm w-100 fw-bold" th:text="${editShowtime.id==null?'Tạo &amp; Mở bán':'Lưu thay đổi'}">Tạo &amp; Mở bán</button>
+                </div>
+            </div>
+
+            <!-- Thẻ gợi ý thông minh thời gian thực (1 dòng thanh mảnh, tiện lợi) -->
+            <div id="movieSchedulingInsightCard" class="mt-2 py-2 px-3 border border-warning-subtle" style="display: none; background: #1e293b; border-radius: 8px;">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 small">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span>💡</span>
+                        <strong id="insightMovieTitle" class="text-warning">Tên phim</strong>
+                        <span id="insightOccupancyBadge" class="badge bg-success">0% lấp đầy</span>
+                        <span class="text-secondary">·</span>
+                        <span id="insightTickets" class="text-light">0/0 vé</span>
+                        <span class="text-secondary">·</span>
+                        <span id="insightRevenue" class="text-warning font-monospace">0đ</span>
+                        <span class="text-secondary">·</span>
+                        <span id="insightRecommendation" class="text-info fw-semibold">Gợi ý</span>
+                    </div>
+                    <div>
+                        <span class="text-secondary">Giờ đông khách nhất:</span>
+                        <strong id="insightPeakSlot" class="text-warning ms-1">Chưa có</strong>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <!-- 2. KHỐI TRỢ LÝ XẾP LỊCH: HIỆU SUẤT & TỶ LỆ LẤP ĐẦY GHẾ (Gọn gàng, có thể Thu gọn/Mở rộng) -->
+    <div class="card border border-secondary border-opacity-25 mb-4" th:if="${movieOccupancies != null and !movieOccupancies.isEmpty()}" style="background: #0f172a; border-radius: 10px;">
+        <!-- Header có nút ẩn/hiện -->
+        <div class="card-header py-2 px-3 d-flex align-items-center justify-content-between" style="background: #1e293b; cursor: pointer;" onclick="toggleOccupancyTable()">
+            <div class="d-flex align-items-center gap-2">
+                <span class="fs-6">📊</span>
+                <strong class="text-white small">Hiệu suất &amp; Tỷ lệ lấp đầy ghế (7 ngày qua)</strong>
+                <span class="badge bg-secondary text-light small" style="font-size: 11px;" th:text="${movieOccupancies.size() + ' phim'}">6 phim</span>
+                <span class="badge bg-success-subtle text-success small d-none d-md-inline" style="font-size: 11px;">Phim &gt; 70% lấp đầy nên ưu tiên phòng lớn &amp; giờ tối</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span id="occupancyToggleText" class="text-warning small text-decoration-none">Thu gọn ▲</span>
+            </div>
+        </div>
+
+        <!-- Bảng compact tinh giản, giới hạn độ cao không choán màn hình -->
+        <div id="occupancyTableCollapse" style="max-height: 230px; overflow-y: auto;">
+            <table class="table table-dark table-sm table-hover align-middle mb-0" style="font-size: 12px; background: transparent;">
+                <thead class="sticky-top border-bottom border-secondary border-opacity-50 text-secondary" style="background: #1e293b; font-size: 11px;">
+                    <tr>
+                        <th class="ps-3 py-2">Phim đang chiếu</th>
+                        <th class="py-2">Suất / Doanh thu 7N</th>
+                        <th class="py-2">Vé / Sức chứa</th>
+                        <th class="py-2" style="min-width: 140px;">Tỷ lệ lấp đầy ghế</th>
+                        <th class="py-2">Giờ vàng</th>
+                        <th class="py-2">Khuyến nghị xếp lịch</th>
+                        <th class="pe-3 py-2 text-end">Chọn</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="mOcc : ${movieOccupancies}" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td class="ps-3 py-1">
+                            <div class="d-flex align-items-center gap-2">
+                                <img class="rounded" style="width: 24px; height: 34px; object-fit: cover;" 
+                                     th:src="${@cinemaArtwork.imageUrl(mOcc.posterUrl, 'movie')}" 
+                                     data-image-fallback="movie" th:alt="${mOcc.movieTitle}">
+                                <div>
+                                    <strong class="text-white d-block" style="font-size: 12px;" th:text="${mOcc.movieTitle}">Tên phim</strong>
+                                    <span class="text-secondary" style="font-size: 10px;" th:text="${mOcc.durationMinutes + 'p · ' + mOcc.ageRating}"></span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-1">
+                            <span class="badge bg-secondary-subtle text-light" style="font-size: 10px;" th:text="${mOcc.showtimeCount + ' suất'}">0 suất</span>
+                            <span class="text-secondary">·</span>
+                            <strong class="text-warning" th:text="${#numbers.formatDecimal(mOcc.revenue, 0, 'COMMA', 0, 'POINT') + 'đ'}">0đ</strong>
+                        </td>
+                        <td class="py-1 text-light">
+                            <span th:text="${mOcc.soldTickets + '/' + mOcc.totalCapacity}">0/0</span>
+                        </td>
+                        <td class="py-1">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress flex-grow-1" style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         th:style="'width: ' + ${mOcc.occupancyRate} + '%; background: ' + (${mOcc.occupancyRate >= 70 ? '#10b981' : (mOcc.occupancyRate >= 40 ? '#facc15' : '#64748b')})">
+                                    </div>
+                                </div>
+                                <span class="badge" style="font-size: 10px; min-width: 42px;" th:classappend="${mOcc.badgeClass}" th:text="${mOcc.occupancyRate + '%'}">0%</span>
+                            </div>
+                        </td>
+                        <td class="py-1 text-secondary" style="font-size: 11px;" th:text="${mOcc.peakHourSlot}">Chưa có</td>
+                        <td class="py-1" style="font-size: 11px;">
+                            <span class="text-light" th:text="${mOcc.recommendation}">Khuyến nghị</span>
+                        </td>
+                        <td class="pe-3 py-1 text-end">
+                            <button type="button" class="btn btn-sm btn-outline-warning py-0 px-2" style="font-size: 11px;"
+                                    th:onclick="'selectMovieForShowtime(' + ${mOcc.movieId} + ')'"
+                                    title="Chọn phim này lên form">
+                                + Xếp lịch
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 3. DANH SÁCH SUẤT CHIẾU HIỆN CÓ (Có bộ lọc) -->
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h5 class="mb-0 text-white fs-6">Danh sách suất chiếu trong hệ thống</h5>
+    </div>
+    
     <div th:replace="~{fragments/admin-list :: filters}"></div>
-    <div class="alert alert-success mt-3" th:if="${success}" th:text="${success}"></div><div class="alert alert-danger mt-3" th:if="${error}" th:text="${error}"></div>
-    <form class="admin-form mt-4" th:action="@{/admin/showtimes/save}" method="post"><input type="hidden" name="id" th:value="${editShowtime.id}"><h4 th:text="${editShowtime.id==null?'Tạo suất chiếu':'Sửa suất chiếu'}"></h4><div class="row g-3">
-        <div class="col-md-3"><label class="form-label">Phim</label><select class="form-select" name="movieId" th:disabled="${editShowtime.id!=null}"><option th:each="m:${movies}" th:value="${m.id}" th:text="${m.title}" th:selected="${editShowtime.movie!=null and editShowtime.movie.id==m.id}"></option></select><input th:if="${editShowtime.id!=null}" type="hidden" name="movieId" th:value="${editShowtime.movie.id}"></div>
-        <div class="col-md-3"><label class="form-label">Phòng chiếu</label><select class="form-select" name="auditoriumId" th:disabled="${editShowtime.id!=null}"><option th:each="a:${auditoriums}" th:value="${a.id}" th:text="${a.cinema.name+' - '+a.name}" th:selected="${editShowtime.auditorium!=null and editShowtime.auditorium.id==a.id}"></option></select><input th:if="${editShowtime.id!=null}" type="hidden" name="auditoriumId" th:value="${editShowtime.auditorium.id}"></div>
-        <div class="col-md-2"><label class="form-label" for="showtime-start">Giờ bắt đầu</label><input id="showtime-start" class="form-control" type="datetime-local" name="startTime" required th:value="${editShowtime.startTime!=null?#temporals.format(editShowtime.startTime,'yyyy-MM-dd''T''HH:mm'):''}"></div>
-        <div class="col-md-2"><label class="form-label" for="showtime-price">Giá vé chuẩn</label><input id="showtime-price" class="form-control" type="number" name="basePrice" min="1000" step="1000" th:value="${editShowtime.basePrice!=null?editShowtime.basePrice:75000}" required></div>
-        <div class="col-md-2"><label class="form-label d-none d-md-block" aria-hidden="true">&nbsp;</label><button class="btn btn-rex w-100" th:text="${editShowtime.id==null?'Tạo suất & mở bán':'Lưu thay đổi'}"></button></div>
-    </div></form>
-    <div class="table-responsive mt-4"><table class="table table-dark table-hover align-middle"><thead><tr><th>Phim</th><th>Rạp / Phòng</th><th>Giờ chiếu</th><th>Giá vé</th><th>Bán vé</th><th class="text-end">Thao tác</th></tr></thead><tbody><tr th:each="s:${showtimes}"><td th:text="${s.movie.title}"></td><td th:text="${s.auditorium.cinema.name+' / '+s.auditorium.name}"></td><td th:text="${#temporals.format(s.startTime,'HH:mm dd/MM/yyyy')}"></td><td th:text="${#numbers.formatDecimal(s.basePrice,0,'COMMA',0,'POINT')+'đ'}"></td><td><span class="badge" th:classappend="${s.active and s.startTime.isAfter(now)?' text-bg-success':' text-bg-secondary'}" th:text="${s.active and s.startTime.isAfter(now)?'Đang mở đặt':'Đã đóng'}"></span><div><a class="small" th:if="${s.active and s.startTime.isAfter(now)}" th:href="@{'/booking/'+${s.id}}" target="_blank">Mở trang đặt vé ↗</a></div></td><td class="d-flex gap-2"><a class="btn btn-sm btn-outline-light" th:href="@{/admin/showtimes(edit=${s.id})}">Sửa</a><form th:action="@{'/admin/showtimes/'+${s.id}+'/toggle'}" method="post"><button class="btn btn-sm" th:classappend="${s.active ? ' btn-outline-danger' : ' btn-outline-success'}" th:text="${s.active ? 'Ẩn' : 'Bật lại'}"></button></form></td></tr></tbody></table></div>
-<div th:replace="~{fragments/admin-list :: pager}"></div></main><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body></html>
+
+    <div class="table-responsive mt-3">
+        <table class="table table-dark table-hover align-middle mb-0" style="font-size: 13px;">
+            <thead class="text-secondary small text-uppercase" style="background: #1e293b;">
+                <tr>
+                    <th>Phim</th>
+                    <th>Rạp / Phòng</th>
+                    <th>Giờ chiếu</th>
+                    <th>Giá vé</th>
+                    <th>Trạng thái</th>
+                    <th class="text-end">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="s:${showtimes}">
+                    <td>
+                        <strong class="text-white" th:text="${s.movie.title}">Tên phim</strong>
+                    </td>
+                    <td th:text="${s.auditorium.cinema.name+' / '+s.auditorium.name}"></td>
+                    <td class="text-warning fw-semibold" th:text="${#temporals.format(s.startTime,'HH:mm dd/MM/yyyy')}"></td>
+                    <td th:text="${#numbers.formatDecimal(s.basePrice,0,'COMMA',0,'POINT')+'đ'}"></td>
+                    <td>
+                        <span class="badge" th:classappend="${s.active and s.startTime.isAfter(now)?' text-bg-success':' text-bg-secondary'}" th:text="${s.active and s.startTime.isAfter(now)?'Đang mở đặt':'Đã đóng'}"></span>
+                        <div><a class="small text-info text-decoration-none" th:if="${s.active and s.startTime.isAfter(now)}" th:href="@{'/booking/'+${s.id}}" target="_blank">Xem ghế ↗</a></div>
+                    </td>
+                    <td class="d-flex gap-2 justify-content-end">
+                        <a class="btn btn-sm btn-outline-light py-0 px-2" style="font-size: 12px;" th:href="@{/admin/showtimes(edit=${s.id})}">Sửa</a>
+                        <form th:action="@{'/admin/showtimes/'+${s.id}+'/toggle'}" method="post">
+                            <button class="btn btn-sm py-0 px-2" style="font-size: 12px;" th:classappend="${s.active ? ' btn-outline-danger' : ' btn-outline-success'}" th:text="${s.active ? 'Ẩn' : 'Bật lại'}"></button>
+                        </form>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div th:replace="~{fragments/admin-list :: pager}"></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const MOVIE_OCCUPANCIES = /*[[${movieOccupancies}]]*/ [];
+    /*]]>*/
+
+    // Toggle ẩn / hiện bảng phân tích hiệu suất
+    function toggleOccupancyTable() {
+        const collapseEl = document.getElementById('occupancyTableCollapse');
+        const textEl = document.getElementById('occupancyToggleText');
+        if (!collapseEl) return;
+        
+        if (collapseEl.style.display === 'none') {
+            collapseEl.style.display = 'block';
+            if (textEl) textEl.textContent = 'Thu gọn ▲';
+        } else {
+            collapseEl.style.display = 'none';
+            if (textEl) textEl.textContent = 'Mở rộng ▼';
+        }
+    }
+
+    // Chọn phim nhanh từ bảng
+    function selectMovieForShowtime(movieId) {
+        const movieSelect = document.getElementById('showtimeMovieSelect');
+        if (!movieSelect) return;
+        movieSelect.value = movieId;
+        onMovieSelectChanged(movieId);
+        const form = document.getElementById('showtimeForm');
+        if (form) {
+            form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // Cập nhật thẻ gợi ý khi thay đổi phim
+    function onMovieSelectChanged(movieId) {
+        const insightCard = document.getElementById('movieSchedulingInsightCard');
+        if (!insightCard) return;
+
+        if (!movieId) {
+            insightCard.style.display = 'none';
+            return;
+        }
+
+        const idNum = parseInt(movieId, 10);
+        const found = Array.isArray(MOVIE_OCCUPANCIES) ? MOVIE_OCCUPANCIES.find(m => m.movieId === idNum) : null;
+        if (!found) {
+            insightCard.style.display = 'none';
+            return;
+        }
+
+        document.getElementById('insightMovieTitle').textContent = found.movieTitle;
+        
+        const badge = document.getElementById('insightOccupancyBadge');
+        badge.className = 'badge ' + found.badgeClass;
+        badge.textContent = found.occupancyRate + '% lấp đầy (' + found.showtimeCount + ' suất 7N)';
+
+        document.getElementById('insightTickets').textContent = found.soldTickets + '/' + found.totalCapacity + ' vé';
+        
+        const rev = found.revenue != null ? Number(found.revenue) : 0;
+        const revFormatted = new Intl.NumberFormat('vi-VN').format(rev) + 'đ';
+        document.getElementById('insightRevenue').textContent = revFormatted;
+        
+        document.getElementById('insightRecommendation').innerHTML = '👉 ' + found.recommendation;
+        document.getElementById('insightPeakSlot').textContent = found.peakHourSlot;
+
+        insightCard.style.display = 'block';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const movieSelect = document.getElementById('showtimeMovieSelect');
+        if (movieSelect && movieSelect.value) {
+            onMovieSelectChanged(movieSelect.value);
+        }
+    });
+</script>
+</body>
+</html>

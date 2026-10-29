@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface ShowtimeSeatRepository extends JpaRepository<ShowtimeSeat, Long> {
@@ -23,6 +24,11 @@ public interface ShowtimeSeatRepository extends JpaRepository<ShowtimeSeat, Long
            "sum(case when ss.status = com.rexchain.cinema.entity.SeatStatus.AVAILABLE then 1 else 0 end) " +
            "from ShowtimeSeat ss where ss.showtime.id in :showtimeIds group by ss.showtime.id")
     List<Object[]> summarizeAvailability(@Param("showtimeIds") List<Long> showtimeIds);
+
+    @Query("select ss.showtime.id, count(ss), " +
+           "sum(case when ss.status = com.rexchain.cinema.entity.SeatStatus.BOOKED then 1 else 0 end) " +
+           "from ShowtimeSeat ss where ss.showtime.id in :showtimeIds group by ss.showtime.id")
+    List<Object[]> summarizeOccupancy(@Param("showtimeIds") Collection<Long> showtimeIds);
 
     @Query("select ss from ShowtimeSeat ss join fetch ss.showtime join fetch ss.seat")
     List<ShowtimeSeat> findAllWithShowtimeAndSeat();

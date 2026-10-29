@@ -257,4 +257,17 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
     int atomicCheckIn(@Param("id") Long id,
                       @Param("now") LocalDateTime now,
                       @Param("operator") String operator);
+
+    @Query("select distinct b from Booking b " +
+           "join fetch b.showtime st " +
+           "join fetch st.movie m " +
+           "join fetch st.auditorium a " +
+           "join fetch a.cinema c " +
+           "left join fetch b.seats bs " +
+           "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED " +
+           "and st.startTime >= :from and st.startTime < :to " +
+           "and (:cinemaId is null or c.id = :cinemaId)")
+    List<Booking> findConfirmedBookingsForOccupancy(@Param("from") LocalDateTime from,
+                                                   @Param("to") LocalDateTime to,
+                                                   @Param("cinemaId") Long cinemaId);
 }

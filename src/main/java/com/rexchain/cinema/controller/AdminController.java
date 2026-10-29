@@ -4,6 +4,7 @@ import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.config.SePayProperties;
 import com.rexchain.cinema.dto.PaymentSettingsUpdateRequest;
 import com.rexchain.cinema.dto.ManualRefundConfirmation;
+import com.rexchain.cinema.dto.MovieOccupancyDto;
 import org.springframework.security.access.AccessDeniedException;
 import com.rexchain.cinema.repository.*;
 import com.rexchain.cinema.service.*;
@@ -50,6 +51,7 @@ public class AdminController {
     private final LatePaymentCaseService latePaymentCases;
     private final MembershipService membershipService;
     private final AdminListSupport lists;
+    private final MovieOccupancyService movieOccupancyService;
 
     public AdminController(MovieRepository movies, CinemaRepository cinemas, AuditoriumRepository auditoriums,
             ShowtimeRepository showtimes, ShowtimeSeatRepository showSeats, BookingRepository bookings, UserRepository users,
@@ -59,7 +61,7 @@ public class AdminController {
             ShowtimeService showtimeService, SePayPaymentService sepayPaymentService,
             SePayProperties sepayProperties, PaymentSettingsService paymentSettingsService,
             PaymentTransactionRepository paymentTransactions, LatePaymentCaseService latePaymentCases,
-            MembershipService membershipService, AdminListSupport lists) {
+            MembershipService membershipService, AdminListSupport lists, MovieOccupancyService movieOccupancyService) {
         this.movies = movies;
         this.cinemas = cinemas;
         this.auditoriums = auditoriums;
@@ -82,6 +84,7 @@ public class AdminController {
         this.latePaymentCases = latePaymentCases;
         this.membershipService = membershipService;
         this.lists = lists;
+        this.movieOccupancyService = movieOccupancyService;
     }
 
     @GetMapping
@@ -506,6 +509,10 @@ public class AdminController {
                 model.addAttribute("error", "Bạn không có quyền chỉnh sửa suất chiếu của cụm rạp khác!");
             }
         }
+        Long cinemaIdScope = (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null)
+                ? currentUser.getCinema().getId() : null;
+        List<MovieOccupancyDto> movieOccupancies = movieOccupancyService.getMovieOccupancyReport(cinemaIdScope, 7);
+        model.addAttribute("movieOccupancies", movieOccupancies);
         model.addAttribute("editShowtime", editShowtime);
         model.addAttribute("now", LocalDateTime.now());
         return "admin/showtimes";
@@ -1018,4 +1025,21 @@ public class AdminController {
         return normalized;
     }
 
+
+    @GetMapping("/showtimes/api/occupancy")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<?> getShowtimeMovieOccupancy(
+            @RequestParam(required = false) Long movieId,
+            @RequestParam(defaultValue = "7") int days,
+            Authentication auth) {
+        User currentUser = currentUser(auth);
+        requireAssignedCinema(currentUser);
+        Long cinemaIdScope = (currentUser != null && currentUser.getRole() == Role.SUPERVISOR && currentUser.getCinema() != null)
+                ? currentUser.getCinema().getId() : null;
+        if (movieId != null) {
+            var dto = movieOccupancyService.getMovieOccupancyForMovie(movieId, cinemaIdScope, days);
+            return dto != null ? org.springframework.http.ResponseEntity.ok(dto) : org.springframework.http.ResponseEntity.notFound().build();
+        }
+        return org.springframework.http.ResponseEntity.ok(movieOccupancyService.getMovieOccupancyReport(cinemaIdScope, days));
+    }
 }
