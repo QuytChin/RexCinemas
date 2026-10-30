@@ -185,13 +185,14 @@ public class BookingController {
 
     private Booking authorizedBooking(Long id, Authentication auth) {
         User user = current(auth);
-        // This route serves a customer's personal ticket page. Staff and other roles
-        // must use their role-specific workflows (such as check-in or admin booking tools).
-        if (user.getRole() != Role.CUSTOMER)
+        // Customers may view only their own ticket. System admins may open tickets
+        // from the admin booking list; other staff roles use their scoped workflows.
+        boolean administrator = user.getRole() == Role.ADMIN;
+        if (!administrator && user.getRole() != Role.CUSTOMER)
             throw new AccessDeniedException("Bạn không có quyền xem vé này");
 
         Booking booking = bookings.findById(id).orElseThrow();
-        if (booking.getUser() == null || !Objects.equals(booking.getUser().getId(), user.getId()))
+        if (!administrator && (booking.getUser() == null || !Objects.equals(booking.getUser().getId(), user.getId())))
             throw new AccessDeniedException("Bạn không có quyền xem vé này");
         return booking;
     }
