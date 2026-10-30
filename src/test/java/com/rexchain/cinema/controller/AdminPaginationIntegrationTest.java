@@ -190,6 +190,18 @@ class AdminPaginationIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "rex-test-showtime-admin@rexchain.vn", roles = "ADMIN")
+    void adminCanRenderRedesignedShowtimeWorkspace() throws Exception {
+        createUser("rex-test-showtime-admin@rexchain.vn", Role.ADMIN, null);
+        String html = mvc.perform(get("/admin/showtimes"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(html).contains("showtime-performance-card", "showtime-list-section",
+                "showtime-create-card", "Chưa có dữ liệu phim để phân tích.");
+    }
+
+    @Test
     @WithMockUser(username = "manager@rexchain.vn", roles = "CINEMA_MANAGER")
     void cinemaManagerCanViewChainDashboardAndReadOnlyOperationalLists() throws Exception {
         createUser("manager@rexchain.vn", Role.CINEMA_MANAGER, null);

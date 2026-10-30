@@ -267,6 +267,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, org.spr
            "join fetch a.cinema c " +
            "left join fetch b.seats bs " +
            "where b.status = com.rexchain.cinema.entity.BookingStatus.CONFIRMED " +
+           "and b.paidAt is not null " +
            "and st.startTime >= :from and st.startTime < :to " +
            "and (:cinemaId is null or c.id = :cinemaId)")
     List<Booking> findConfirmedBookingsForOccupancy(@Param("from") LocalDateTime from,

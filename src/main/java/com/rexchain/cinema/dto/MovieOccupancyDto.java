@@ -12,7 +12,7 @@ public record MovieOccupancyDto(
         long totalCapacity,
         long soldTickets,
         BigDecimal revenue,
-        double occupancyRate,
+        Double occupancyRate,
         String peakHourSlot,
         String recommendation,
         String badgeClass

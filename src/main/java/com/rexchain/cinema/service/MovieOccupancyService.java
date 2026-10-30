@@ -35,7 +35,7 @@ public class MovieOccupancyService {
         int windowDays = days > 0 ? days : 7;
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime fromTime = now.minusDays(windowDays);
-        LocalDateTime toTime = now.plusDays(1);
+        LocalDateTime toTime = now;
 
         List<Movie> activeMovies = movies.findByActiveTrueOrderByReleaseDateDesc();
         if (activeMovies.isEmpty()) {
@@ -81,9 +81,9 @@ public class MovieOccupancyService {
             BigDecimal revenue = BigDecimal.ZERO;
 
             Map<String, Long> slotTicketMap = new LinkedHashMap<>();
-            slotTicketMap.put("Sáng (08h-12h)", 0L);
-            slotTicketMap.put("Chiều (12h-17h)", 0L);
-            slotTicketMap.put("Tối vàng (17h-21h)", 0L);
+            slotTicketMap.put("S\u00e1ng (08h-12h)", 0L);
+            slotTicketMap.put("Chi\u1ec1u (12h-17h)", 0L);
+            slotTicketMap.put("T\u1ed1i (17h-21h)", 0L);
             slotTicketMap.put("Khuya (sau 21h)", 0L);
 
             for (Booking b : mBookings) {
@@ -97,20 +97,20 @@ public class MovieOccupancyService {
                 if (b.getShowtime() != null && b.getShowtime().getStartTime() != null) {
                     int hour = b.getShowtime().getStartTime().getHour();
                     String slotKey;
-                    if (hour < 12) slotKey = "Sáng (08h-12h)";
-                    else if (hour < 17) slotKey = "Chiều (12h-17h)";
-                    else if (hour < 21) slotKey = "Tối vàng (17h-21h)";
+                    if (hour < 12) slotKey = "S\u00e1ng (08h-12h)";
+                    else if (hour < 17) slotKey = "Chi\u1ec1u (12h-17h)";
+                    else if (hour < 21) slotKey = "T\u1ed1i (17h-21h)";
                     else slotKey = "Khuya (sau 21h)";
                     slotTicketMap.put(slotKey, slotTicketMap.get(slotKey) + ticketCount);
                 }
             }
 
-            double occupancyRate = 0.0;
+            Double occupancyRate = null;
             if (totalCapacity > 0) {
                 occupancyRate = Math.min(100.0, Math.round((soldTickets * 1000.0) / totalCapacity) / 10.0);
             }
 
-            String peakHourSlot = "Chưa có";
+            String peakHourSlot = "Ch\u01b0a c\u00f3";
             long maxSlotTickets = 0;
             for (Map.Entry<String, Long> entry : slotTicketMap.entrySet()) {
                 if (entry.getValue() > maxSlotTickets) {
@@ -124,17 +124,20 @@ public class MovieOccupancyService {
 
             String recommendation;
             String badgeClass;
-            if (showtimeCount == 0) {
-                recommendation = "chưa có suất 7N (xếp thăm dò)";
+            if (showtimeCount == 0 || totalCapacity == 0) {
+                recommendation = "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u su\u1ea5t \u0111\u00e3 di\u1ec5n ra trong 7 ng\u00e0y";
+                badgeClass = "bg-secondary";
+            } else if (showtimeCount < 3) {
+                recommendation = "Ch\u01b0a \u0111\u1ee7 m\u1eabu: " + showtimeCount + "/3 su\u1ea5t \u0111\u00e3 di\u1ec5n ra";
                 badgeClass = "bg-secondary";
             } else if (occupancyRate >= 70.0) {
-                recommendation = "🔥 Rất hot! Ưu tiên phòng lớn & giờ " + peakHourSlot;
+                recommendation = "Nhu c\u1ea7u quan s\u00e1t \u0111\u01b0\u1ee3c cao; c\u00e2n nh\u1eafc th\u00eam ph\u00f2ng l\u1edbn cho khung " + peakHourSlot;
                 badgeClass = "bg-success";
             } else if (occupancyRate >= 40.0) {
-                recommendation = "⭐ Ổn định. Duy trì phòng vừa";
+                recommendation = "Nhu c\u1ea7u quan s\u00e1t \u0111\u01b0\u1ee3c \u1edf m\u1ee9c trung b\u00ecnh; duy tr\u00ec quy m\u00f4 ph\u00f2ng hi\u1ec7n t\u1ea1i";
                 badgeClass = "bg-warning text-dark";
             } else {
-                recommendation = "❄️ Lấp đầy thấp. Cân nhắc giảm suất / phòng nhỏ";
+                recommendation = "T\u1ef7 l\u1ec7 b\u00e1n th\u1ea5p trong m\u1eabu \u0111\u00e3 di\u1ec5n ra; c\u00e2n nh\u1eafc r\u00e0 so\u00e1t s\u1ed1 su\u1ea5t v\u00e0 quy m\u00f4 ph\u00f2ng";
                 badgeClass = "bg-secondary";
             }
 
@@ -156,7 +159,8 @@ public class MovieOccupancyService {
         }
 
         result.sort((a, b) -> {
-            int comp = Double.compare(b.occupancyRate(), a.occupancyRate());
+            int comp = Double.compare(b.occupancyRate() == null ? -1 : b.occupancyRate(),
+                    a.occupancyRate() == null ? -1 : a.occupancyRate());
             if (comp != 0) return comp;
             return b.revenue().compareTo(a.revenue());
         });
