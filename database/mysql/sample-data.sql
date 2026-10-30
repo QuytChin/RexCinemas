@@ -94,7 +94,7 @@ VALUES
      'Trạm nghiên cứu biển sâu phát hiện tín hiệu lạ dẫn đến bí mật dưới đáy đại dương.',
      132, 'C13', 'COMING_SOON', 'Phiêu lưu, Khoa học viễn tưởng', 'Tiếng Việt', CURDATE() + INTERVAL 25 DAY, 
      '/images/movies/mat-ma-dai-duong.webp', 'https://www.youtube.com/watch?v=ttDbSrXnCH4', 1, NOW())
-ON DUPLICATE KEY UPDATE `title` = VALUES(`title`), `description` = VALUES(`description`), `status` = VALUES(`status`);
+ON DUPLICATE KEY UPDATE `title` = VALUES(`title`), `description` = VALUES(`description`), `poster_url` = VALUES(`poster_url`), `trailer_url` = VALUES(`trailer_url`), `status` = VALUES(`status`);
 
 -- 6. COMBO PRODUCTS (Bap nuoc voi anh tai /images/combos/)
 INSERT INTO `combo_products` 
