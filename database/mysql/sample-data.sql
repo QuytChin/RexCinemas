@@ -1,6 +1,8 @@
 -- ========================================================
 -- REXCINEMAS - COMPREHENSIVE SAMPLE DATA FOR DEVELOPMENT
 -- ========================================================
+SET NAMES utf8mb4;
+
 -- Toan bo du lieu mau phu hop 100% voi Frontend UI va Backend Entity
 -- Bao gom: Users, Cinemas, Auditoriums, Seats, Movies, Showtimes,
 -- ShowtimeSeats, Combos, Vouchers, Events, Articles, Media, Reviews.
@@ -64,34 +66,34 @@ INSERT INTO `movies`
     (`id`, `title`, `description`, `duration_minutes`, `age_rating`, `status`, `genre`, `language`, `release_date`, `poster_url`, `trailer_url`, `active`, `created_at`)
 VALUES
     (1, 'Hành Trình Ánh Sáng', 
-     'Một phi hành đoàn trẻ bước vào chuyến đi vượt ngoài giới hạn của Trái Đất nhằm tìm kiếm nguồn năng lượng mới cho nhân loại trong bối cảnh địa cầu cạn kiệt tài nguyên.', 
+     'Một phi hành đoàn trẻ lên đường tìm nguồn năng lượng mới cho Trái Đất giữa hành trình khám phá vũ trụ.',
      125, 'C13', 'NOW_SHOWING', 'Khoa học viễn tưởng, Hành động', 'Tiếng Việt', CURDATE() - INTERVAL 14 DAY, 
-     '/images/movies/hanh-trinh-anh-sang.webp', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 1, NOW()),
+     '/images/movies/hanh-trinh-anh-sang.webp', 'https://www.youtube.com/watch?v=ttDbSrXnCH4', 1, NOW()),
 
     (2, 'Mùa Hè Không Tên', 
-     'Câu chuyện thanh xuân trong trẻo, tình bạn chân thành và những lựa chọn khó khăn trước ngưỡng cửa trưởng thành của nhóm bạn thân dưới bầu trời mùa hạ.', 
+     'Nhóm bạn thân trải qua mùa hè cuối cùng bên nhau trước ngưỡng cửa trưởng thành.',
      112, 'P', 'NOW_SHOWING', 'Tâm lý, Tình cảm', 'Tiếng Việt', CURDATE() - INTERVAL 8 DAY, 
-     '/images/movies/mua-he-khong-ten.webp', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 1, NOW()),
+     '/images/movies/mua-he-khong-ten.webp', 'https://www.youtube.com/watch?v=ttDbSrXnCH4', 1, NOW()),
 
     (3, 'Kẻ Gác Đêm', 
-     'Một vụ án mạng bí ẩn xảy ra tại một rạp chiếu bóng cổ kính kéo người bảo vệ ca đêm vào cuộc truy tìm sự thật nghẹt thở xuyên màn đêm đen tối.', 
+     'Người bảo vệ ca đêm lần theo manh mối của một vụ án bí ẩn tại rạp chiếu bóng cũ.',
      118, 'C16', 'NOW_SHOWING', 'Hành động, Bí ẩn, Giật gân', 'Tiếng Việt', CURDATE() - INTERVAL 4 DAY, 
-     '/images/movies/ke-gac-dem.webp', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 1, NOW()),
+     '/images/movies/ke-gac-dem.webp', 'https://www.youtube.com/watch?v=ttDbSrXnCH4', 1, NOW()),
 
     (4, 'Nhà Có Hai Người', 
-     'Bộ phim gia đình nhẹ nhàng, tràn ngập tiếng cười và cả những giọt nước mắt lắng đọng về sự thấu hiểu giữa hai thế hệ ông cháu sống chung dưới một mái nhà.', 
+     'Hai thế hệ trong một gia đình học cách thấu hiểu nhau qua những câu chuyện đời thường.',
      105, 'P', 'NOW_SHOWING', 'Gia đình, Hài hước', 'Tiếng Việt', CURDATE() - INTERVAL 2 DAY, 
-     '/images/movies/nha-co-hai-nguoi.webp', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 1, NOW()),
+     '/images/movies/nha-co-hai-nguoi.webp', 'https://www.youtube.com/watch?v=ttDbSrXnCH4', 1, NOW()),
 
     (5, 'Thành Phố Sau Mưa', 
-     'Một câu chuyện tình lãng mạn nhưng đượm buồn giữa hai tâm hồn cô đơn tình cờ hội ngộ giữa lòng phố thị sau những cơn mưa rào bất chợt mùa thu.', 
+     'Sau cơn mưa mùa thu, hai tâm hồn cô đơn tình cờ gặp nhau giữa lòng thành phố.',
      110, 'C13', 'COMING_SOON', 'Tình cảm, Tâm lý', 'Tiếng Việt', CURDATE() + INTERVAL 10 DAY, 
-     '/images/movies/thanh-pho-sau-mua.webp', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 1, NOW()),
+     '/images/movies/thanh-pho-sau-mua.webp', 'https://www.youtube.com/watch?v=ttDbSrXnCH4', 1, NOW()),
 
     (6, 'Mật Mã Đại Dương', 
-     'Một trạm nghiên cứu biển sâu bí mật phát hiện tín hiệu siêu âm kỳ lạ từ đáy rãnh vực Mariana, hé lộ một nền văn minh cổ xưa ngủ quên hàng triệu năm.', 
+     'Trạm nghiên cứu biển sâu phát hiện tín hiệu lạ dẫn đến bí mật dưới đáy đại dương.',
      132, 'C13', 'COMING_SOON', 'Phiêu lưu, Khoa học viễn tưởng', 'Tiếng Việt', CURDATE() + INTERVAL 25 DAY, 
-     '/images/movies/mat-ma-dai-duong.webp', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 1, NOW())
+     '/images/movies/mat-ma-dai-duong.webp', 'https://www.youtube.com/watch?v=ttDbSrXnCH4', 1, NOW())
 ON DUPLICATE KEY UPDATE `title` = VALUES(`title`), `description` = VALUES(`description`), `status` = VALUES(`status`);
 
 -- 6. COMBO PRODUCTS (Bap nuoc voi anh tai /images/combos/)

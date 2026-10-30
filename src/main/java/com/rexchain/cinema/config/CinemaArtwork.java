@@ -25,10 +25,6 @@ public class CinemaArtwork {
             Map.entry("/images/media-clip.svg", "/images/media/trai-nghiem-rex.webp")
     );
 
-    private static final Set<String> DEMO_MOVIES = Set.of(
-            "hanh-trinh-anh-sang", "mua-he-khong-ten", "ke-gac-dem",
-            "nha-co-hai-nguoi", "thanh-pho-sau-mua", "mat-ma-dai-duong");
-
     private static final Set<String> CATEGORIES = Set.of(
             "movie", "article", "event", "combo", "media", "avatar");
 
@@ -50,12 +46,6 @@ public class CinemaArtwork {
     }
 
     public String heroBackdrop(String posterUrl) {
-        String resolvedPoster = imageUrl(posterUrl, "movie");
-        for (String slug : DEMO_MOVIES) {
-            if (resolvedPoster.equals("/images/movies/" + slug + ".webp")) {
-                return "/images/hero/" + slug + ".webp";
-            }
-        }
-        return resolvedPoster;
+        return imageUrl(posterUrl, "movie");
     }
 }
