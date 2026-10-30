@@ -107,6 +107,20 @@ class UiDesignSystemRegressionTest {
     }
 
     @Test
+    void homePageAndSharedControlsMeetBasicAccessibilityContracts() throws IOException {
+        String home = Files.readString(TEMPLATES.resolve("index.html"), StandardCharsets.UTF_8);
+        String footer = Files.readString(TEMPLATES.resolve("fragments/footer.html"), StandardCharsets.UTF_8);
+        String chat = Files.readString(TEMPLATES.resolve("fragments/chat-widget.html"), StandardCharsets.UTF_8);
+
+        assertThat(home).contains("name=\"description\"", "<label for=\"quickCinemaSelect\">",
+                "id=\"quickCinemaSelect\"");
+        assertThat(footer).contains("<h2>").doesNotContain("<h6>");
+        assertThat(chat).contains("<button id=\"rexChatOpenBtn\"")
+                .contains("aria-label=\"Open Rex support chat\"")
+                .doesNotContain("id=\"rexChatLauncher\" class=\"rex-chat-launcher\" aria-label=");
+    }
+
+    @Test
     void bankQrCountdownUsesServerDeadlineAndRemovesPaymentDataAfterExpiry() throws IOException {
         String page = Files.readString(TEMPLATES.resolve("booking/bank-qr-waiting.html"), StandardCharsets.UTF_8);
         String script = Files.readString(Path.of("src/main/resources/static/js/bank-qr-payment.js"), StandardCharsets.UTF_8);

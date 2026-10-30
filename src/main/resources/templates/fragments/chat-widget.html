@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
 <th:block th:fragment="chatWidget">
     <!-- Nút mở Chat Widget nổi (Floating Launcher) -->
-    <div id="rexChatLauncher" class="rex-chat-launcher" aria-label="Mở khung chat hỗ trợ">
-        <button id="rexChatOpenBtn" type="button" class="rex-chat-btn" title="Hỗ trợ & Trợ lý AI Rex">
+    <div id="rexChatLauncher" class="rex-chat-launcher">
+        <button id="rexChatOpenBtn" type="button" class="rex-chat-btn" title="Hỗ trợ & Trợ lý AI Rex" aria-label="Open Rex support chat">
             <span class="rex-chat-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -83,8 +83,8 @@
     </div>
 
     <!-- SockJS & STOMP scripts nếu trang chưa có -->
-    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
+    <script sec:authorize="isAuthenticated()" src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script sec:authorize="isAuthenticated()" src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/bundles/stomp.umd.min.js"></script>
     <script th:src="@{/js/chat-render.js}"></script>
     <script th:src="@{/js/chat-widget.js}" defer></script>
 </th:block>

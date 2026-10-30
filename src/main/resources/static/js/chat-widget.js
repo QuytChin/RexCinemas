@@ -44,8 +44,57 @@
 
     function init() {
         bindEvents();
+        initLauncherCollisionGuard();
         loadCinemas();
         checkAuthAndInit();
+    }
+
+    // Keep the floating launcher from covering the control a customer needs to use.
+    function initLauncherCollisionGuard() {
+        if (!launcher || !openBtn) return;
+
+        let pendingFrame = 0;
+        const interactiveSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [role="button"]';
+
+        const update = () => {
+            if (pendingFrame) return;
+            pendingFrame = window.requestAnimationFrame(() => {
+                pendingFrame = 0;
+                const launcherRect = openBtn.getBoundingClientRect();
+                let obscuresControl = window.innerWidth <= 767 && isOpen !== true && document.activeElement !== openBtn;
+
+                if (obscuresControl && launcherRect.width > 0 && launcherRect.height > 0) {
+                    obscuresControl = Array.from(document.querySelectorAll(interactiveSelector)).some(control => {
+                        if (launcher.contains(control) || control.closest('#rexChatBox')) return false;
+                        if (!control.getClientRects().length) return false;
+
+                        const style = window.getComputedStyle(control);
+                        if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) return false;
+
+                        const rect = control.getBoundingClientRect();
+                        return rect.width > 0 && rect.height > 0 &&
+                            launcherRect.left < rect.right && launcherRect.right > rect.left &&
+                            launcherRect.top < rect.bottom && launcherRect.bottom > rect.top;
+                    });
+                }
+
+                launcher.classList.toggle('is-obscured', obscuresControl);
+                if (obscuresControl) {
+                    openBtn.setAttribute('aria-hidden', 'true');
+                    openBtn.tabIndex = -1;
+                } else {
+                    openBtn.removeAttribute('aria-hidden');
+                    openBtn.removeAttribute('tabindex');
+                }
+            });
+        };
+
+        window.addEventListener('scroll', update, { passive: true, capture: true });
+        window.addEventListener('resize', update, { passive: true });
+        document.addEventListener('focusin', update);
+        document.addEventListener('focusout', update);
+        window.addEventListener('load', update, { once: true });
+        update();
     }
 
     // 1. Kiểm tra trạng thái xác thực từ Server

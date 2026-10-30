@@ -79,7 +79,7 @@ public class SecurityConfig {
                     return !token.isEmpty() && jwtService.valid(token) && !revocations.isRevoked(token);
                 }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/error", "/login", "/register", "/policies", "/auth/**",
+                        .requestMatchers("/", "/error", "/favicon.ico", "/login", "/register", "/policies", "/auth/**",
                                 "/css/**", "/js/**", "/images/**", "/ws/**",
                                 "/api/auth/**", "/payment/callback/**", "/api/payments/sepay/webhook",
                                 "/api/support/**",
@@ -110,7 +110,8 @@ public class SecurityConfig {
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives(
                                 "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; " +
-                                "form-action 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+                                "form-action 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
+                                "font-src 'self' https://fonts.gstatic.com; " +
                                 "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' ws: wss:; " +
                                 "frame-src https://www.youtube.com https://www.youtube-nocookie.com"))
                         .referrerPolicy(referrer -> referrer.policy(

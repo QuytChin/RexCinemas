@@ -72,7 +72,6 @@ public class PaymentService {
             return booking;
         }
 
-        LocalDateTime now = LocalDateTime.now();
         if (booking.getStatus() == BookingStatus.EXPIRED
                 || booking.getStatus() == BookingStatus.CANCELLED) return booking;
         if (bankRecordedAt == null || booking.getExpiresAt() == null || !bankRecordedAt.isBefore(booking.getExpiresAt()))

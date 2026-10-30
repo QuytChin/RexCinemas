@@ -6,12 +6,24 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,13 +43,15 @@ class BookingHoldCycleIntegrationTest {
     @Autowired BookingRepository bookings;
     @Autowired UserRepository users;
     @Autowired EntityManager entityManager;
+    @Autowired PlatformTransactionManager transactionManager;
+    @Autowired JdbcTemplate jdbc;
 
     @Test
     void paidBookingAThenNewBAndCEachReceiveAFullIndependentHold() {
         Fixture fixture = fixture();
         SeatBroadcastService broadcast = mock(SeatBroadcastService.class);
         SeatReservationService holds = new SeatReservationService(showtimeSeats, showtimes, bookingSeats,
-                broadcast, holdSessions, bookings);
+                broadcast, holdSessions, bookings, users);
         PaymentService payments = new PaymentService(bookings, showtimeSeats, users,
                 mock(ComboProductRepository.class), mock(VoucherRepository.class), broadcast, holds);
 
@@ -80,7 +94,7 @@ class BookingHoldCycleIntegrationTest {
         Fixture fixture = fixture();
         SeatBroadcastService broadcast = mock(SeatBroadcastService.class);
         SeatReservationService holds = new SeatReservationService(showtimeSeats, showtimes, bookingSeats,
-                broadcast, holdSessions, bookings);
+                broadcast, holdSessions, bookings, users);
         PaymentService payments = new PaymentService(bookings, showtimeSeats, users,
                 mock(ComboProductRepository.class), mock(VoucherRepository.class), broadcast, holds);
         List<Long> ids = pair(fixture, 0);
@@ -104,7 +118,7 @@ class BookingHoldCycleIntegrationTest {
     void existingSessionLeftByAnAlreadyCompletedBookingIsReplaced() {
         Fixture fixture = fixture();
         SeatReservationService holds = new SeatReservationService(showtimeSeats, showtimes, bookingSeats,
-                mock(SeatBroadcastService.class), holdSessions, bookings);
+                mock(SeatBroadcastService.class), holdSessions, bookings, users);
         LocalDateTime firstDeadline = holds.holdSeats(fixture.user.getId(), fixture.showtime.getId(), pair(fixture, 0));
         Long firstSessionId = holdSessions.findByUserIdAndShowtimeIdForUpdate(
                 fixture.user.getId(), fixture.showtime.getId()).orElseThrow().getId();
@@ -129,7 +143,7 @@ class BookingHoldCycleIntegrationTest {
     void anotherHoldCannotExtendAStillPendingBooking() {
         Fixture fixture = fixture();
         SeatReservationService holds = new SeatReservationService(showtimeSeats, showtimes, bookingSeats,
-                mock(SeatBroadcastService.class), holdSessions, bookings);
+                mock(SeatBroadcastService.class), holdSessions, bookings, users);
         LocalDateTime deadline = holds.holdSeats(fixture.user.getId(), fixture.showtime.getId(), pair(fixture, 0));
         pending(fixture, pair(fixture, 0), deadline, "REX_TEST_PENDING");
 
@@ -144,7 +158,7 @@ class BookingHoldCycleIntegrationTest {
         Fixture fixture = fixture();
         SeatBroadcastService broadcast = mock(SeatBroadcastService.class);
         SeatReservationService holds = new SeatReservationService(showtimeSeats, showtimes, bookingSeats,
-                broadcast, holdSessions, bookings);
+                broadcast, holdSessions, bookings, users);
         PaymentService payments = new PaymentService(bookings, showtimeSeats, users,
                 mock(ComboProductRepository.class), mock(VoucherRepository.class), broadcast, holds);
         List<Long> ids = pair(fixture, 0);
@@ -169,6 +183,50 @@ class BookingHoldCycleIntegrationTest {
 
     private List<Long> pair(Fixture fixture, int start) {
         return List.of(fixture.seats.get(start).getId(), fixture.seats.get(start + 1).getId());
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void parallelFirstHoldsBySameUserShareOneCheckoutSession() throws Exception {
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        Fixture fixture = transaction.execute(status -> fixture(suffix));
+        SeatReservationService holds = new SeatReservationService(showtimeSeats, showtimes, bookingSeats,
+                mock(SeatBroadcastService.class), holdSessions, bookings, users);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<LocalDateTime> first = executor.submit(() -> concurrentHold(
+                    transaction, holds, fixture, pair(fixture, 0), ready, start));
+            Future<LocalDateTime> second = executor.submit(() -> concurrentHold(
+                    transaction, holds, fixture, pair(fixture, 2), ready, start));
+
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat(first.get(15, TimeUnit.SECONDS).truncatedTo(ChronoUnit.MICROS))
+                    .isEqualTo(second.get(15, TimeUnit.SECONDS).truncatedTo(ChronoUnit.MICROS));
+        } finally {
+            transaction.executeWithoutResult(status -> {
+                jdbc.update("delete from seat_hold_sessions where user_id = ?", fixture.user().getId());
+                jdbc.update("delete from showtime_seats where showtime_id = ?", fixture.showtime().getId());
+                jdbc.update("delete from seats where auditorium_id = ?", fixture.showtime().getAuditorium().getId());
+                jdbc.update("delete from showtimes where id = ?", fixture.showtime().getId());
+                jdbc.update("delete from movies where id = ?", fixture.showtime().getMovie().getId());
+                jdbc.update("delete from app_users where id = ?", fixture.user().getId());
+                jdbc.update("delete from auditoriums where id = ?", fixture.showtime().getAuditorium().getId());
+                jdbc.update("delete from cinemas where id = ?", fixture.showtime().getAuditorium().getCinema().getId());
+            });
+        }
+    }
+
+    private LocalDateTime concurrentHold(TransactionTemplate transaction, SeatReservationService holds,
+                                         Fixture fixture, List<Long> seatIds, CountDownLatch ready,
+                                         CountDownLatch start) throws Exception {
+        ready.countDown();
+        if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrent hold start timed out");
+        return transaction.execute(status -> holds.holdSeats(
+                fixture.user().getId(), fixture.showtime().getId(), seatIds));
     }
 
     private long epoch(LocalDateTime value) {
@@ -205,14 +263,18 @@ class BookingHoldCycleIntegrationTest {
     }
 
     private Fixture fixture() {
+        return fixture("");
+    }
+
+    private Fixture fixture(String suffix) {
         Cinema cinema = new Cinema();
-        cinema.setName("REX_TEST_HOLD_CINEMA"); cinema.setCity("Test"); cinema.setAddress("Test");
+        cinema.setName("REX_TEST_HOLD_CINEMA" + suffix); cinema.setCity("Test"); cinema.setAddress("Test");
         cinemas.saveAndFlush(cinema);
         Auditorium room = new Auditorium();
         room.setName("REX_TEST_ROOM"); room.setCinema(cinema); room.setTotalRows(1); room.setSeatsPerRow(6);
         auditoriums.saveAndFlush(room);
         Movie movie = new Movie();
-        movie.setTitle("REX_TEST_HOLD_MOVIE"); movie.setDescription("Test");
+        movie.setTitle("REX_TEST_HOLD_MOVIE" + suffix); movie.setDescription("Test");
         movie.setDurationMinutes(100); movie.setReleaseDate(LocalDate.now());
         movies.saveAndFlush(movie);
         Showtime showtime = new Showtime();
@@ -221,7 +283,7 @@ class BookingHoldCycleIntegrationTest {
         showtime.setBasePrice(BigDecimal.valueOf(50_000));
         showtimes.saveAndFlush(showtime);
         User user = new User();
-        user.setEmail("hold-cycle@example.invalid"); user.setFullName("REX_TEST_HOLD_USER");
+        user.setEmail("hold-cycle" + suffix + "@example.invalid"); user.setFullName("REX_TEST_HOLD_USER");
         user.setPassword("test-only-placeholder");
         users.saveAndFlush(user);
         List<ShowtimeSeat> seats = new ArrayList<>();

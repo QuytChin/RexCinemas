@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Profile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -30,7 +31,8 @@ class RuntimeConfigurationContractTest {
         assertThat(mysql.getProperty("spring.sql.init.mode")).isEqualTo("never");
         assertThat(Files.exists(Path.of("src/main/resources/application-postgres.properties"))).isFalse();
         assertThat(Files.exists(Path.of("src/main/resources/application-sqlserver.properties"))).isFalse();
-        assertThat(base.stringPropertyNames()).noneMatch(name -> name.startsWith("spring.flyway."));
+        assertThat(base.getProperty("spring.flyway.enabled")).isEqualTo("${FLYWAY_ENABLED:false}");
+        assertThat(base.getProperty("spring.flyway.clean-disabled")).isEqualTo("true");
     }
 
     @Test
@@ -65,6 +67,16 @@ class RuntimeConfigurationContractTest {
         assertThat(properties("application.properties").getProperty("server.forward-headers-strategy"))
                 .isEqualTo("framework");
         assertThat(DataSeeder.class.getAnnotation(Profile.class).value()).containsExactly("dev");
+    }
+
+    @Test
+    void contentSecurityPolicyAllowsOnlyTheGoogleFontHostsUsedByTheStylesheet() throws IOException {
+        String securityConfig = Files.readString(
+                Path.of("src/main/java/com/rexchain/cinema/config/SecurityConfig.java"), StandardCharsets.UTF_8);
+        assertThat(securityConfig)
+                .contains("style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com")
+                .contains("font-src 'self' https://fonts.gstatic.com")
+                .contains("\"/favicon.ico\"");
     }
 
     private Properties properties(String name) throws IOException {

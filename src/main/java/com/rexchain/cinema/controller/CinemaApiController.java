@@ -241,10 +241,6 @@ public class CinemaApiController {
         return x;
     }
 
-    private Map<String, Object> showtimeJson(Showtime s) {
-        return showtimeJson(s, null);
-    }
-
     private Map<String, Object> showtimeJson(Showtime s, long[] availability) {
         Map<String, Object> x = new LinkedHashMap<>();
         x.put("id", s.getId());

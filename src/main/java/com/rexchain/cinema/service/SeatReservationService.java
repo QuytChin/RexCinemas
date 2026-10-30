@@ -11,12 +11,14 @@ import com.rexchain.cinema.repository.ShowtimeRepository;
 import com.rexchain.cinema.repository.ShowtimeSeatRepository;
 import com.rexchain.cinema.repository.SeatHoldSessionRepository;
 import com.rexchain.cinema.repository.BookingRepository;
+import com.rexchain.cinema.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,6 +37,7 @@ public class SeatReservationService {
     private final SeatBroadcastService broadcast;
     private final SeatHoldSessionRepository holdSessions;
     private final BookingRepository bookings;
+    private final UserRepository users;
     private static final List<BookingStatus> FINISHED_STATUSES = List.of(
             BookingStatus.CONFIRMED, BookingStatus.CANCELLED, BookingStatus.EXPIRED,
             BookingStatus.REFUND_PENDING, BookingStatus.REFUNDED);
@@ -44,13 +47,15 @@ public class SeatReservationService {
                                   ShowtimeRepository showtimes,
                                   com.rexchain.cinema.repository.BookingSeatRepository bookingSeats,
                                   SeatBroadcastService broadcast,
-                                  SeatHoldSessionRepository holdSessions, BookingRepository bookings) {
+                                  SeatHoldSessionRepository holdSessions, BookingRepository bookings,
+                                  UserRepository users) {
         this.seats = seats;
         this.showtimes = showtimes;
         this.bookingSeats = bookingSeats;
         this.broadcast = broadcast;
         this.holdSessions = holdSessions;
         this.bookings = bookings;
+        this.users = users;
     }
 
     /** Compatibility constructor for isolated tests written before checkout sessions existed. */
@@ -58,6 +63,14 @@ public class SeatReservationService {
                            com.rexchain.cinema.repository.BookingSeatRepository bookingSeats,
                            SeatBroadcastService broadcast) {
         this(seats, showtimes, bookingSeats, broadcast, null, null);
+    }
+
+    /** Compatibility constructor for hold-cycle tests created before account-row locking. */
+    SeatReservationService(ShowtimeSeatRepository seats, ShowtimeRepository showtimes,
+                           com.rexchain.cinema.repository.BookingSeatRepository bookingSeats,
+                           SeatBroadcastService broadcast, SeatHoldSessionRepository holdSessions,
+                           BookingRepository bookings) {
+        this(seats, showtimes, bookingSeats, broadcast, holdSessions, bookings, null);
     }
 
     /**
@@ -69,6 +82,13 @@ public class SeatReservationService {
             throw new IllegalArgumentException("Hãy chọn ít nhất một ghế");
         if (ids.size() > 10)
             throw new IllegalArgumentException("Mỗi booking tối đa 10 ghế");
+
+        // The unique checkout-session row cannot be locked before it exists. Locking the
+        // stable account row serializes first-time holds by the same customer.
+        if (users != null) {
+            users.findByIdForUpdate(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("Tài khoản không tồn tại"));
+        }
 
         LocalDateTime now = LocalDateTime.now();
         Showtime showtime = showtimes.findById(showtimeId)
@@ -132,7 +152,7 @@ public class SeatReservationService {
             session = new SeatHoldSession();
             session.setUserId(userId);
             session.setShowtime(showtime);
-            session.setExpiresAt(now.plusMinutes(CHECKOUT_HOLD_MINUTES));
+            session.setExpiresAt(checkoutDeadline(now));
             holdSessions.save(session);
             return session.getExpiresAt();
         }
@@ -157,11 +177,17 @@ public class SeatReservationService {
             SeatHoldSession next = new SeatHoldSession();
             next.setUserId(userId);
             next.setShowtime(showtime);
-            next.setExpiresAt(now.plusMinutes(CHECKOUT_HOLD_MINUTES));
+            next.setExpiresAt(checkoutDeadline(now));
             holdSessions.save(next);
             return next.getExpiresAt();
         }
         return deadline;
+    }
+
+    private LocalDateTime checkoutDeadline(LocalDateTime now) {
+        // MySQL stores these timestamps at microsecond precision. Normalize before
+        // returning them so the response deadline matches the persisted hold deadline.
+        return now.truncatedTo(ChronoUnit.MICROS).plusMinutes(CHECKOUT_HOLD_MINUTES);
     }
 
     /** Close only the hold cycle that actually belongs to this booking. */
