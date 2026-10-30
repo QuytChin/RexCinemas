@@ -31,6 +31,7 @@
         </div>
     </div>
 </nav>
+<script th:src="@{/js/notifications.js}"></script>
 <script th:src="@{/js/chevron-arrows.js}" defer></script><script th:src="@{/js/image-fallback.js}" defer></script><script th:src="@{/js/header-account.js}" defer></script><script th:src="@{/js/header-nav.js}" defer></script>
 <div class="modal fade" id="movieSearchModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content rex-modal"><div class="modal-header border-0"><div><p class="eyebrow mb-1">SEARCH</p><h3 class="mb-0">Tìm phim</h3></div><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body pt-0"><form th:action="@{/movies}" method="get" class="search-big-form"><input class="form-control form-control-lg" name="q" placeholder="Nhập tên phim hoặc thể loại..."><button class="btn btn-rex btn-lg ui-btn ui-btn--primary"><svg class="ui-icon" aria-hidden="true"><use href="/images/icons.svg#search"></use></svg><span>Tìm kiếm</span></button></form></div></div></div></div>
 </th:block>

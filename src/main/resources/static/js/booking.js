@@ -39,7 +39,9 @@
  const comboTotal=()=>comboQtys.reduce((a,x)=>a+(Number(x.dataset.price)||0)*(Number(x.value)||0),0);
 
  function showSeatError(msg){
-  if(seatToast&&seatToastText){
+  if(window.RexNotifications?.toast){
+   window.RexNotifications.toast(msg,{type:'error',duration:5500,dedupeKey:`seat:${msg}`});
+  }else if(seatToast&&seatToastText){
    seatToastText.textContent=msg;
    seatToast.classList.add('show');
    if(toastTimeout)clearTimeout(toastTimeout);

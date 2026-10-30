@@ -175,7 +175,10 @@
                 message: text
             })
         })
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error('Không thể gửi phản hồi. Vui lòng thử lại.');
+            return res.json();
+        })
         .then(saved => {
             if (saved && saved.id) {
                 appendMessageUI(saved);
@@ -184,7 +187,7 @@
             }
         })
         .catch(() => {
-            alert('Không thể gửi phản hồi. Vui lòng thử lại!');
+            window.RexNotifications?.toast('Không thể gửi phản hồi. Vui lòng kiểm tra kết nối rồi thử lại.', { type: 'error' });
         });
     };
 

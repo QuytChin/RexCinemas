@@ -405,7 +405,7 @@
         }
 
         if (!selectedCinemaId) {
-            alert('Vui lòng chọn cụm rạp để kết nối với Ban Quản lý rạp!');
+            window.RexNotifications?.toast('Vui lòng chọn cụm rạp trước khi kết nối với ban quản lý.', { type: 'warning' });
             if (cinemaSelect) cinemaSelect.focus();
             return;
         }
@@ -431,6 +431,7 @@
                 updateUiForCurrentTab();
                 throw new Error('Vui lòng đăng nhập!');
             }
+            if (!res.ok) throw new Error('Không thể gửi tin nhắn. Vui lòng kiểm tra lại kết nối.');
             return res.json();
         })
         .then(saved => {
@@ -442,7 +443,7 @@
         })
         .catch(err => {
             if (err.message !== 'Vui lòng đăng nhập!') {
-                alert('Không thể gửi tin nhắn. Vui lòng kiểm tra lại kết nối!');
+                window.RexNotifications?.toast('Không thể gửi tin nhắn. Vui lòng kiểm tra kết nối rồi thử lại.', { type: 'error' });
             }
         });
     }

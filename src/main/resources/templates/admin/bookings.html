@@ -27,7 +27,7 @@
             <td sec:authorize="!hasRole('CINEMA_MANAGER')">
                 <div class="d-grid gap-2">
                     <a class="btn btn-sm btn-outline-light" th:href="@{'/bookings/'+${b.id}}">Xem vé / QR</a>
-                    <form th:if="${b.status.name()=='REFUND_PENDING'}" th:action="@{'/admin/bookings/'+${b.id}+'/refund'}" method="post" class="border border-warning rounded p-2 small" onsubmit="return confirm('Chỉ tiếp tục khi bạn đã chuyển khoản hoàn tiền thủ công và có mã chứng từ. Xác nhận?')">
+                    <form th:if="${b.status.name()=='REFUND_PENDING'}" th:action="@{'/admin/bookings/'+${b.id}+'/refund'}" method="post" class="border border-warning rounded p-2 small" data-confirm="Chỉ tiếp tục khi bạn đã chuyển khoản hoàn tiền thủ công và có mã chứng từ. Xác nhận?">
                         <div class="fw-semibold text-warning mb-2">Xác nhận hoàn thủ công</div>
                         <input class="form-control form-control-sm mb-2" name="refundReference" maxlength="120" required placeholder="Mã tham chiếu / chứng từ chuyển khoản">
                         <input class="form-control form-control-sm mb-2" name="refundAmount" type="number" min="0.01" step="0.01" required th:value="${b.totalAmount}" aria-label="Số tiền hoàn">
@@ -36,7 +36,7 @@
                         <label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="manualTransferConfirmed" value="true" required> <span class="form-check-label">Tôi đã chuyển khoản và đối soát chứng từ.</span></label>
                         <button class="btn btn-sm btn-warning w-100">Xác nhận đã hoàn</button>
                     </form>
-                    <form th:if="${b.status.name()!='CANCELLED' and b.status.name()!='REFUND_PENDING' and b.status.name()!='REFUNDED' and !b.checkedIn}" th:action="@{'/admin/bookings/'+${b.id}+'/cancel'}" method="post" onsubmit="return confirm('Hủy booking này và trả ghế?')">
+                    <form th:if="${b.status.name()!='CANCELLED' and b.status.name()!='REFUND_PENDING' and b.status.name()!='REFUNDED' and !b.checkedIn}" th:action="@{'/admin/bookings/'+${b.id}+'/cancel'}" method="post" data-confirm="Hủy booking này và trả ghế?">
                         <button class="btn btn-sm btn-outline-danger w-100">Hủy</button>
                     </form>
                 </div>
