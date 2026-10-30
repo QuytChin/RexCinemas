@@ -36,11 +36,15 @@ public class AdminSupportController {
 
     public record AdminReplyRequest(
             String sessionId,
+            Long cinemaId,
+            boolean noCinema,
             String message
     ) {}
 
     public record MarkReadRequest(
-            String sessionId
+            String sessionId,
+            Long cinemaId,
+            boolean noCinema
     ) {}
 
     @GetMapping
@@ -86,9 +90,12 @@ public class AdminSupportController {
 
     @GetMapping("/api/history/{sessionId}")
     @ResponseBody
-    public List<SupportMessageDto> getSessionHistory(@PathVariable String sessionId, Authentication auth) {
-        requireConversationAccess(currentUser(auth), sessionId);
-        return chatService.getHistory(sessionId);
+    public List<SupportMessageDto> getSessionHistory(@PathVariable String sessionId,
+                                                     @RequestParam(required = false) Long cinemaId,
+                                                     @RequestParam(defaultValue = "false") boolean noCinema,
+                                                     Authentication auth) {
+        Long scopedCinemaId = requireConversationAccess(currentUser(auth), sessionId, cinemaId, noCinema);
+        return chatService.getHistory(sessionId, scopedCinemaId);
     }
 
     @PostMapping("/api/reply")
@@ -96,8 +103,10 @@ public class AdminSupportController {
     public ResponseEntity<?> sendReply(@RequestBody AdminReplyRequest req, Authentication auth) {
         try {
             User currentUser = currentUser(auth);
-            requireConversationAccess(currentUser, req.sessionId());
-            SupportMessageDto replyDto = chatService.sendAdminReply(req.sessionId(), req.message(), currentUser);
+            Long scopedCinemaId = requireConversationAccess(
+                    currentUser, req.sessionId(), req.cinemaId(), req.noCinema());
+            SupportMessageDto replyDto = chatService.sendAdminReply(
+                    req.sessionId(), req.message(), currentUser, scopedCinemaId);
             return ResponseEntity.ok(replyDto);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
@@ -107,8 +116,9 @@ public class AdminSupportController {
     @PostMapping("/api/mark-read")
     @ResponseBody
     public ResponseEntity<?> markRead(@RequestBody MarkReadRequest req, Authentication auth) {
-        requireConversationAccess(currentUser(auth), req.sessionId());
-        chatService.markConversationAsRead(req.sessionId());
+        Long scopedCinemaId = requireConversationAccess(
+                currentUser(auth), req.sessionId(), req.cinemaId(), req.noCinema());
+        chatService.markConversationAsRead(req.sessionId(), scopedCinemaId);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
@@ -124,15 +134,14 @@ public class AdminSupportController {
             throw new AccessDeniedException("Giám sát viên chưa được gán rạp");
     }
 
-    private void requireConversationAccess(User user, String sessionId) {
+    private Long requireConversationAccess(User user, String sessionId, Long requestedCinemaId, boolean noCinema) {
         requireAssignedCinema(user);
         if (user == null) throw new AccessDeniedException("Không xác định được nhân viên hỗ trợ");
-        if (user.getRole() != Role.SUPERVISOR) return;
-        Long cinemaId = user.getCinema().getId();
-        List<SupportMessageDto> history = chatService.getHistory(sessionId);
-        boolean matches = history.stream().anyMatch(message -> cinemaId.equals(message.cinemaId()));
-        boolean otherCinema = history.stream().anyMatch(message -> message.cinemaId() != null
-                && !cinemaId.equals(message.cinemaId()));
-        if (!matches || otherCinema) throw new AccessDeniedException("Hội thoại không thuộc rạp được giao");
+        Long scopedCinemaId = user.getRole() == Role.SUPERVISOR
+                ? user.getCinema().getId()
+                : (noCinema ? -1L : requestedCinemaId);
+        List<SupportMessageDto> history = chatService.getHistory(sessionId, scopedCinemaId);
+        if (history.isEmpty()) throw new AccessDeniedException("Hội thoại không thuộc rạp được giao");
+        return scopedCinemaId;
     }
 }

@@ -5,6 +5,8 @@
     'use strict';
 
     let activeSessionId = null;
+    let activeCinemaId = null;
+    let activeNoCinema = false;
     let stompClient = null;
     let cinemaSubscription = null;
 
@@ -72,7 +74,10 @@
 
     function handleIncomingMessage(msg) {
         // 1. Nếu đang mở cuộc hội thoại này, render tin nhắn ngay
-        if (activeSessionId && msg.sessionId === activeSessionId) {
+        const matchesCinema = activeNoCinema
+            ? msg.cinemaId == null
+            : (!activeCinemaId || String(msg.cinemaId || '') === String(activeCinemaId));
+        if (activeSessionId && msg.sessionId === activeSessionId && matchesCinema) {
             appendMessageUI(msg);
             scrollToBottom();
             markCurrentAsRead();
@@ -109,6 +114,8 @@
         if (!sessionId) return;
 
         activeSessionId = sessionId;
+        activeCinemaId = el.getAttribute('data-cinema-id') || null;
+        activeNoCinema = !activeCinemaId;
 
         // Highlight item
         const items = convList.querySelectorAll('.admin-chat-item');
@@ -134,15 +141,18 @@
         inputArea.style.display = 'flex';
 
         // Tải lịch sử tin nhắn
-        loadSessionHistory(sessionId);
+        loadSessionHistory(sessionId, activeCinemaId);
         window.markCurrentAsRead();
 
         setTimeout(() => replyInput && replyInput.focus(), 150);
     };
 
-    function loadSessionHistory(sessionId) {
+    function loadSessionHistory(sessionId, cinemaId) {
         messagesArea.innerHTML = '<div class="text-center text-secondary p-4">Đang tải tin nhắn...</div>';
-        fetch(`/admin/support/api/history/${encodeURIComponent(sessionId)}`)
+        const cinemaParam = cinemaId
+            ? `?cinemaId=${encodeURIComponent(cinemaId)}`
+            : '?noCinema=true';
+        fetch(`/admin/support/api/history/${encodeURIComponent(sessionId)}${cinemaParam}`)
             .then(res => res.json())
             .then(msgs => {
                 messagesArea.innerHTML = '';
@@ -172,6 +182,8 @@
             headers: headers,
             body: JSON.stringify({
                 sessionId: activeSessionId,
+                cinemaId: activeCinemaId,
+                noCinema: activeNoCinema,
                 message: text
             })
         })
@@ -206,7 +218,11 @@
         fetch('/admin/support/api/mark-read', {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify({ sessionId: activeSessionId })
+            body: JSON.stringify({
+                sessionId: activeSessionId,
+                cinemaId: activeCinemaId,
+                noCinema: activeNoCinema
+            })
         }).catch(() => {});
     };
 

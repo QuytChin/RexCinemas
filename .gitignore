@@ -24,3 +24,9 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Local desktop screenshot exports (large generated artifacts)
+/RexCinemas_Full_Desktop_Screenshots/
+/RexCinemas_Full_Desktop_Screenshots.zip
+# Office temporary lock files
+~$*.docx

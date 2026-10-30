@@ -13,11 +13,23 @@ public interface SupportMessageRepository extends JpaRepository<SupportMessage, 
 
     List<SupportMessage> findBySessionIdOrderByCreatedAtAsc(String sessionId);
 
+    List<SupportMessage> findBySessionIdAndCinemaIdOrderByCreatedAtAsc(String sessionId, Long cinemaId);
+
+    List<SupportMessage> findBySessionIdAndCinemaIsNullOrderByCreatedAtAsc(String sessionId);
+
     List<SupportMessage> findByCustomerIdOrderByCreatedAtAsc(Long customerId);
 
     @Modifying
     @Query("UPDATE SupportMessage m SET m.read = true WHERE m.sessionId = :sessionId AND m.senderType = com.rexchain.cinema.entity.SenderType.CUSTOMER")
     int markAsReadBySessionId(@Param("sessionId") String sessionId);
+
+    @Modifying
+    @Query("UPDATE SupportMessage m SET m.read = true WHERE m.sessionId = :sessionId AND m.cinema.id = :cinemaId AND m.senderType = com.rexchain.cinema.entity.SenderType.CUSTOMER")
+    int markAsReadBySessionIdAndCinemaId(@Param("sessionId") String sessionId, @Param("cinemaId") Long cinemaId);
+
+    @Modifying
+    @Query("UPDATE SupportMessage m SET m.read = true WHERE m.sessionId = :sessionId AND m.cinema IS NULL AND m.senderType = com.rexchain.cinema.entity.SenderType.CUSTOMER")
+    int markAsReadBySessionIdAndNoCinema(@Param("sessionId") String sessionId);
 
     interface ConversationSummary {
         String getSessionId();
@@ -38,8 +50,12 @@ public interface SupportMessageRepository extends JpaRepository<SupportMessage, 
             COALESCE(u.email, sm.customer_email, '') AS customerEmail,
             c.id AS cinemaId,
             c.name AS cinemaName,
-            (SELECT m2.message FROM support_messages m2 WHERE m2.session_id = sm.session_id ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) AS lastMessage,
-            (SELECT m2.sender_type FROM support_messages m2 WHERE m2.session_id = sm.session_id ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) AS lastSenderType,
+            (SELECT m2.message FROM support_messages m2 WHERE m2.session_id = sm.session_id
+                AND m2.cinema_id <=> c.id
+                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) AS lastMessage,
+            (SELECT m2.sender_type FROM support_messages m2 WHERE m2.session_id = sm.session_id
+                AND m2.cinema_id <=> c.id
+                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) AS lastSenderType,
             MAX(sm.created_at) AS lastMessageAt,
             SUM(CASE WHEN sm.sender_type = 'CUSTOMER' AND sm.is_read = 0 THEN 1 ELSE 0 END) AS unreadCount
         FROM support_messages sm

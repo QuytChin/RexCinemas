@@ -39,6 +39,13 @@ public class SupportChatService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<SupportMessageDto> getHistory(String sessionId, Long cinemaId) {
+        if (sessionId == null || sessionId.isBlank()) return List.of();
+        List<SupportMessage> history = getScopedHistory(sessionId, cinemaId);
+        return history.stream().map(SupportMessageDto::fromEntity).toList();
+    }
+
     @Transactional
     public SupportMessageDto sendCustomerMessage(String sessionId, Long cinemaId, String messageText,
                                                  User customer, String guestName, String guestEmail) {
@@ -65,20 +72,22 @@ public class SupportChatService {
     }
 
     @Transactional
-    public SupportMessageDto sendAdminReply(String sessionId, String replyText, User adminUser) {
+    public SupportMessageDto sendAdminReply(String sessionId, String replyText, User adminUser, Long cinemaId) {
         if (sessionId == null || sessionId.isBlank()) throw new IllegalArgumentException("Session ID không hợp lệ");
         if (replyText == null || replyText.isBlank()) throw new IllegalArgumentException("Nội dung phản hồi không được để trống");
 
-        // Tìm cinema từ tin nhắn trước đó trong cùng session
-        List<SupportMessage> history = supportMessages.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        // Keep staff replies attached to the cinema conversation currently open.
+        List<SupportMessage> history = getScopedHistory(sessionId, cinemaId);
         Cinema cinema = null;
-        for (SupportMessage sm : history) {
-            if (sm.getCinema() != null) {
-                cinema = sm.getCinema();
-                break;
+        if (cinemaId != null && cinemaId >= 0) {
+            cinema = cinemas.findById(cinemaId).orElseThrow(
+                    () -> new IllegalArgumentException("Cinema không hợp lệ"));
+        } else if (cinemaId == null) {
+            for (SupportMessage sm : history) {
+                if (sm.getCinema() != null) { cinema = sm.getCinema(); break; }
             }
         }
-        if (cinema == null && adminUser != null && adminUser.getCinema() != null) {
+        if (cinemaId == null && cinema == null && adminUser != null && adminUser.getCinema() != null) {
             cinema = adminUser.getCinema();
         }
 
@@ -89,8 +98,8 @@ public class SupportChatService {
         reply.setRead(true);
         SupportMessage saved = supportMessages.save(reply);
 
-        // Đánh dấu toàn bộ tin nhắn trước đó của khách trong session này là đã đọc
-        supportMessages.markAsReadBySessionId(sessionId);
+        // Clear unread messages only within the active cinema conversation.
+        markAsRead(sessionId, cinemaId);
 
         SupportMessageDto dto = SupportMessageDto.fromEntity(saved);
         broadcastMessage(dto);
@@ -130,6 +139,24 @@ public class SupportChatService {
         if (sessionId != null && !sessionId.isBlank()) {
             supportMessages.markAsReadBySessionId(sessionId);
         }
+    }
+
+    @Transactional
+    public void markConversationAsRead(String sessionId, Long cinemaId) {
+        if (sessionId == null || sessionId.isBlank()) return;
+        markAsRead(sessionId, cinemaId);
+    }
+
+    private List<SupportMessage> getScopedHistory(String sessionId, Long cinemaId) {
+        if (cinemaId == null) return supportMessages.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        if (cinemaId < 0) return supportMessages.findBySessionIdAndCinemaIsNullOrderByCreatedAtAsc(sessionId);
+        return supportMessages.findBySessionIdAndCinemaIdOrderByCreatedAtAsc(sessionId, cinemaId);
+    }
+
+    private void markAsRead(String sessionId, Long cinemaId) {
+        if (cinemaId == null) supportMessages.markAsReadBySessionId(sessionId);
+        else if (cinemaId < 0) supportMessages.markAsReadBySessionIdAndNoCinema(sessionId);
+        else supportMessages.markAsReadBySessionIdAndCinemaId(sessionId, cinemaId);
     }
 
     @Transactional(readOnly = true)
