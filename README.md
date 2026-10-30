@@ -1,287 +1,207 @@
 # RexCinemas
 
-> Nền tảng đặt vé trực tuyến và quản lý chuỗi rạp phim.
+Nền tảng đặt vé trực tuyến và quản lý vận hành chuỗi rạp phim, xây dựng bằng Java 21, Spring Boot, Thymeleaf và MySQL 8.
 
-RexCinemas là ứng dụng web xây dựng bằng Java 21, Spring Boot, Thymeleaf và MySQL 8. Hệ thống hỗ trợ khách hàng xem phim, chọn ghế, đặt vé, thanh toán QR và quản trị nội dung vận hành rạp trong một nền tảng thống nhất.
+RexCinemas đưa hành trình xem phim, chọn ghế, đặt vé và nhận vé điện tử vào cùng một ứng dụng với các công cụ quản trị phim, rạp, lịch chiếu, giao dịch và chương trình thành viên Rex Rewards.
 
-> **Trạng thái:** phiên bản đồ án/demo có thể chạy local. Các tích hợp bên ngoài như SMTP, Cloudinary và SePay phụ thuộc cấu hình môi trường thực tế.
-
-## Mục lục
-
-- [Giới thiệu](#giới-thiệu)
-- [Tính năng chính](#tính-năng-chính)
-- [Kiến trúc tổng quan](#kiến-trúc-tổng-quan)
-- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
-- [Cài đặt](#cài-đặt)
-- [Chạy dự án](#chạy-dự-án)
-- [Cấu hình biến môi trường](#cấu-hình-biến-môi-trường)
-- [Cấu trúc thư mục](#cấu-trúc-thư-mục)
-- [Đóng góp](#đóng-góp)
-- [License](#license)
-- [Roadmap](#roadmap)
+> **Tình trạng dự án:** Ứng dụng có thể chạy trong môi trường local. Thanh toán SePay, email SMTP, Cloudinary và trợ lý Grok cần cấu hình thông tin tích hợp riêng. Các tích hợp này không thực hiện giao dịch hay gửi nội dung ra dịch vụ bên ngoài nếu chưa được cấu hình và sử dụng.
 
 ## Giới thiệu
 
-RexCinemas mô phỏng quy trình đặt vé của một chuỗi rạp: người dùng xem danh mục phim và lịch chiếu, chọn ghế đang còn trống, giữ ghế tạm thời, áp dụng ưu đãi, thanh toán qua QR và nhận vé điện tử để check-in.
+Khách hàng có thể tìm phim và lịch chiếu, giữ ghế trong thời gian checkout, chọn combo hoặc voucher, thanh toán qua BANK_QR và sử dụng vé điện tử để check-in. WebSocket/STOMP cập nhật trạng thái ghế để giảm nguy cơ hai khách cùng đặt một chỗ.
 
-Phần quản trị cung cấp các màn hình quản lý phim, rạp, phòng chiếu, ghế, suất chiếu, booking, giao dịch, nội dung và Rex Rewards. Toàn bộ dữ liệu ứng dụng dùng **MySQL 8**; Hibernate chỉ xác thực schema bằng ddl-auto=validate và không tự thay đổi cấu trúc database.
-
-### Phạm vi hiện tại
-
-- CUSTOMER sử dụng các luồng khách hàng thông thường.
-- STAFF chỉ được vào khu vực soát vé; SUPERVISOR được vào dashboard, lịch chiếu, booking, tài khoản và hỗ trợ của rạp được giao.
-- ADMIN quản trị toàn hệ thống. CINEMA_MANAGER chỉ còn tồn tại để tương thích dữ liệu cũ, không được cấp mới và không có quyền truy cập trang quản trị.
-- Mọi endpoint quản trị ngoài các ngoại lệ có phân quyền tường minh chỉ cho phép ADMIN.
-- Checkout hiện hỗ trợ phương thức BANK_QR; MoMo, VNPAY và thanh toán trực tiếp tại quầy chưa nằm trong phạm vi hỗ trợ.
+Nhân viên được phân quyền theo vai trò. STAFF tập trung vào check-in; SUPERVISOR quản lý hoạt động trong rạp được giao; ADMIN quản trị toàn hệ thống. Giao diện máy chủ được render bằng Thymeleaf, đồng thời ứng dụng cung cấp REST API và WebSocket cho các tương tác động.
 
 ## Tính năng chính
 
-### Dành cho khách hàng
-
-- Xem phim, chi tiết phim, lịch chiếu và lọc theo ngày, rạp, phim.
-- Đăng ký, đăng nhập, xác thực OTP qua email và đặt lại mật khẩu.
-- Chọn ghế với cơ chế giữ ghế tạm thời, chống tranh chấp và cập nhật realtime qua WebSocket.
-- Đặt vé, chọn combo, áp dụng voucher và theo dõi lịch sử booking.
-- Thanh toán BANK_QR/VietQR; SePay webhook được xác thực trước khi ghi nhận giao dịch.
-- Nhận vé điện tử có QR/token và sử dụng cho quy trình check-in.
-- Rex Rewards: điểm thưởng, hạng thành viên, voucher đổi điểm và lịch sử biến động điểm.
-
-### Dành cho quản trị viên
-
-- Quản lý phim, rạp, phòng chiếu, ghế và suất chiếu.
-- Quản lý booking, check-in vé QR và đối soát giao dịch thanh toán.
-- Quản lý người dùng, sự kiện, bài viết, media và nội dung hiển thị.
-- Cấu hình Rex Rewards, chính sách hạng, voucher và ledger điểm.
-- Dashboard và các bộ lọc/phân trang cho dữ liệu vận hành.
+- **Khám phá phim:** danh mục, trang chi tiết, nội dung, rạp và lịch chiếu.
+- **Tài khoản:** đăng ký, đăng nhập, OTP email và đặt lại mật khẩu.
+- **Đặt vé:** chọn ghế, giữ chỗ tạm thời, chọn combo, voucher và theo dõi booking.
+- **Thanh toán:** luồng BANK_QR/VietQR cùng xử lý webhook SePay có xác thực.
+- **Vé điện tử:** mã QR/token và quy trình check-in dành cho nhân viên.
+- **Rex Rewards:** tích điểm, hạng thành viên, đổi thưởng và lịch sử điểm.
+- **Quản trị:** phim, rạp, phòng, ghế, suất chiếu, booking, giao dịch, nội dung, người dùng và hỗ trợ khách hàng.
+- **Cập nhật trực tiếp:** WebSocket/STOMP cho trạng thái ghế và trao đổi hỗ trợ.
+- **Bảo vệ dữ liệu:** phân quyền theo vai trò, giới hạn đăng nhập, xác thực đầu vào và Hibernate validate để không tự ý thay đổi schema.
 
 ## Kiến trúc tổng quan
 
 ~~~mermaid
 flowchart LR
-    B[Trình duyệt] --> MVC[Spring MVC / Thymeleaf]
-    B --> API[REST API]
-    B <--> WS[WebSocket STOMP/SockJS]
-    MVC --> C[Controller]
-    API --> C
-    C --> S[Service]
-    S --> R[JPA Repository]
-    S --> N[Native SQL Repository]
-    R --> DB[(MySQL 8)]
-    N --> DB
-    S --> EXT[SMTP / Cloudinary / SePay]
-    WS --> S
+    Browser[Trình duyệt] -->|HTTP / Thymeleaf| MVC[Spring MVC]
+    Browser -->|REST| API[REST API]
+    Browser <-->|WebSocket / STOMP| WS[WebSocket]
+    MVC --> Controller[Controllers]
+    API --> Controller
+    Controller --> Service[Services]
+    WS <--> Service
+    Service --> JPA[JPA Repositories]
+    Service --> SQL[Native SQL Repositories]
+    JPA --> DB[(MySQL 8)]
+    SQL --> DB
+    Service -. tùy cấu hình .-> Integrations[SMTP / Cloudinary / SePay / Grok]
 ~~~
 
-### Luồng đặt vé
+Các lớp Java chính nằm dưới **com.rexchain.cinema**: controller tiếp nhận request, service xử lý nghiệp vụ, repository truy cập dữ liệu và entity ánh xạ bảng. Một số truy vấn báo cáo hoặc tối ưu sử dụng native SQL. Thymeleaf, JavaScript và CSS cung cấp giao diện web.
+
+### Luồng đặt vé rút gọn
 
 ~~~mermaid
 sequenceDiagram
-    participant K as Khách hàng
-    participant A as Ứng dụng
+    actor Customer as Khách hàng
+    participant App as RexCinemas
     participant DB as MySQL
-    participant P as SePay
-    participant Q as QR check-in
-
-    K->>A: Chọn suất chiếu và ghế
-    A->>DB: Khóa/giữ ghế tạm thời
-    K->>A: Xác nhận booking và chọn BANK_QR
-    A->>DB: Tạo booking chờ thanh toán
-    P-->>A: Webhook giao dịch đã xác thực
-    A->>DB: Cập nhật booking CONFIRMED và tạo vé QR
-    K->>Q: Xuất trình mã vé
-    Q->>DB: Kiểm tra token và trạng thái check-in
+    participant Pay as SePay (nếu bật)
+    Customer->>App: Chọn suất chiếu và ghế
+    App->>DB: Giữ ghế và tạo booking chờ thanh toán
+    Customer->>App: Chọn BANK_QR và thanh toán
+    Pay-->>App: Gửi webhook giao dịch
+    App->>App: Xác thực webhook và đối chiếu giao dịch
+    App->>DB: Xác nhận booking, phát hành vé
+    Customer->>App: Mở vé QR để check-in
 ~~~
 
-### Nguyên tắc dữ liệu
+SePay là tích hợp tùy chọn; khi chưa cấu hình, không có giao dịch thật. Chỉ bật tích hợp sau khi đã thiết lập thông tin sandbox hoặc production phù hợp.
 
-- database/mysql/schema.sql là schema hoàn chỉnh cho cài đặt mới.
-- database/mysql/upgrade-staff-supervisor.sql nâng cấp dữ liệu MySQL đang có, bổ sung quyền nhân viên và trạng thái phòng. Sao lưu trước khi chạy.
-- database/mysql/initial-data.sql chỉ chứa cấu hình Rewards và chính sách hạng tối thiểu.
-- Không đưa tài khoản, mật khẩu, booking, giao dịch hoặc dữ liệu demo vào schema phát hành.
-- Không chạy lại schema cài mới trên database đã có dữ liệu kinh doanh nếu chưa sao lưu và review.
+## Cài đặt
 
-## Yêu cầu hệ thống
+### Yêu cầu
 
 - JDK 21.
 - Apache Maven 3.8 trở lên.
 - MySQL 8.0 trở lên.
-- Trình duyệt hiện đại.
-- localhost hoặc HTTPS nếu sử dụng camera để quét QR.
-- SMTP Gmail/App Password nếu cần kiểm thử OTP hoặc đặt lại mật khẩu.
-- Cloudinary nếu cần tải ảnh từ trang quản trị.
+- Git và trình duyệt hiện đại.
+- Tài khoản SMTP nếu cần thử OTP/email; Cloudinary nếu cần tải ảnh lên; thông tin SePay nếu cần thử thanh toán.
 
-## Cài đặt
+### Lấy mã nguồn
 
-### 1. Lấy mã nguồn
-
-~~~powershell
-git clone https://github.com/qkhanh06/RexCinemas.git
+~~~bash
+git clone https://github.com/QuytChin/RexCinemas.git
 cd RexCinemas
 ~~~
 
-### 2. Chuẩn bị MySQL
+### Tạo database
 
-Tạo user MySQL có quyền trên database cài đặt. Có thể để schema.sql tạo database mặc định rex_chain_cinema, hoặc tạo database trước bằng MySQL Workbench/CLI.
+**Cài mới kèm dữ liệu demo:** chạy file độc lập **database/mysql/fresh-install/full_install.sql**. Script tạo database **rex_chain_cinema** nếu chưa có, sau đó tạo schema và dữ liệu mẫu. Chỉ chạy trên database trống; không chạy đè lên database đang có dữ liệu. Tài khoản demo và hướng dẫn chi tiết có trong [README của bộ fresh-install](database/mysql/fresh-install/README.md).
 
-Import schema và dữ liệu hệ thống tối thiểu:
-
-~~~powershell
-& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u <mysql-user> -p < database\mysql\schema.sql
-& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u <mysql-user> -p < database\mysql\initial-data.sql
+~~~bash
+mysql -h 127.0.0.1 -P 3306 -u root -p --default-character-set=utf8mb4 < database/mysql/fresh-install/full_install.sql
 ~~~
 
-Schema hiện tạo 36 bảng, bao gồm dữ liệu người dùng, phim/rạp, booking, ghế, Rewards, OTP, thanh toán, chat và audit. Nếu dùng tên database khác, thay tên ở các dòng CREATE DATABASE và USE trước khi import.
+**Tự cài schema tối thiểu:** dùng **database/mysql/schema.sql**, sau đó **database/mysql/initial-data.sql**. Cách này không nạp bộ dữ liệu demo đầy đủ.
 
-**Database đã có dữ liệu:** Không import lại `schema.sql`. Sao lưu database, rồi chạy `database/mysql/upgrade-staff-supervisor.sql` bằng MySQL CLI trước khi khởi động phiên bản này (`ddl-auto=validate`). Script hỗ trợ chạy lại mà không tạo trùng cột hoặc khóa ngoại.
+~~~bash
+mysql -h 127.0.0.1 -P 3306 -u root -p --default-character-set=utf8mb4 < database/mysql/schema.sql
+mysql -h 127.0.0.1 -P 3306 -u root -p --default-character-set=utf8mb4 < database/mysql/initial-data.sql
+~~~
 
-### 3. Kiểm tra cấu hình
-
-Sao chép .env.example để tham khảo biến cần thiết. Spring Boot không tự đọc file .env; hãy khai báo biến trong PowerShell, IDE Run Configuration hoặc secret store của môi trường triển khai.
+Hibernate mặc định dùng **ddl-auto=validate**; schema phải được import trước khi khởi động ứng dụng. Không đổi thành **update** để bỏ qua lỗi schema. Với database đang có dữ liệu, sao lưu và review hướng dẫn migration trước khi áp dụng bất kỳ thay đổi SQL nào.
 
 ## Chạy dự án
 
-### Chạy local
+Spring Boot không tự nạp file **.env**. Hãy đặt biến trong terminal, IDE Run Configuration hoặc secret store của môi trường triển khai. Có thể dùng [.env.example](.env.example) làm danh sách tham khảo, nhưng không commit file .env chứa secret.
 
-Khai báo tối thiểu các biến kết nối MySQL, JWT và SMTP rồi chạy:
-
-~~~powershell
-mvn spring-boot:run
-~~~
-
-Ứng dụng mặc định chạy tại:
-
-- Website: http://localhost:8080
-- Health check: http://localhost:8080/actuator/health
-
-Nếu startup báo thiếu bảng/cột, hãy kiểm tra database URL, user, password và xác nhận schema đã được import đúng. Không đổi HIBERNATE_DDL_AUTO=update trên database dùng chung để bỏ qua lỗi.
-
-### Build và test
-
-~~~powershell
-mvn test
-mvn -DskipTests package
-~~~
-
-Test thông thường dùng H2 trong bộ nhớ. Kết quả test tự động không thay thế kiểm thử MySQL thật, trình duyệt, SMTP, Cloudinary, SePay hoặc tải hệ thống.
-
-### Production
-
-Dùng profile:
-
-~~~text
-SPRING_PROFILES_ACTIVE=mysql,prod
-~~~
-
-Profile production bật Thymeleaf cache, buộc Hibernate validate, tắt seeder và yêu cầu cookie Secure. Production cần HTTPS, secret store, backup database và quy trình review schema riêng.
-
-## Cấu hình biến môi trường
-
-Ví dụ PowerShell local:
+Ví dụ PowerShell cho local development:
 
 ~~~powershell
 $env:SPRING_PROFILES_ACTIVE = "dev,mysql"
 $env:PORT = "8080"
 $env:COOKIE_SECURE = "false"
-$env:DB_URL = "jdbc:mysql://localhost:3306/rex_chain_cinema?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh"
+$env:DB_URL = "jdbc:mysql://127.0.0.1:3306/rex_chain_cinema?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh&characterEncoding=UTF-8"
 $env:DB_USERNAME = "<mysql-user>"
 $env:DB_PASSWORD = "<mysql-password>"
-$env:JWT_SECRET = "<random-secret-at-least-32-bytes>"
-$env:MAIL_USERNAME = "<smtp-account>"
-$env:MAIL_PASSWORD = "<smtp-app-password>"
+$env:JWT_SECRET = "<unique-random-secret-at-least-32-bytes>"
+
+mvn spring-boot:run
 ~~~
 
-| Nhóm | Biến | Bắt buộc | Mục đích |
-|---|---|:---:|---|
-| Server | SPRING_PROFILES_ACTIVE, PORT, COOKIE_SECURE | Có | Profile, cổng HTTP và cookie Secure |
-| MySQL | DB_URL, DB_USERNAME, DB_PASSWORD | Có | Kết nối database |
-| Bảo mật | JWT_SECRET, JWT_EXPIRATION_MS | Có | Phát hành và thời hạn JWT; secret tối thiểu 32 byte |
-| Email | MAIL_USERNAME, MAIL_PASSWORD | Theo luồng email | Gửi OTP và email đặt lại mật khẩu |
-| Seeder | SEED_ENABLED, ADMIN_INITIAL_EMAIL, ADMIN_INITIAL_PASSWORD | Không | Tạo ADMIN ban đầu có kiểm soát ở profile dev |
-| Ảnh | CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET | Không | Upload ảnh từ trang quản trị |
-| Thanh toán | PAYMENT_BASE_URL, SEPAY_* | Theo tích hợp | VietQR và xác thực webhook SePay |
+Sau khi ứng dụng khởi động:
 
-### Tạo ADMIN ban đầu
+- Website: <http://localhost:8080>
+- Health check: <http://localhost:8080/actuator/health>
 
-Seeder mặc định tắt và chỉ hoạt động trong profile dev. Trên database trống, có thể bật tạm:
+Build và chạy test:
 
-~~~powershell
-$env:SEED_ENABLED = "true"
-$env:ADMIN_INITIAL_EMAIL = "admin@example.com"
-$env:ADMIN_INITIAL_PASSWORD = "<strong-password>"
+~~~bash
+mvn test
+mvn -DskipTests package
 ~~~
 
-Sau lần chạy thành công, xóa mật khẩu khỏi session terminal và đặt SEED_ENABLED=false. Không commit secret thật, .env hoặc backup chứa dữ liệu khách hàng.
+## Cấu hình môi trường
+
+Các tên biến bên dưới tương ứng với cấu hình trong **src/main/resources/application*.properties**.
+
+| Biến | Bắt buộc | Mục đích |
+|---|:---:|---|
+| SPRING_PROFILES_ACTIVE | Có | Profile, ví dụ dev,mysql; môi trường production cần dùng profile phù hợp. |
+| PORT | Không | Cổng HTTP, mặc định 8080. |
+| DB_URL | Có | JDBC URL tới MySQL. |
+| DB_USERNAME, DB_PASSWORD | Có | Tài khoản MySQL của ứng dụng. |
+| JWT_SECRET | Có | Secret ký JWT, tối thiểu 32 byte và phải riêng cho từng môi trường. |
+| HIBERNATE_DDL_AUTO | Không | Mặc định validate; giữ nguyên cho schema dùng chung. |
+| COOKIE_SECURE | Theo môi trường | Đặt true khi chạy sau HTTPS; local HTTP có thể đặt false. |
+| MAIL_USERNAME, MAIL_PASSWORD | Theo tính năng | SMTP để gửi OTP và email. Với Gmail, dùng App Password. |
+| CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET | Không | Tải ảnh lên Cloudinary. |
+| SEPAY_ENABLED và nhóm SEPAY_* | Không | Tích hợp BANK_QR/webhook; để tắt nếu chưa cấu hình. |
+| PAYMENT_BASE_URL | Không | URL công khai dùng để dựng trang thanh toán và callback. |
+| SEED_ENABLED, ADMIN_INITIAL_EMAIL, ADMIN_INITIAL_PASSWORD | Không | Tạo admin ban đầu theo cơ chế bootstrap trong profile dev. Mặc định seeder tắt. |
+| GROK_ENABLED, GROK_API_KEY | Không | Bật/tắt và cấu hình trợ lý tư vấn phim. Tắt GROK_ENABLED nếu không sử dụng. |
+| TICKET_EMAIL_ENABLED, PUBLIC_BASE_URL | Không | Gửi vé qua email và tạo URL công khai trong email. |
+
+Các biến môi trường triển khai thực tế phải được quản lý bằng secret store. Không đưa mật khẩu, JWT secret, khóa webhook hay thông tin ngân hàng thật vào Git.
 
 ## Cấu trúc thư mục
 
 ~~~text
 RexCinemas/
-├── database/
-│   └── mysql/
-│       ├── schema.sql
-│       ├── initial-data.sql
-│       └── upgrade-staff-supervisor.sql
+├── database/mysql/          # Schema, dữ liệu khởi tạo và script migration
+│   └── fresh-install/       # Bộ cài MySQL độc lập kèm dữ liệu demo
+├── docs/                    # Kiến trúc, vận hành và tài liệu dự án
+├── scripts/                 # Công cụ backup/restore và tiện ích local
 ├── src/
-│   ├── main/
-│   │   ├── java/com/rexchain/cinema/
-│   │   │   ├── config/
-│   │   │   ├── controller/
-│   │   │   ├── entity/
-│   │   │   ├── repository/
-│   │   │   └── service/
-│   │   └── resources/
-│   │       ├── templates/
-│   │       ├── static/
-│   │       └── application*.properties
-│   └── test/
-├── scripts/
-│   ├── backup-mysql.ps1
-│   └── restore-mysql-test.ps1
-├── docs/
+│   ├── main/java/com/rexchain/cinema/
+│   │   ├── config/          # Cấu hình Spring và bảo mật
+│   │   ├── controller/      # MVC, REST và WebSocket endpoints
+│   │   ├── entity/          # Ánh xạ dữ liệu
+│   │   ├── repository/      # JPA và native SQL
+│   │   └── service/         # Nghiệp vụ
+│   ├── main/resources/
+│   │   ├── static/          # CSS, JavaScript, ảnh và tài nguyên web
+│   │   └── templates/       # Thymeleaf templates
+│   └── test/                # Unit, MVC và integration tests
+├── tests/                   # Kiểm thử trình duyệt Playwright
 ├── pom.xml
-├── README.md
-└── .env.example
+└── README.md
 ~~~
-
-| Thư mục/file | Vai trò |
-|---|---|
-| src/main/java | Backend Spring Boot, nghiệp vụ, bảo mật và truy vấn |
-| src/main/resources/templates | Giao diện Thymeleaf |
-| src/main/resources/static | CSS, JavaScript, icon và ảnh tĩnh |
-| database/mysql | Schema và dữ liệu hệ thống cho cài mới |
-| scripts | Công cụ backup/restore MySQL local |
-| src/test | Unit, MVC, regression và integration test |
 
 ## Đóng góp
 
-1. Tạo branch từ main với tên mô tả, ví dụ fix/booking-timeout hoặc docs/update-readme.
-2. Chỉ thay đổi phần cần thiết cho issue/feature; không commit secret, log, build artifact hoặc backup dữ liệu.
-3. Nếu thay đổi schema, cập nhật database/mysql/schema.sql, kiểm tra ddl-auto=validate và mô tả ảnh hưởng trong pull request.
-4. Chạy mvn test và mvn -DskipTests package trước khi gửi.
-5. Kiểm tra git diff --check và xác nhận không còn tham chiếu tới file đã xóa.
-6. Tạo pull request với mô tả mục tiêu, phạm vi, cách kiểm thử và các phần chưa xác minh.
-
-Các thay đổi phá vỡ dữ liệu, booking, payment hoặc API cần được review trước khi merge. Không force-push lên main.
+1. Mở issue để mô tả lỗi hoặc đề xuất tính năng; trao đổi phạm vi trước với thay đổi lớn.
+2. Tạo branch từ main, ví dụ fix/booking-timeout hoặc docs/update-readme.
+3. Giữ thay đổi tập trung, cập nhật tài liệu khi thay đổi hành vi hoặc cấu hình.
+4. Với thay đổi database, cập nhật schema/migration liên quan; kiểm tra tương thích với ddl-auto=validate và nêu rõ ảnh hưởng dữ liệu.
+5. Chạy mvn test, các kiểm thử phù hợp và git diff --check trước khi mở pull request.
+6. Pull request nên nêu mục tiêu, cách kiểm thử, ảnh hưởng cấu hình/database và các phần chưa kiểm chứng.
+7. Không commit secret, file .env, log, backup dữ liệu, build output hoặc ảnh chụp/phụ phẩm kiểm thử lớn. Không force-push lên main.
 
 ## License
 
-Repository hiện **chưa kèm file LICENSE chính thức**. Mã nguồn chỉ nên được sử dụng, sao chép hoặc phân phối theo sự cho phép của chủ sở hữu repository. Nếu dự án được phát hành công khai, hãy bổ sung file license cụ thể, ví dụ MIT, Apache-2.0 hoặc license nội bộ đã được phê duyệt.
+Repository hiện chưa có file LICENSE. Vì vậy, dự án chưa công bố điều khoản cấp phép sử dụng, sửa đổi hoặc phân phối. Hãy xin phép chủ sở hữu repository trước khi tái sử dụng hoặc phân phối mã nguồn.
 
 ## Roadmap
 
-Roadmap dưới đây là định hướng phát triển, không phải tính năng đã hoàn thành:
+Các mục dưới đây là định hướng đề xuất; tình trạng có thể thay đổi theo ưu tiên dự án.
 
-- [ ] Bổ sung quy trình migration có version cho nâng cấp database đang có dữ liệu.
-- [ ] Bổ sung integration test MySQL tự động trong CI với database cô lập.
-- [ ] Bổ sung E2E test cho đăng nhập, chọn ghế, checkout và check-in QR.
-- [ ] Cải thiện quan sát hệ thống: metric, tracing và cảnh báo lỗi theo môi trường.
-- [ ] Tối ưu thêm các truy vấn dashboard, lịch sử booking và giao dịch khi dữ liệu lớn.
-- [ ] Xem xét phân quyền quản lý theo từng cụm rạp nếu nghiệp vụ cần.
-- [ ] Hoàn thiện quy trình sandbox payment và kiểm thử webhook an toàn.
-
-Các mục trong roadmap cần được đánh giá lại theo yêu cầu nghiệp vụ và bằng chứng kiểm thử trước khi xem là đã hỗ trợ.
+- [ ] Hoàn thiện migration có version cho nâng cấp database đang có dữ liệu.
+- [ ] Chạy integration test MySQL trên database cô lập trong CI.
+- [ ] Mở rộng kiểm thử E2E cho đăng nhập, giữ ghế, checkout và check-in.
+- [ ] Bổ sung metrics, tracing và cảnh báo theo môi trường.
+- [ ] Đánh giá hiệu năng truy vấn lịch chiếu, dashboard và lịch sử giao dịch trên dữ liệu lớn.
+- [ ] Hoàn thiện kiểm thử sandbox và quy trình vận hành webhook thanh toán.
 
 ## Tài liệu liên quan
 
-- Kiến trúc hệ thống: docs/ARCHITECTURE.md
-- Backup và restore MySQL: docs/OPERATIONS_MYSQL_BACKUP_RESTORE.md
+- [Kiến trúc hệ thống](docs/ARCHITECTURE.md)
+- [Quy tắc khách hàng](docs/CUSTOMER_POLICIES.md)
+- [Vận hành backup và restore MySQL](docs/OPERATIONS_MYSQL_BACKUP_RESTORE.md)
+- [Kịch bản chức năng khách hàng](docs/DEMO_KICH_BAN_CHUC_NANG_KHACH_HANG.md)
