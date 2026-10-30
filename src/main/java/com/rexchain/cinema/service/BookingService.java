@@ -5,8 +5,10 @@ import com.rexchain.cinema.dto.BookingQuote;
 import com.rexchain.cinema.dto.MembershipBenefitQuote;
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.dto.ManualRefundConfirmation;
+import com.rexchain.cinema.event.BookingConfirmedEvent;
 import com.rexchain.cinema.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +45,7 @@ public class BookingService {
     private final BankTransferPaymentService bankTransferPaymentService;
     private final MembershipService membershipService;
     private final LoyaltyService loyaltyService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     public BookingService(ShowtimeSeatRepository seats,
@@ -58,7 +61,8 @@ public class BookingService {
                           SePayPaymentService sepay,
                           BankTransferPaymentService bankTransferPaymentService,
                           MembershipService membershipService,
-                          LoyaltyService loyaltyService) {
+                          LoyaltyService loyaltyService,
+                          ApplicationEventPublisher eventPublisher) {
         this.seats = seats;
         this.bookings = bookings;
         this.users = users;
@@ -73,6 +77,7 @@ public class BookingService {
         this.bankTransferPaymentService = bankTransferPaymentService;
         this.membershipService = membershipService;
         this.loyaltyService = loyaltyService;
+        this.eventPublisher = eventPublisher;
     }
 
     /** Compatibility constructor for focused unit tests that do not exercise BANK_QR. */
@@ -81,7 +86,7 @@ public class BookingService {
                           VoucherRepository vouchers, SeatReservationService seatReservationService,
                           PaymentService paymentService, CheckInService checkInService, SePayPaymentService sepay) {
         this(seats, bookings, users, showtimes, broadcast, combos, vouchers, seatReservationService,
-                paymentService, checkInService, sepay, null, null, null);
+                paymentService, checkInService, sepay, null, null, null, null);
     }
 
     /* ──────────────────────────── HOLD & RELEASE (DELEGATED) ──────────────────────────── */
@@ -160,9 +165,6 @@ public class BookingService {
             throw new IllegalStateException("Suất chiếu đã đóng hoặc đã bắt đầu");
         if (method != PaymentMethod.BANK_QR)
             throw new IllegalArgumentException("Hiện chỉ hỗ trợ thanh toán QR qua SePay");
-        if (bankTransferPaymentService == null) sepay.requireAvailable();
-        else bankTransferPaymentService.requireReady();
-
         List<ShowtimeSeat> list = seats.findByIdInForUpdate(ids);
         if (list.size() != ids.size())
             throw new IllegalArgumentException("Ghế không hợp lệ");
@@ -193,14 +195,18 @@ public class BookingService {
         if (!benefit.voucherApplied()) voucher = null;
         BigDecimal discount = benefit.totalDiscountAmount().min(beforeDiscount);
         BigDecimal total = beforeDiscount.subtract(discount).max(BigDecimal.ZERO);
-        boolean online = method == PaymentMethod.BANK_QR;
+        boolean online = method == PaymentMethod.BANK_QR && total.signum() > 0;
+        if (online) {
+            if (bankTransferPaymentService == null) sepay.requireAvailable();
+            else bankTransferPaymentService.requireReady();
+        }
 
         Booking booking = new Booking();
         booking.setBookingCode("REX" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase());
         booking.setUser(user);
         booking.setShowtime(showtime);
         booking.setPaymentMethod(method);
-        if (method == PaymentMethod.BANK_QR)
+        if (online)
             booking.setPaymentReference(bankTransferPaymentService == null
                     ? sepay.newPaymentReference(bookings::existsByPaymentReference)
                     : bankTransferPaymentService.newPaymentReference(bookings::existsByPaymentReference));
@@ -230,7 +236,7 @@ public class BookingService {
             booking.setExpiresAt(expiresAt);
         }
         booking = bookings.save(booking);
-        if (method == PaymentMethod.BANK_QR && bankTransferPaymentService != null)
+        if (online && bankTransferPaymentService != null)
             bankTransferPaymentService.snapshot(booking);
 
         for (ShowtimeSeat seat : list) {
@@ -275,6 +281,8 @@ public class BookingService {
         bookings.save(booking);
         seats.saveAllAndFlush(list);
         broadcast.send(showtimeId, ids, online ? "HELD" : "BOOKED");
+        if (!online && total.signum() == 0 && eventPublisher != null)
+            eventPublisher.publishEvent(new BookingConfirmedEvent(booking.getId()));
         return booking;
     }
 

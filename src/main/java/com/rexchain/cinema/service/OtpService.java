@@ -378,22 +378,13 @@ public class OtpService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(fromEmail, "Rex Cinemas");
             helper.setTo(toEmail);
-            helper.setSubject("[Rex Cinemas] Mã xác thực OTP đăng ký tài khoản");
-            String html = """
-                    <html><body style="font-family:Arial,sans-serif;background:#0b0d14;color:#fff;padding:24px">
-                    <h2 style="color:#ffe500">REX CINEMAS</h2>
-                    <p>Xin chào <strong>%s</strong>,</p>
-                    <p>Mã xác thực đăng ký của bạn là:</p>
-                    <p style="font-size:34px;font-weight:bold;letter-spacing:8px;color:#ffe500">%s</p>
-                    <p>Mã có hiệu lực trong 5 phút và chỉ dùng một lần.</p>
-                    </body></html>
-                    """.formatted(fullName, otp);
-            helper.setText(html, true);
+            helper.setSubject("[Rex Cinemas] M\u00e3 OTP x\u00e1c th\u1ef1c t\u00e0i kho\u1ea3n");
+            helper.setText(OtpEmailContent.html(fullName, otp, otpExpiryMinutes, false), true);
             mailSender.send(message);
         } catch (MessagingException e) {
-            throw new IllegalStateException("Không thể gửi email xác thực. Vui lòng thử lại sau.");
+            throw new IllegalStateException("Kh\u00f4ng th\u1ec3 g\u1eedi email x\u00e1c th\u1ef1c. Vui l\u00f2ng th\u1eed l\u1ea1i sau.");
         } catch (Exception e) {
-            throw new IllegalStateException("Hệ thống gửi thư gặp sự cố. Vui lòng thử lại sau.");
+            throw new IllegalStateException("H\u1ec7 th\u1ed1ng g\u1eedi th\u01b0 g\u1eb7p s\u1ef1 c\u1ed1. Vui l\u00f2ng th\u1eed l\u1ea1i sau.");
         }
     }
 }

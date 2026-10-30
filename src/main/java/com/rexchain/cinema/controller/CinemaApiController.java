@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -171,7 +172,9 @@ public class CinemaApiController {
         Booking booking;
         try { booking = bookingService.expireIfDue(bookingCode); }
         catch (IllegalArgumentException ex) { return ResponseEntity.notFound().build(); }
-        return ResponseEntity.ok(bookingJson(booking));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(bookingJson(booking));
     }
 
     /**

@@ -2,7 +2,9 @@ package com.rexchain.cinema.service;
 
 import com.rexchain.cinema.entity.*;
 import com.rexchain.cinema.dto.ManualRefundConfirmation;
+import com.rexchain.cinema.event.BookingConfirmedEvent;
 import com.rexchain.cinema.repository.*;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -27,13 +29,15 @@ public class PaymentService {
     private final NotificationService notifications;
     private final LoyaltyService loyalty;
     private final RewardRedemptionService rewardRedemptions;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     public PaymentService(BookingRepository bookings, ShowtimeSeatRepository seats,
                           UserRepository users, ComboProductRepository combos,
                           VoucherRepository vouchers, SeatBroadcastService broadcast,
                           SeatReservationService seatReservationService, NotificationService notifications,
-                          LoyaltyService loyalty, RewardRedemptionService rewardRedemptions) {
+                          LoyaltyService loyalty, RewardRedemptionService rewardRedemptions,
+                          ApplicationEventPublisher eventPublisher) {
         this.bookings = bookings;
         this.seats = seats;
         this.users = users;
@@ -44,6 +48,7 @@ public class PaymentService {
         this.notifications = notifications;
         this.loyalty = loyalty;
         this.rewardRedemptions = rewardRedemptions;
+        this.eventPublisher = eventPublisher;
     }
 
     /** Compatibility constructor for focused tests. */
@@ -51,7 +56,7 @@ public class PaymentService {
                           UserRepository users, ComboProductRepository combos,
                           VoucherRepository vouchers, SeatBroadcastService broadcast,
                           SeatReservationService seatReservationService) {
-        this(bookings, seats, users, combos, vouchers, broadcast, seatReservationService, null, null, null);
+        this(bookings, seats, users, combos, vouchers, broadcast, seatReservationService, null, null, null, null);
     }
 
     @Transactional
@@ -135,6 +140,7 @@ public class PaymentService {
         awardPoints(booking);
         Booking saved = bookings.save(booking);
         if (notifications != null) notifications.paymentConfirmed(saved);
+        if (eventPublisher != null) eventPublisher.publishEvent(new BookingConfirmedEvent(saved.getId()));
         return saved;
     }
 

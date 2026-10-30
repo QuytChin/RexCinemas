@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vé điện tử Rex Cinemas</title>
+</head>
+<body style="margin:0;padding:0;background:#090d18;color:#eef2f8;font-family:Arial,Helvetica,sans-serif">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#090d18;padding:28px 12px">
+    <tr><td align="center">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0"
+               style="width:100%;max-width:600px;border:1px solid #26334b;border-radius:20px;overflow:hidden;background:#111a2b">
+            <tr><td style="padding:26px 30px;background:#151f33;border-bottom:1px solid #2a3750">
+                <div style="font-size:13px;font-weight:800;letter-spacing:3px;color:#f4d52e">REX CINEMAS</div>
+                <div style="margin-top:8px;font-size:12px;letter-spacing:1.6px;color:#a8b6cc">VÉ ĐIỆN TỬ</div>
+            </td></tr>
+            <tr><td style="padding:28px 30px 8px">
+                <div style="display:inline-block;padding:7px 11px;border-radius:999px;background:#123b32;color:#76e0b1;font-size:12px;font-weight:700" th:text="${confirmationLabel}">THANH TOÁN THÀNH CÔNG</div>
+                <h1 style="margin:18px 0 8px;font-size:26px;line-height:1.25;color:#fff">Vé của bạn đã sẵn sàng</h1>
+                <p style="margin:0;color:#bdc8d8;font-size:15px;line-height:1.6">Xin chào <strong style="color:#fff" th:text="${customerName}">Quý khách</strong>, cảm ơn bạn đã chọn Rex Cinemas. Hãy lưu email này để sử dụng vé khi đến rạp.</p>
+            </td></tr>
+            <tr><td style="padding:20px 30px">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #34435d;border-radius:14px;background:#18243a">
+                    <tr><td style="padding:20px 22px">
+                        <div style="font-size:11px;letter-spacing:1.4px;color:#9aaac1">PHIM</div>
+                        <div style="margin-top:6px;font-size:21px;line-height:1.3;font-weight:700;color:#fff" th:text="${movieTitle}">Tên phim</div>
+                        <div style="margin-top:18px;font-size:14px;line-height:1.7;color:#d4dceb">
+                            <strong style="color:#f4d52e" th:text="${showtimeTime}">19:00</strong>
+                            <span> · </span><span th:text="${showtimeDate}">Thứ Sáu, 30/10/2026</span><br>
+                            <strong th:text="${cinemaName}">Rạp</strong><span> · </span><span th:text="${auditoriumName}">Phòng</span><br>
+                            <span th:text="${cinemaAddress}">Địa chỉ rạp</span>
+                        </div>
+                    </td></tr>
+                </table>
+            </td></tr>
+            <tr><td style="padding:0 30px 20px">
+                <div style="padding:17px 20px;border-left:3px solid #f4d52e;border-radius:8px;background:#0d1524">
+                    <div style="font-size:11px;letter-spacing:1.2px;color:#94a4bc">MÃ ĐẶT VÉ</div>
+                    <div style="margin-top:6px;font-size:20px;font-weight:800;letter-spacing:1.3px;color:#f4d52e" th:text="${bookingCode}">REX000000000</div>
+                    <div style="margin-top:14px;font-size:11px;letter-spacing:1.2px;color:#94a4bc">GHẾ</div>
+                    <div style="margin-top:8px">
+                        <span th:each="seat : ${seatLines}" style="display:inline-block;margin:0 6px 6px 0;padding:7px 11px;border:1px solid #41516d;border-radius:8px;background:#202d43;color:#fff;font-size:14px;font-weight:700">
+                            <span th:text="${seat.label}">A1</span>
+                        </span>
+                    </div>
+                </div>
+            </td></tr>
+            <tr><td align="center" style="padding:4px 30px 20px">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="background:#fff;border-radius:14px">
+                    <tr><td style="padding:14px"><img th:src="|cid:${qrCid}|" width="220" height="220" alt="Mã QR check-in vé Rex Cinemas" style="display:block;width:220px;height:220px;border:0"></td></tr>
+                </table>
+                <p style="margin:12px 0 0;color:#aebbd0;font-size:13px;line-height:1.5">Xuất trình mã QR này tại quầy soát vé. Mã áp dụng cho toàn bộ ghế trong đơn.</p>
+            </td></tr>
+            <tr><td style="padding:0 30px 22px">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-top:1px solid #2b3850">
+                    <tr><td style="padding:16px 0 5px;color:#b9c5d7;font-size:14px">Vé</td><td align="right" style="padding:16px 0 5px;color:#eef2f8;font-size:14px" th:text="${seatAmount}">0 ₫</td></tr>
+                    <tr th:if="${comboLines != null and !#lists.isEmpty(comboLines)}"><td colspan="2" style="padding:10px 0 2px;color:#9eacc1;font-size:12px;font-weight:700;letter-spacing:1px">COMBO</td></tr>
+                    <tr th:each="combo : ${comboLines}"><td style="padding:5px 0;color:#b9c5d7;font-size:14px"><span th:text="${combo.name}">Combo</span><span> × </span><span th:text="${combo.quantity}">1</span></td><td align="right" style="padding:5px 0;color:#eef2f8;font-size:14px" th:text="${combo.lineTotal}">0 ₫</td></tr>
+                    <tr th:if="${hasDiscount}"><td style="padding:7px 0;color:#76e0b1;font-size:14px">Ưu đãi</td><td align="right" style="padding:7px 0;color:#76e0b1;font-size:14px" th:text="${discountAmount}">0 ₫</td></tr>
+                    <tr><td style="padding:13px 0 3px;border-top:1px solid #2b3850;color:#fff;font-size:15px;font-weight:700" th:text="${totalLabel}">Đã thanh toán</td><td align="right" style="padding:13px 0 3px;border-top:1px solid #2b3850;color:#f4d52e;font-size:19px;font-weight:800" th:text="${totalAmount}">0 ₫</td></tr>
+                </table>
+            </td></tr>
+            <tr th:if="${ticketUrl != null and !ticketUrl.isEmpty()}"><td align="center" style="padding:0 30px 25px">
+                <a th:href="${ticketUrl}" style="display:inline-block;padding:13px 22px;border-radius:9px;background:#f4d52e;color:#111827;font-size:14px;font-weight:800;text-decoration:none">XEM VÉ TRONG TÀI KHOẢN</a>
+            </td></tr>
+            <tr><td style="padding:18px 30px;background:#0d1524;color:#8898b0;font-size:12px;line-height:1.6">
+                Vui lòng đến rạp trước giờ chiếu khoảng 15 phút. Nếu cần hỗ trợ, hãy cung cấp mã đặt vé <strong style="color:#cdd7e5" th:text="${bookingCode}">REX000000000</strong>.<br>
+                Email này được gửi tự động khi thanh toán được xác nhận.
+            </td></tr>
+        </table>
+    </td></tr>
+</table>
+</body>
+</html>

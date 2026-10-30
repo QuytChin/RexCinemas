@@ -229,19 +229,11 @@ public class PasswordResetService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(fromEmail, "Rex Cinemas");
             helper.setTo(toEmail);
-            helper.setSubject("[Rex Cinemas] Mã OTP khôi phục mật khẩu");
-            helper.setText("""
-                    <div style="font-family:Arial,sans-serif;color:#172033;max-width:560px;margin:auto">
-                      <h2 style="color:#d7a900">Khôi phục mật khẩu Rex Cinemas</h2>
-                      <p>Xin chào %s,</p>
-                      <p>Mã OTP khôi phục mật khẩu của bạn là:</p>
-                      <p style="font-size:34px;font-weight:800;letter-spacing:8px;color:#d7a900">%s</p>
-                      <p>Mã có hiệu lực trong %d phút và chỉ dùng một lần. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
-                    </div>
-                    """.formatted(fullName == null ? "bạn" : fullName, otp, otpExpiryMinutes), true);
+            helper.setSubject("[Rex Cinemas] M\u00e3 OTP kh\u00f4i ph\u1ee5c m\u1eadt kh\u1ea9u");
+            helper.setText(OtpEmailContent.html(fullName, otp, otpExpiryMinutes, true), true);
             mailSender.send(message);
-        } catch (Exception ex) {
-            throw new IllegalStateException("Không thể gửi email OTP lúc này", ex);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Không thể gửi email OTP lúc này", exception);
         }
     }
 

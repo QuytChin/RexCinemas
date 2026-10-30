@@ -10,7 +10,7 @@
 <body>
 <div th:replace="~{fragments/header :: header}"></div>
 <main id="bankQrPayment" class="container-xl bank-qr-page"
-      th:attr="data-status-url=@{'/api/payment-status/' + ${booking.bookingCode}},data-ticket-url=@{'/bookings/' + ${booking.id}},data-seat-map-url=${seatMapUrl},data-expires-at-epoch=${expiresAtEpochMillis},data-server-now-epoch=${serverNowEpochMillis}">
+      th:attr="data-status-url=@{'/api/payment-status/' + ${booking.bookingCode}},data-ticket-url=@{'/bookings/' + ${booking.id}},data-booking-code=${booking.bookingCode},data-seat-map-url=${seatMapUrl},data-expires-at-epoch=${expiresAtEpochMillis},data-server-now-epoch=${serverNowEpochMillis}">
     <div class="bank-qr-card">
         <div class="bank-qr-copy">
             <p class="eyebrow">THANH TOÁN QR NGÂN HÀNG</p>
@@ -40,6 +40,6 @@
     </div>
 </main>
 <div th:replace="~{fragments/footer :: footer}"></div>
-<script th:src="@{/js/bank-qr-payment.js}"></script>
+<script th:src="@{/js/bank-qr-payment.js(v='3')}"></script>
 </body>
 </html>

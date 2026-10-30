@@ -50,7 +50,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer{
   this.users = users;
  }
 
- @Override public void configureMessageBroker(MessageBrokerRegistry r){r.enableSimpleBroker("/topic");r.setApplicationDestinationPrefixes("/app");}
+ @Override public void configureMessageBroker(MessageBrokerRegistry r){r.enableSimpleBroker("/topic", "/queue");r.setApplicationDestinationPrefixes("/app");}
  @Override public void registerStompEndpoints(StompEndpointRegistry r){r.addEndpoint("/ws").setAllowedOrigins(allowedOrigins()).withSockJS();}
  @Override public void configureClientInboundChannel(ChannelRegistration registration) {
   registration.interceptors(new ChannelInterceptor() {
@@ -71,6 +71,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer{
  void validateInbound(StompCommand command, String destination, Principal principal) {
   if (StompCommand.SEND.equals(command)) throw new AccessDeniedException("Client STOMP SEND is not allowed");
   if (!StompCommand.SUBSCRIBE.equals(command)) return;
+  if ("/user/queue/payment-status".equals(destination)) {
+   if (authenticatedUser(principal) == null)
+    throw new AccessDeniedException("STOMP destination is not allowed");
+   return;
+  }
   if (!String.valueOf(destination).matches(ALLOWED_TOPIC_REGEX))
    throw new AccessDeniedException("STOMP destination is not allowed");
   authorizeSupportSubscription(destination, principal);
