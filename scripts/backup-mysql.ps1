@@ -11,26 +11,11 @@ function Required([string]$Name, [string]$Value) {
     if ([string]::IsNullOrWhiteSpace($Value)) { Fail "Missing required setting: $Name" }
 }
 
-function Read-DpapiSecret([string]$Name, [string]$StateDirectory) {
-    $path = Join-Path $StateDirectory "$Name.dpapi"
-    if (-not (Test-Path -LiteralPath $path)) { return '' }
-    $secure = (Get-Content -LiteralPath $path -Raw).Trim() | ConvertTo-SecureString
-    return [System.Net.NetworkCredential]::new('', $secure).Password
-}
-
 function Get-Settings {
     $url = [Environment]::GetEnvironmentVariable('DB_URL')
     $user = [Environment]::GetEnvironmentVariable('DB_USERNAME')
     $password = [Environment]::GetEnvironmentVariable('DB_PASSWORD')
-    if (-not [string]::IsNullOrWhiteSpace($url) -and -not [string]::IsNullOrWhiteSpace($user)) {
-        return @{ Url = $url; User = $user; Password = $password }
-    }
-    if (-not $env:LOCALAPPDATA) { Fail 'DB settings are unavailable and LOCALAPPDATA is not set.' }
-    $state = Join-Path $env:LOCALAPPDATA 'RexCinemas\startup-config'
-    $configPath = Join-Path $state 'settings.json'
-    if (-not (Test-Path -LiteralPath $configPath)) { Fail 'DB settings are unavailable. Start the project with start-rex-prefilled.ps1 first.' }
-    $cfg = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-    return @{ Url = [string]$cfg.DB_URL; User = [string]$cfg.DB_USERNAME; Password = (Read-DpapiSecret 'DB_PASSWORD' $state) }
+    return @{ Url = $url; User = $user; Password = $password }
 }
 
 function Parse-Jdbc([string]$Url) {

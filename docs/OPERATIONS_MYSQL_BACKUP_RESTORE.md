@@ -1,6 +1,6 @@
 # RexCinemas: MySQL backup and test restore
 
-The scripts use `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` from the current PowerShell process. If those values are absent, they reuse the current-user DPAPI files created by `start-rex-prefilled.ps1`; secrets are never printed and are never passed as a command-line argument. The generated backup directory is ignored by Git.
+The scripts use `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` from the current PowerShell process. Set these values through your terminal or an approved secret provider before running the scripts. They do not read credentials from project files, print secrets, or pass passwords as command-line arguments. The generated backup directory is ignored by Git.
 
 Create a local backup with:
 
@@ -18,7 +18,7 @@ Restore is intentionally restricted to a dedicated database whose name starts wi
 
 PowerShell asks for confirmation before the write. The script refuses a production or ordinary development database, checks that the backup is present and non-empty, creates only the named test database, restores it, and reports table counts before and after. Verify representative row counts and foreign-key relationships separately before using the restored database. Never copy real customer data into an unprotected environment.
 
-For Windows Task Scheduler, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\path\to\RexCinemas\scripts\backup-mysql.ps1` under the same Windows account that owns the DPAPI files. Restrict the task account and the backup directory, and set a retention policy before automating deletion.
+For Windows Task Scheduler, use a protected wrapper or approved secret provider to populate the three database variables before invoking `scripts/backup-mysql.ps1`. Do not put credentials in task arguments or a checked-in script. Restrict the task account and backup directory, and set a retention policy before automating deletion.
 
 ## Production deployment and rollback checklist
 

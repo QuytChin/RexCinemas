@@ -30,7 +30,7 @@ class SePayWebhookServiceTest {
     @BeforeEach
     void setUp() {
         properties = new SePayProperties();
-        properties.setBankAccount("0000501454103");
+        properties.setBankAccount("0000000000000");
         service = new SePayWebhookService(bookings, bookingService, properties);
     }
 
@@ -66,7 +66,7 @@ class SePayWebhookServiceTest {
                 .thenReturn(Optional.of(booking));
 
         service.process(new SePayWebhookRequest(
-                "999002", "MBBank", "2026-10-13T10:00:00", "0000501454103", null,
+                "999002", "MBBank", "2026-10-13T10:00:00", "0000000000000", null,
                 null, "TEST-REXELEL7PKS-CHUYEN TIEN", "in", BigDecimal.valueOf(2_000),
                 "LOCAL_TEST_999002"));
 
@@ -83,7 +83,7 @@ class SePayWebhookServiceTest {
                 .thenReturn(Optional.of(booking));
 
         service.process(new SePayWebhookRequest(
-                "tx-content-fallback", "MBBank", null, "0000501454103", null,
+                "tx-content-fallback", "MBBank", null, "0000000000000", null,
                 "WRONG", "TEST-REXELEL7PKS-CHUYEN TIEN", "in", BigDecimal.valueOf(2_000), null));
 
         verify(bookingService).completeOnlinePayment("REX7B978F6FAD", "tx-content-fallback");
@@ -96,7 +96,7 @@ class SePayWebhookServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.process(new SePayWebhookRequest(
-                "tx-substring", "MBBank", null, "0000501454103", null,
+                "tx-substring", "MBBank", null, "0000000000000", null,
                 null, "TEST-REXELEL7PKSX-CHUYEN TIEN", "in", BigDecimal.valueOf(2_000), null)))
                 .isInstanceOf(IllegalArgumentException.class);
 
@@ -166,7 +166,7 @@ class SePayWebhookServiceTest {
     }
 
     private SePayWebhookRequest transaction(String id, String type, String code, String amount) {
-        return new SePayWebhookRequest(id, "BANK", "2026-10-13T10:00:00", "0000501454103", null,
+        return new SePayWebhookRequest(id, "BANK", "2026-10-13T10:00:00", "0000000000000", null,
                 code, "Thanh toan " + code, type, new BigDecimal(amount), "REF-1");
     }
 }

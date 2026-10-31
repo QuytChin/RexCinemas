@@ -68,11 +68,11 @@ class SePayWebhookControllerTest {
 
         SePayProperties realProperties = new SePayProperties();
         realProperties.setApiKey("test-api-key");
-        realProperties.setBankAccount("0000501454103");
+        realProperties.setBankAccount("0000000000000");
         SePayWebhookController realController = new SePayWebhookController(realProperties,
                 new SePayWebhookService(bookings, bookingService, realProperties));
         SePayWebhookRequest request = new SePayWebhookRequest(
-                "999002", "MBBank", "2026-10-13T10:00:00", "0000501454103", null,
+                "999002", "MBBank", "2026-10-13T10:00:00", "0000000000000", null,
                 null, "TEST-REXELEL7PKS-CHUYEN TIEN", "in", BigDecimal.valueOf(2_000),
                 "LOCAL_TEST_999002");
 

@@ -36,7 +36,7 @@ class PaymentSettingsServiceTest {
         PaymentSettingsDto stored = new PaymentSettingsDto();
         stored.setBankName("Vietcombank");
         stored.setBankCode("970436");
-        stored.setBankAccount("0000501454103");
+        stored.setBankAccount("0000000000000");
         stored.setAccountHolder("REX CINEMAS");
         stored.setPaymentPrefix("REX");
         stored.setPaymentDescriptionTemplate("{BOOKING_CODE}");
@@ -65,7 +65,7 @@ class PaymentSettingsServiceTest {
         request.setEnabled(true);
         request.setBankName("Vietcombank");
         request.setBankCode("970436");
-        request.setBankAccount("0000501454103");
+        request.setBankAccount("0000000000000");
         request.setAccountHolder("REX CINEMAS");
         request.setDefaultAccount(true);
         request.setPaymentTimeoutMinutes(timeoutMinutes);
