@@ -25,6 +25,30 @@
     <div class="rewards-section-heading"><div><p class="eyebrow">ĐỔI ƯU ĐÃI</p><h2>Đổi điểm lấy voucher</h2></div><span th:text="${settings.redemptionEnabled ? 'Đang hoạt động' : 'Tạm dừng'}"></span></div>
     <div class="rewards-catalog"><article class="reward-card" th:each="reward : ${rewardCatalog}"><div><span th:text="${reward.pointsCost + ' điểm'}"></span><h3 th:text="${reward.name}"></h3><p th:text="${reward.description}"></p><small th:text="${'Voucher ' + #numbers.formatDecimal(reward.voucherAmount,0,'COMMA',0,'POINT') + 'đ · hạn ' + reward.validityDays + ' ngày'}"></small></div><form th:action="@{/rewards/redeem}" method="post"><input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><input type="hidden" name="rewardId" th:value="${reward.id}"><input type="hidden" name="requestId" class="reward-request-id"><button class="btn btn-rex w-100" type="submit" th:disabled="${!settings.redemptionEnabled or rewardsUser.loyaltyPoints < reward.pointsCost}">Đổi điểm</button></form></article><p th:if="${#lists.isEmpty(rewardCatalog)}">Chưa có ưu đãi đang mở đổi.</p></div>
   </section>
+  <section class="rewards-section">
+    <div class="rewards-section-heading"><div><p class="eyebrow">VOUCHER C&#7910;A B&#7840;N</p><h2>Voucher &#273;&#227; &#273;&#7893;i</h2></div></div>
+    <div class="redeemed-vouchers" th:if="${!#lists.isEmpty(redemptions)}">
+      <article class="redeemed-voucher" th:each="redemption : ${redemptions}">
+        <div class="redeemed-voucher-title">
+          <h3 th:text="${redemption.voucher.name}"></h3>
+          <span class="redeemed-voucher-status" th:classappend="${' status-' + #strings.toLowerCase(redemption.status.name())}">
+            <span th:if="${redemption.status.name() == 'ISSUED'}">Ch&#432;a s&#7917; d&#7909;ng</span>
+            <span th:if="${redemption.status.name() == 'USED'}">&#272;&#227; s&#7917; d&#7909;ng</span>
+            <span th:if="${redemption.status.name() == 'CANCELLED'}">&#272;&#227; h&#7911;y</span>
+            <span th:if="${redemption.status.name() == 'EXPIRED'}">H&#7871;t h&#7841;n</span>
+          </span>
+        </div>
+        <div class="redeemed-voucher-code"><span>M&#227; voucher</span><code th:text="${redemption.voucher.code}"></code></div>
+        <div class="redeemed-voucher-details">
+          <span th:text="${'Gi&#7843;m ' + #numbers.formatDecimal(redemption.voucher.discountValue,0,'COMMA',0,'POINT') + ' &#273;'}"></span>
+          <span th:text="${'C&#7847;n &#273;&#417;n t&#7915; ' + #numbers.formatDecimal(redemption.voucher.minOrderAmount,0,'COMMA',0,'POINT') + ' &#273;'}"></span>
+          <span th:text="${'H&#7841;n d&#249;ng: ' + #temporals.format(redemption.voucher.validUntil,'dd/MM/yyyy HH:mm')}"></span>
+        </div>
+        <small class="redeemed-voucher-issued" th:text="${'&#272;&#227; &#273;&#7893;i ng&#224;y ' + #temporals.format(redemption.createdAt,'dd/MM/yyyy HH:mm')}"></small>
+      </article>
+    </div>
+    <p class="redeemed-vouchers-empty" th:if="${#lists.isEmpty(redemptions)}">B&#7841;n ch&#432;a &#273;&#7893;i voucher n&#224;o. Voucher sau khi &#273;&#7893;i s&#7869; xu&#7845;t hi&#7879;n t&#7841;i &#273;&#226;y.</p>
+  </section>
   <section class="rewards-section"><div class="rewards-section-heading"><div><p class="eyebrow">HẠNG THÀNH VIÊN</p><h2>So sánh quyền lợi</h2></div></div><div class="tier-comparison"><article th:each="policy : ${tierPolicies}" th:classappend="${policy.tier == currentTier ? ' active' : ''}"><span th:text="${policy.tier}"></span><strong th:text="${policy.qualifyingThreshold + '+ điểm'}"></strong><p>Giảm <span data-rewards-decimal th:attr="data-value=${policy.ticketDiscountPercent}"></span>% giá vé</p><small>Tích điểm <span data-rewards-decimal th:attr="data-value=${policy.pointMultiplier}"></span>×</small></article></div></section>
   <section class="rewards-section"><div class="rewards-section-heading"><div><p class="eyebrow">LỊCH SỬ</p><h2>Biến động điểm</h2></div><nav class="rewards-tabs"><a th:href="@{/rewards}" th:classappend="${historyTab=='all'?' active':''}">Tất cả</a><a th:href="@{/rewards(tab='earn')}" th:classappend="${historyTab=='earn'?' active':''}">Đã cộng</a><a th:href="@{/rewards(tab='redeem')}" th:classappend="${historyTab=='redeem'?' active':''}">Đã dùng</a><a th:href="@{/rewards(tab='reverse')}" th:classappend="${historyTab=='reverse'?' active':''}">Hoàn tác</a></nav></div><div class="rewards-history"><article th:each="entry : ${history.content}"><time th:text="${#temporals.format(entry.createdAt,'dd/MM/yyyy HH:mm')}"></time><div><strong th:text="${@uiText.label(entry.transactionType)}"></strong><p th:text="${entry.transactionType.name() == 'MIGRATION_OPENING' ? 'Số điểm ban đầu được chuyển sang hệ thống mới' : entry.reason}"></p><small th:if="${entry.transactionType.name() == 'MIGRATION_OPENING'}" title="Mã tham chiếu kỹ thuật">Số dư ban đầu</small><small th:unless="${entry.transactionType.name() == 'MIGRATION_OPENING'}" th:text="${entry.reference}"></small></div><b th:classappend="${entry.pointsDelta >= 0 ? ' plus' : ' minus'}" th:text="${(entry.pointsDelta >= 0 ? '+' : '') + entry.pointsDelta + ' điểm'}"></b><span th:text="${'Số dư: ' + entry.availableAfter}"></span></article><p th:if="${history.empty}">Chưa có giao dịch điểm.</p></div></section>
 </main>

@@ -54,7 +54,7 @@
 
 <section class="rex-section container-xl" id="events-section">
     <div class="section-heading light-line"><div><p class="eyebrow">WHAT'S NEW</p><h2>SỰ KIỆN LỚN</h2></div></div>
-    <div class="event-grid"><article class="event-card" th:each="e:${events}"><img loading="lazy" decoding="async" th:src="${@cinemaArtwork.imageUrl(e.imageUrl, 'event')}" data-image-fallback="event" th:alt="${e.title}"><div class="event-overlay"><span th:text="${e.label}"></span><h3 th:text="${e.title}"></h3><p th:text="${e.description}"></p><a th:if="${e.linkUrl!=null and !#strings.isEmpty(e.linkUrl)}" th:href="${e.linkUrl}">XEM CHI TIẾT →</a></div></article></div>
+    <div class="event-grid"><article class="event-card" th:each="e:${events}"><img loading="lazy" decoding="async" th:src="${@cinemaArtwork.imageUrl(e.imageUrl, 'event')}" data-image-fallback="event" th:alt="${e.title}"><div class="event-overlay"><span th:text="${e.label}"></span><h3 th:text="${e.title}"></h3><p th:text="${e.description}"></p></div></article></div>
 </section>
 
 <section class="member-banner container-xl"><div class="member-banner-inner"><div><span class="eyebrow">THÀNH VIÊN REX</span><h2>Tích điểm mỗi lần xem phim.<br>Nâng hạng theo hành trình của bạn.</h2><p>1 điểm cho mỗi 10.000đ booking thành công. Theo dõi điểm và hạng thành viên ngay trong hồ sơ.</p><a sec:authorize="!isAuthenticated()" class="btn btn-outline-light btn-lg" th:href="@{/auth/register}">ĐĂNG KÝ MIỄN PHÍ</a><a sec:authorize="isAuthenticated()" class="btn btn-outline-light btn-lg" th:href="@{/profile}">XEM THẺ THÀNH VIÊN</a></div><div class="member-card-visual"><span>REX</span><strong>MEMBER</strong><small>CINEMAS CLUB</small></div></div></section>
